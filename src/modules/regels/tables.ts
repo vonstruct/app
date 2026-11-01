@@ -13,6 +13,22 @@ export type RuleTable = {
 /** Regeltabellen per onderdeel. Nieuwe tabel: hier één blok toevoegen. */
 export const ruleTables: RuleTable[] = [
   {
+    section: 'Prijzen',
+    table: 'manual_prices',
+    title: 'Eigen prijzen',
+    explanation:
+      'Prijzen die je zelf invult, ook via het tabblad Kosten van een versie. Ze gaan voor op de prijslijsten van de leveranciers en gelden voor alle projecten. Herkenning op artikelnummer, of op naam als er geen artikelnummer is. Prijs = per stuk, zonder btw.',
+    columns: [
+      { key: 'description', label: 'Omschrijving' },
+      { key: 'article_no', label: 'Artikelnummer' },
+      { key: 'supplier', label: 'Leverancier' },
+      { key: 'price', label: 'Prijs per stuk (€)', type: 'number', width: 130 },
+      { key: 'note', label: 'Opmerking' },
+    ],
+    orderBy: 'description',
+    newRow: { description: 'nieuw artikel', price: 0 },
+  },
+  {
     section: 'Bestellen',
     table: 'material_choices',
     title: 'Leverancier en besteld door per materiaal',
