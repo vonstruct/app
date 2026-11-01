@@ -24,10 +24,19 @@ export function Platen({ dvId }: { dvId: string }) {
   const [detail, setDetail] = useState(false)
   const sheets = useQuery<Sheet[]>(() => supabase.from('app_sheets').select('*').eq('design_version_id', dvId).order('material_label'), [dvId])
   const opt = useQuery<Opt>(() => supabase.from('design_versions').select('optimizer_status, optimizer_at, cutplan_path').eq('id', dvId).single(), [dvId])
-  const openPlan = async () => {
+  // zaagplan: in de pagina tonen (een nieuw venster na het laden wordt door browsers vaak geblokkeerd)
+  const [plan, setPlan] = useState<{ html: string | null; busy: boolean; error: string | null }>({ html: null, busy: false, error: null })
+  const togglePlan = async () => {
+    if (plan.html) return setPlan({ html: null, busy: false, error: null })
     if (!opt.data?.cutplan_path) return
-    const { data } = await supabase.storage.from('bom-exports').download(opt.data.cutplan_path)
-    if (data) window.open(URL.createObjectURL(new Blob([await data.text()], { type: 'text/html' })), '_blank')
+    setPlan({ html: null, busy: true, error: null })
+    const { data, error } = await supabase.storage.from('bom-exports').download(opt.data.cutplan_path)
+    if (error || !data) return setPlan({ html: null, busy: false, error: 'Zaagplan laden mislukt: ' + (error?.message ?? 'leeg bestand') })
+    setPlan({ html: await data.text(), busy: false, error: null })
+  }
+  const printPlan = () => {
+    const f = document.getElementById('zaagplan') as HTMLIFrameElement | null
+    f?.contentWindow?.print()
   }
   const sum = useQuery<Sum[]>(() => supabase.from('app_parts_summary').select('*').eq('design_version_id', dvId), [dvId])
   const parts = useQuery<Part[]>(
@@ -41,8 +50,13 @@ export function Platen({ dvId }: { dvId: string }) {
       <h2>Platen te bestellen</h2>
       <div className="toolbar">
         <span className="muted">Plaatoptimalisatie: {opt.data?.optimizer_status ?? '…'}</span>
-        {opt.data?.cutplan_path && <button onClick={openPlan}>Zaagplan openen</button>}
+        {opt.data?.cutplan_path && (
+          <button onClick={togglePlan} disabled={plan.busy}>{plan.busy ? 'Laden…' : plan.html ? 'Zaagplan verbergen' : 'Zaagplan tonen'}</button>
+        )}
+        {plan.html && <button onClick={printPlan}>Afdrukken / PDF</button>}
       </div>
+      <ErrorBox error={plan.error} />
+      {plan.html && <iframe id="zaagplan" className="cutplan" title="Zaagplan" srcDoc={plan.html} />}
       <DataTable
         rows={sheets.data ?? []}
         rowKey={(r) => r.id}

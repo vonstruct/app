@@ -115,3 +115,5 @@ tr.subhead td { font-weight: 600; color: var(--accent); background: var(--accent
 .price-btn:hover { border-color: var(--line); background: var(--panel); }
 .price-btn.missing { color: var(--warn); border-color: var(--warn); }
 .price-input { width: 100px; text-align: right; padding: 3px 6px; }
+
+.cutplan { width: 100%; height: 80vh; border: 1px solid var(--line); border-radius: 8px; background: #fff; margin: 8px 0 16px; }
