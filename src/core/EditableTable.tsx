@@ -1,0 +1,117 @@
+import { useState } from 'react'
+import { supabase } from './supabase'
+import { useQuery } from './useQuery'
+import { ErrorBox, Loading } from './ui'
+
+export type EditCol = {
+  key: string
+  label: string
+  type?: 'text' | 'number' | 'bool' | 'select'
+  options?: string[]
+  width?: number
+  placeholder?: string
+}
+
+type Props = {
+  table: string // Supabase-tabel met kolom id
+  columns: EditCol[]
+  orderBy?: string
+  newRow?: Record<string, unknown>
+  empty?: string
+}
+
+/** Tabel die je bewerkt als in Excel: klik in een cel, wijzig, klaar. Elke wijziging wordt meteen bewaard. */
+export function EditableTable({ table, columns, orderBy = 'id', newRow = {}, empty = 'Nog niets ingevuld' }: Props) {
+  const q = useQuery<Record<string, unknown>[]>(() => supabase.from(table).select('*').order(orderBy), [table])
+  const [msg, setMsg] = useState<string | null>(null)
+
+  const save = async (id: unknown, key: string, value: unknown) => {
+    const { error } = await supabase.from(table).update({ [key]: value }).eq('id', id)
+    setMsg(error ? error.message : 'Bewaard')
+    if (error) q.reload()
+  }
+  const add = async () => {
+    const { error } = await supabase.from(table).insert(newRow)
+    if (error) setMsg(error.message)
+    q.reload()
+  }
+  const remove = async (id: unknown) => {
+    if (!window.confirm('Deze regel verwijderen?')) return
+    const { error } = await supabase.from(table).delete().eq('id', id)
+    if (error) setMsg(error.message)
+    q.reload()
+  }
+
+  if (q.loading) return <Loading />
+  const rows = q.data ?? []
+  return (
+    <div className="table-wrap editable">
+      <ErrorBox error={q.error} />
+      <table>
+        <thead>
+          <tr>
+            {columns.map((c) => (
+              <th key={c.key} style={c.width ? { width: c.width } : undefined}>{c.label}</th>
+            ))}
+            <th style={{ width: 40 }} />
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={columns.length + 1} className="muted">{empty}</td>
+            </tr>
+          )}
+          {rows.map((r) => (
+            <tr key={String(r.id)}>
+              {columns.map((c) => (
+                <td key={c.key}>
+                  <Cell col={c} value={r[c.key]} onSave={(v) => save(r.id, c.key, v)} />
+                </td>
+              ))}
+              <td>
+                <button className="link danger" title="Verwijderen" onClick={() => remove(r.id)}>✕</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="toolbar pad">
+        <button onClick={add}>+ Regel toevoegen</button>
+        {msg && <span className="muted">{msg}</span>}
+      </div>
+    </div>
+  )
+}
+
+function Cell({ col, value, onSave }: { col: EditCol; value: unknown; onSave: (v: unknown) => void }) {
+  const [v, setV] = useState(value == null ? '' : String(value))
+  if (col.type === 'bool')
+    return <input type="checkbox" checked={value === true} onChange={(e) => onSave(e.target.checked)} />
+  if (col.type === 'select')
+    return (
+      <select value={v} onChange={(e) => { setV(e.target.value); onSave(e.target.value) }}>
+        {(col.options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}
+      </select>
+    )
+  const commit = () => {
+    const orig = value == null ? '' : String(value)
+    if (v === orig) return
+    if (col.type === 'number') {
+      const n = v.trim() === '' ? null : Number(v.replace(',', '.'))
+      if (n !== null && Number.isNaN(n)) return setV(orig)
+      onSave(n)
+    } else onSave(v.trim() === '' ? null : v)
+  }
+  return (
+    <input
+      className="cell"
+      inputMode={col.type === 'number' ? 'decimal' : undefined}
+      value={col.type === 'number' ? v.replace('.', ',') : v}
+      placeholder={col.placeholder}
+      onChange={(e) => setV(col.type === 'number' ? e.target.value.replace(',', '.') : e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+    />
+  )
+}

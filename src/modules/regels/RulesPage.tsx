@@ -1,52 +1,33 @@
 import { useState } from 'react'
 import { supabase } from '../../core/supabase'
 import { useQuery } from '../../core/useQuery'
-import { ErrorBox, Loading } from '../../core/ui'
+import { EditableTable } from '../../core/EditableTable'
+import { ErrorBox, Loading, Tabs } from '../../core/ui'
+import { RuleSentence, type Rule } from './RuleSentence'
+import { ruleTables } from './tables'
 
-type Rule = { key: string; value: unknown; note: string | null }
+const SECTIONS = ['Bestellen', 'Platen', 'Plaatoptimalisatie', 'Kanten', 'Lades', 'Productiekosten', 'Kasten']
 
-/** Rekenregels die als gegevens in Supabase staan. Hier aanpassen = meteen geldig voor alle versies. */
+/** Alle rekenregels als zinnen en tabellen. Wat je hier wijzigt, geldt meteen voor alle berekeningen. */
 export function RulesPage() {
-  const q = useQuery<Rule[]>(() => supabase.from('drawer_rules').select('*').order('key'), [])
+  const [section, setSection] = useState(SECTIONS[0])
+  const q = useQuery<Rule[]>(() => supabase.from('rule_settings').select('*').order('sort'), [])
+  const rules = (q.data ?? []).filter((r) => r.section === section)
+  const tables = ruleTables.filter((t) => t.section === section)
   return (
     <section>
       <h1>Regels</h1>
-      <p className="muted">Lades: bestellengtes, standaard zijkant en Du Pont-artikels voor Movento-tabletlades. Productietarieven en plaatformaten volgen hier.</p>
+      <p className="muted">Pas een waarde aan en klik ernaast: ze wordt meteen bewaard en geldt voor alle projecten.</p>
+      <Tabs tabs={SECTIONS.map((s) => ({ id: s, label: s }))} active={section} onChange={setSection} />
       <ErrorBox error={q.error} />
-      {q.loading ? <Loading /> : (q.data ?? []).map((r) => <RuleCard key={r.key} rule={r} onSaved={q.reload} />)}
+      {q.loading ? <Loading /> : rules.map((r) => <RuleSentence key={r.key} rule={r} />)}
+      {tables.map((t) => (
+        <div key={t.table}>
+          <h2>{t.title}</h2>
+          <p className="muted">{t.explanation}</p>
+          <EditableTable table={t.table} columns={t.columns} orderBy={t.orderBy} newRow={t.newRow} />
+        </div>
+      ))}
     </section>
-  )
-}
-
-function RuleCard({ rule, onSaved }: { rule: Rule; onSaved: () => void }) {
-  const [text, setText] = useState(JSON.stringify(rule.value, null, 2))
-  const [msg, setMsg] = useState<string | null>(null)
-  const dirty = text !== JSON.stringify(rule.value, null, 2)
-
-  const save = async () => {
-    let value: unknown
-    try {
-      value = JSON.parse(text)
-    } catch {
-      return setMsg('Geen geldige invoer (JSON). Niets bewaard.')
-    }
-    const { error } = await supabase.from('drawer_rules').update({ value }).eq('key', rule.key)
-    setMsg(error ? error.message : 'Bewaard.')
-    if (!error) onSaved()
-  }
-
-  return (
-    <div className="card rule">
-      <div className="rule-head">
-        <strong>{rule.key}</strong>
-        <span className="muted">{rule.note}</span>
-      </div>
-      <textarea value={text} onChange={(e) => setText(e.target.value)} rows={Math.min(14, text.split('\n').length + 1)} spellCheck={false} />
-      <div className="toolbar">
-        <button className="primary" disabled={!dirty} onClick={save}>Bewaren</button>
-        {dirty && <button onClick={() => setText(JSON.stringify(rule.value, null, 2))}>Annuleren</button>}
-        {msg && <span className="muted">{msg}</span>}
-      </div>
-    </div>
   )
 }

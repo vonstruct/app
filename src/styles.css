@@ -89,3 +89,20 @@ tbody tr:hover { background: var(--accent-soft); }
   main { padding: 12px 16px; }
   .topbar { gap: 10px; padding: 10px 16px; }
 }
+
+.sentence { margin: 0; line-height: 2.2; font-size: 15px; }
+.inline { padding: 3px 6px; margin: 0 3px; font-size: 14px; border-color: var(--accent); background: var(--accent-soft); }
+.inline.num { width: 72px; text-align: right; }
+.inline.wide { min-width: 260px; }
+.inline-field { white-space: nowrap; }
+.unit { color: var(--muted); font-size: 13px; margin: 0 2px; }
+.rule-foot { display: flex; gap: 12px; flex-wrap: wrap; font-size: 13px; }
+.ok { color: var(--good); }
+table.map { width: auto; min-width: 360px; border: 1px solid var(--line); border-radius: 8px; }
+table.map td, table.map th { padding: 3px 8px; }
+.cell { width: 100%; border: 1px solid transparent; background: transparent; padding: 4px 6px; }
+.cell:hover, .cell:focus { border-color: var(--line); background: var(--panel); }
+.editable td { padding: 2px 6px; }
+.toolbar.pad { padding: 6px 10px; margin: 0; }
+button.link.danger { color: var(--muted); }
+button.link.danger:hover { color: var(--bad); }
