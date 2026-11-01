@@ -106,3 +106,5 @@ table.map td, table.map th { padding: 3px 8px; }
 .toolbar.pad { padding: 6px 10px; margin: 0; }
 button.link.danger { color: var(--muted); }
 button.link.danger:hover { color: var(--bad); }
+.warn-text { color: var(--warn); }
+tr.subhead td { font-weight: 600; color: var(--accent); background: var(--accent-soft); }

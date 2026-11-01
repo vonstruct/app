@@ -90,7 +90,7 @@ function Cell({ col, value, onSave }: { col: EditCol; value: unknown; onSave: (v
     return <input type="checkbox" checked={value === true} onChange={(e) => onSave(e.target.checked)} />
   if (col.type === 'select')
     return (
-      <select value={v} onChange={(e) => { setV(e.target.value); onSave(e.target.value) }}>
+      <select value={v} onChange={(e) => { setV(e.target.value); onSave(e.target.value === '' ? null : e.target.value) }}>
         {(col.options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}
       </select>
     )
