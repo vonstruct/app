@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react'
+import { Overzicht } from './Overzicht'
 import { Kasten } from './Kasten'
 import { Platen } from './Platen'
 import { Kanten } from './Kanten'
@@ -11,6 +12,7 @@ export type VersionTab = { id: string; label: string; component: ComponentType<{
 
 /** Tabbladen van een ontwerpversie. Een nieuw tabblad (bv. Kosten): component maken + hier één regel. */
 export const versionTabs: VersionTab[] = [
+  { id: 'overzicht', label: 'Overzicht', component: Overzicht },
   { id: 'kasten', label: 'Kasten', component: Kasten },
   { id: 'platen', label: 'Platen', component: Platen },
   { id: 'kanten', label: 'Kanten', component: Kanten },

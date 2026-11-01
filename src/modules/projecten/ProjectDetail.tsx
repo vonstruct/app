@@ -56,8 +56,7 @@ export function ProjectDetail() {
               { key: 'version', label: 'Versie', render: (r) => <Link to={`/projecten/${encodeURIComponent(code)}/v/${r.version}`}>v{r.version}</Link> },
               { key: 'received_at', label: 'Ontvangen', render: (r) => fmtDate(r.received_at) },
               { key: 'scene_title', label: 'Tekening' },
-              { key: 'n_cabinets', label: 'Kasten', align: 'right', render: (r) => fmtInt(r.n_cabinets) },
-              { key: 'n_parts', label: 'Onderdelen', align: 'right', render: (r) => fmtInt(r.n_parts) },
+                            { key: 'n_parts', label: 'Onderdelen', align: 'right', render: (r) => fmtInt(r.n_parts) },
               { key: 'n_errors', label: 'Fouten', align: 'right' },
               { key: 'n_warnings', label: 'Aandachtspunten', align: 'right' },
             ]}

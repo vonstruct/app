@@ -53,8 +53,7 @@ export function VersionView() {
             {[dv.scene_title, p.street, p.city, p.drawn_by && `getekend door ${p.drawn_by}`, `ontvangen ${fmtDate(dv.received_at)}`].filter(Boolean).join(' · ')}
           </p>
           <div className="stats">
-            <Stat label="kasten" value={fmtInt(dv.n_cabinets)} />
-            <Stat label="onderdelen" value={fmtInt(dv.n_parts)} />
+            <Stat label="getelde objecten" value={fmtInt(dv.n_parts)} />
             <Stat label="fouten" value={dv.n_errors ? <span className="bad-text">{dv.n_errors}</span> : 0} />
             <Stat label="aandachtspunten" value={dv.n_warnings} />
           </div>
