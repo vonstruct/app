@@ -3,7 +3,10 @@ import { supabase } from '../../../core/supabase'
 import { useQuery } from '../../../core/useQuery'
 import { DataTable } from '../../../core/DataTable'
 import { ErrorBox, Loading } from '../../../core/ui'
-import { fmtMm, fmtNum } from '../../../core/format'
+import { fmtEur, fmtMm, fmtNum } from '../../../core/format'
+
+type Sheet = { id: string; material_label: string; thickness_mm: number; length_mm: number; width_mm: number; qty: number; yield_pct: number | null; price_per_sheet: number | null; format_source: string | null; article_no: string | null; ordered_by: string | null; cost: number }
+type Opt = { optimizer_status: string | null; optimizer_at: string | null; cutplan_path: string | null }
 
 type Sum = { material_label: string | null; thickness_mm: number; n_parts: number; area_m2: number }
 type Part = {
@@ -19,6 +22,13 @@ const edgeShort = (e: Part['edges'], side: string) => {
 
 export function Platen({ dvId }: { dvId: string }) {
   const [detail, setDetail] = useState(false)
+  const sheets = useQuery<Sheet[]>(() => supabase.from('app_sheets').select('*').eq('design_version_id', dvId).order('material_label'), [dvId])
+  const opt = useQuery<Opt>(() => supabase.from('design_versions').select('optimizer_status, optimizer_at, cutplan_path').eq('id', dvId).single(), [dvId])
+  const openPlan = async () => {
+    if (!opt.data?.cutplan_path) return
+    const { data } = await supabase.storage.from('bom-exports').download(opt.data.cutplan_path)
+    if (data) window.open(URL.createObjectURL(new Blob([await data.text()], { type: 'text/html' })), '_blank')
+  }
   const sum = useQuery<Sum[]>(() => supabase.from('app_parts_summary').select('*').eq('design_version_id', dvId), [dvId])
   const parts = useQuery<Part[]>(
     () => (detail ? supabase.from('app_parts').select('id, cabinet_name, name, part_no, material_label, length_mm, width_mm, thickness_mm, grain, edges, fixchips, count_flags').eq('design_version_id', dvId).order('seq') : Promise.resolve({ data: [], error: null })),
@@ -27,8 +37,30 @@ export function Platen({ dvId }: { dvId: string }) {
   if (sum.loading) return <Loading />
   return (
     <>
-      <ErrorBox error={sum.error || parts.error} />
-      <p className="muted">Onderdelen per materiaal. Het aantal platen volgt na de plaatoptimalisatie.</p>
+      <ErrorBox error={sum.error || parts.error || sheets.error} />
+      <h2>Platen te bestellen</h2>
+      <div className="toolbar">
+        <span className="muted">Plaatoptimalisatie: {opt.data?.optimizer_status ?? '…'}</span>
+        {opt.data?.cutplan_path && <button onClick={openPlan}>Zaagplan openen</button>}
+      </div>
+      <DataTable
+        rows={sheets.data ?? []}
+        rowKey={(r) => r.id}
+        filter={false}
+        empty="Nog geen resultaat van de plaatoptimalisatie"
+        columns={[
+          { key: 'material_label', label: 'Materiaal' },
+          { key: 'thickness_mm', label: 'Dikte (mm)', align: 'right', render: (r) => fmtNum(r.thickness_mm) },
+          { key: 'format', label: 'Formaat (mm)', value: (r) => `${fmtNum(r.length_mm, 0)} × ${fmtNum(r.width_mm, 0)}` },
+          { key: 'qty', label: 'Platen', align: 'right', total: true },
+          { key: 'yield_pct', label: 'Benutting', align: 'right', render: (r) => (r.yield_pct == null ? '' : `${fmtNum(r.yield_pct, 0)} %`) },
+          { key: 'price_per_sheet', label: 'Prijs per plaat', align: 'right', render: (r) => fmtEur(r.price_per_sheet) },
+          { key: 'cost', label: 'Totaal', align: 'right', total: true, value: (r) => Number(r.cost), render: (r) => fmtEur(r.cost) },
+          { key: 'format_source', label: 'Leverancier' },
+          { key: 'ordered_by', label: 'Besteld door' },
+        ]}
+      />
+      <h2>Onderdelen per materiaal</h2>
       <DataTable
         rows={sum.data ?? []}
         columns={[
