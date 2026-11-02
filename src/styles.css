@@ -193,3 +193,46 @@ button.auth-alt:hover { border-color: var(--gold); }
   .auth-lines, .auth-hero-text { display: none; }
   .auth-main { padding: 32px 16px 56px; justify-content: flex-start; }
 }
+
+/* ---------- Portaal (klant, partner, onderaannemer) ---------- */
+.portal { --gold: #c9a24a; --navy: #0d1626; min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); }
+.portal.preview { min-height: 0; }
+.portal-top { display: flex; align-items: center; justify-content: space-between; padding: 18px clamp(16px, 4vw, 48px); background: #05070c; }
+.portal-logo { width: 150px; mix-blend-mode: screen; display: block; }
+.portal-out { background: none; border: 1px solid rgba(255,255,255,.2); color: #eee; border-radius: 8px; padding: 7px 14px; }
+.portal-out:hover { border-color: var(--gold); }
+.portal-hero { padding: 40px clamp(16px, 4vw, 48px) 48px; color: #f2f2f0; position: relative;
+  background: radial-gradient(70% 140% at 90% 100%, #1a2a45 0%, transparent 60%), linear-gradient(180deg, #05070c, #0e1729); }
+.portal-hero::after { content: ''; position: absolute; left: clamp(16px, 4vw, 48px); right: clamp(16px, 4vw, 48px); bottom: 0; height: 1px; background: linear-gradient(90deg, var(--gold), transparent); opacity: .6; }
+.portal-hero h1 { font-weight: 300; font-size: clamp(28px, 4vw, 40px); margin: 0 0 8px; letter-spacing: -0.01em; }
+.portal-hero p { margin: 0; color: rgba(242,242,240,.65); max-width: 52ch; }
+.portal-main { width: 100%; max-width: 1040px; margin: 0 auto; padding: 32px clamp(16px, 4vw, 48px) 48px; flex: 1; }
+.portal-h { font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin: 40px 0 14px; }
+.portal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.portal-tile { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+.portal-tile h3 { font-size: 15px; margin: 0 0 6px; }
+.portal-tile p { margin: 0; color: var(--muted); font-size: 13.5px; }
+.portal-empty { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--gold); border-radius: 12px; padding: 22px 24px; }
+.portal-empty h2 { margin: 0 0 6px; font-size: 18px; }
+.portal-empty p { margin: 0; color: var(--muted); }
+.portal-projects { display: grid; gap: 14px; }
+.portal-project { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px 24px; }
+.portal-project-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.portal-project h2 { margin: 2px 0 2px; font-size: 20px; }
+.portal-project p { margin: 0; }
+.portal-code { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.portal-phase { background: color-mix(in srgb, var(--gold) 16%, transparent); color: #7a5d1c; border-radius: 99px; padding: 4px 12px; font-size: 13px; font-weight: 600; }
+.portal-steps { list-style: none; padding: 0; margin: 20px 0 12px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; counter-reset: s; }
+.portal-steps li { font-size: 12px; color: var(--muted); padding-top: 10px; border-top: 3px solid var(--line); }
+.portal-steps li.done { border-top-color: var(--navy); color: var(--ink); }
+.portal-steps li.now { border-top-color: var(--gold); color: var(--ink); font-weight: 600; }
+.portal-foot { text-align: center; color: var(--muted); font-size: 12.5px; padding: 20px 16px 28px; }
+.portal-frame { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; margin-top: 12px; }
+@media (prefers-color-scheme: dark) {
+  .portal-phase { color: #f3e3a0; }
+  .portal-steps li.done { border-top-color: #8a9bb8; }
+}
+@media (max-width: 640px) {
+  .portal-steps { grid-template-columns: repeat(3, 1fr); row-gap: 14px; }
+  .portal-logo { width: 120px; }
+}

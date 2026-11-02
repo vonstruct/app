@@ -2,11 +2,17 @@ import { useEffect, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './supabase'
 import logo from '../assets/vonstruct-logo.webp'
+import { Portal, type PortalRole } from '../portal/Portal'
 
-/** Login-poort: zonder geldige sessie én toegang (tabel app_users) zie je niets. */
+type Role = 'beheerder' | PortalRole
+
+/**
+ * Login-poort. Na het inloggen bepaalt Supabase (functie my_role) de rol:
+ * beheerder → de volledige app; klant, partner of onderaannemer → het portaal; anders geen toegang.
+ */
 export function AuthGate({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null | undefined>(undefined)
-  const [allowed, setAllowed] = useState<boolean | null>(null)
+  const [role, setRole] = useState<Role | null | undefined>(undefined)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session))
@@ -15,22 +21,36 @@ export function AuthGate({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    if (!session) return setAllowed(null)
-    supabase.rpc('is_app_user').then(({ data }) => setAllowed(data === true))
+    if (!session) return setRole(undefined)
+    supabase.rpc('my_role').then(({ data }) => setRole((data as Role | null) ?? null))
   }, [session])
 
   if (session === undefined) return <div className="center muted">Laden…</div>
   if (!session) return <Login />
-  if (allowed === null) return <div className="center muted">Toegang controleren…</div>
-  if (!allowed)
-    return (
-      <div className="center card">
-        <h2>Geen toegang</h2>
-        <p>{session.user.email} staat niet op de lijst met gebruikers.</p>
-        <button onClick={() => supabase.auth.signOut()}>Afmelden</button>
-      </div>
-    )
-  return <>{children}</>
+  if (role === undefined) return <div className="center muted">Toegang controleren…</div>
+  if (role === 'beheerder') return <>{children}</>
+  if (role) return <Portal role={role} />
+  return (
+    <div className="auth">
+      <aside className="auth-hero">
+        <div className="auth-hero-top">
+          <img className="auth-logo" src={logo} alt="Vonstruct" />
+          <span className="auth-tagline">Custom interiors</span>
+        </div>
+      </aside>
+      <main className="auth-main">
+        <div className="auth-form">
+          <header>
+            <h2>Nog geen toegang</h2>
+            <p className="muted">{session.user.email} is nog niet aan een project gekoppeld. Neem contact op met Vonstruct.</p>
+          </header>
+          <button className="auth-alt" onClick={() => supabase.auth.signOut()}>
+            Afmelden
+          </button>
+        </div>
+      </main>
+    </div>
+  )
 }
 
 function Login() {
