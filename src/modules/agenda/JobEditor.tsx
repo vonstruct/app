@@ -28,6 +28,7 @@ export type Job = {
   slot: Slot | null
   for_me: boolean
   show_client: boolean
+  notify_client: boolean
   sub_note: string | null
   confirmed_at: string | null
   done_at: string | null
@@ -74,7 +75,7 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
   const [projects, setProjects] = useState<P[]>([])
   const [j, setJ] = useState<JobDraft>(() => {
     const s = draft.start_at ?? new Date(new Date().setHours(8, 0, 0, 0)).toISOString()
-    return { status: 'gepland', show_client: true, ...draft, start_at: s, end_at: draft.end_at ?? new Date(new Date(s).getTime() + 4 * 3600000).toISOString() }
+    return { status: 'gepland', show_client: true, notify_client: true, ...draft, start_at: s, end_at: draft.end_at ?? new Date(new Date(s).getTime() + 4 * 3600000).toISOString() }
   })
   const [files, setFiles] = useState<{ name: string; path: string; url?: string; werf: boolean }[]>([])
   const [pending, setPending] = useState<File[]>([])
@@ -148,7 +149,7 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
     if (new Date(j.end_at!) <= new Date(j.start_at!)) return setErr('Het einde ligt voor het begin.')
     setBusy(true); setErr(null)
     const row = {
-      project_code: j.project_code || null, for_me: assignee.kind === 'mezelf', show_client: j.show_client ?? true, subcontractor_id: assignee.kind === 'onderaannemer' ? assignee.id : null, partner_id: assignee.kind === 'partner' ? assignee.id : null,
+      project_code: j.project_code || null, for_me: assignee.kind === 'mezelf', show_client: j.show_client ?? true, notify_client: !!(j.notify_client && (j.show_client ?? true)), subcontractor_id: assignee.kind === 'onderaannemer' ? assignee.id : null, partner_id: assignee.kind === 'partner' ? assignee.id : null,
       title: j.title.trim(), start_at: j.start_at, end_at: j.end_at, address: j.address || null, contact_name: j.contact_name || null, contact_phone: j.contact_phone || null,
       instructions: j.instructions || null, status: j.status ?? 'gepland', job_type: j.job_type || null, slot: j.slot || null, updated_at: new Date().toISOString(),
     }
@@ -276,6 +277,10 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
               <label className="wide check">
                 <input type="checkbox" checked={j.show_client ?? true} onChange={(e) => set({ show_client: e.target.checked })} disabled={!j.project_code} />
                 {' '}Klant ziet dit in zijn portaal: datum, {assignee?.kind === 'mezelf' ? 'Vonstruct' : 'wie er komt'} en het werk (zonder instructies){!j.project_code && ' – kies eerst een project'}
+              </label>
+              <label className="wide check">
+                <input type="checkbox" checked={!!j.notify_client && (j.show_client ?? true)} onChange={(e) => set({ notify_client: e.target.checked })} disabled={!j.project_code || !(j.show_client ?? true)} />
+                {' '}Klant op de hoogte houden per mail (in zijn taal): nieuw bezoek, bevestiging, nieuw moment, voorstel, klaar of geannuleerd
               </label>
               <AddressFields value={j.address ?? null} onChange={(v) => set({ address: v })} />
               <label>Contact ter plaatse<input value={j.contact_name ?? ''} onChange={(e) => set({ contact_name: e.target.value })} /></label>
