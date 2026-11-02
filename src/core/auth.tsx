@@ -3,6 +3,7 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from './supabase'
 import logo from '../assets/vonstruct-logo.webp'
 import { LangPicker, Portal, type PortalRole } from '../portal/Portal'
+import { ActionResult } from '../portal/ActionResult'
 import { storeLang, storedLang, tr, type Lang } from '../portal/i18n'
 
 type Role = 'beheerder' | PortalRole
@@ -12,6 +13,8 @@ type Role = 'beheerder' | PortalRole
  * beheerder → de volledige app; klant, partner of onderaannemer → het portaal; anders geen toegang.
  */
 export function AuthGate({ children }: { children: ReactNode }) {
+  // bevestiging via een link in de mail: publiek, zonder inloggen
+  if (window.location.hash.startsWith('#/actie')) return <ActionResult />
   const [session, setSession] = useState<Session | null | undefined>(undefined)
   const [role, setRole] = useState<Role | null | undefined>(undefined)
   const [recovery, setRecovery] = useState(false)

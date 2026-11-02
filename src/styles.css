@@ -629,3 +629,4 @@ div.planning-row { cursor: default; }
 .pcard-plan.warn { background: rgba(154,103,0,.1); }
 .pcard-plan .small { color: var(--warn); }
 @media (max-width: 700px) { .planning-row { grid-template-columns: 1fr; } .planning-side { align-items: flex-start; text-align: left; } .planning-route { padding-left: 12px; } }
+.action-btn { display: block; text-align: center; text-decoration: none; padding: 12px; border-radius: 8px; }
