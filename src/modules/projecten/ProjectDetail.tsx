@@ -9,6 +9,7 @@ import { Compare } from './Compare'
 import { ProjectCard, usePhases, type ProjectRow } from '../../core/projects'
 import { ClientPanel } from './ClientPanel'
 import { SurveyPanel } from './SurveyPanel'
+import { LeadActions } from './LeadActions'
 
 export type Version = {
   id: string
@@ -60,6 +61,7 @@ export function ProjectDetail() {
           <ClientPanel project={project} focus={focus === 'fase' || focus === 'survey' ? null : focus} onSaved={pq.reload} />
         </div>
       )}
+      {project && <LeadActions p={project} onDone={pq.reload} />}
       {project && <SurveyPanel code={code} focus={focus === 'survey'} />}
       {q.loading ? (
         <Loading />

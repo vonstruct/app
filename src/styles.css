@@ -424,3 +424,13 @@ tr.focus-row .cell:focus { border-color: #c9a24a; }
 .survey-answers dt { font-size: 12px; color: var(--muted); }
 .survey-answers dd { margin: 2px 0 0; }
 @media (max-width: 640px) { .portal-todo { flex-direction: column; align-items: stretch; } .survey-section { padding: 6px 14px 16px; } }
+.lead-actions { margin: 16px 0; }
+.lead-actions h2 { margin: 0 0 6px; }
+.msg-box { margin-top: 12px; border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: color-mix(in srgb, var(--ink) 3%, transparent); }
+.msg-head { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.msg-box textarea { width: 100%; font: inherit; font-size: 14px; }
+.btn-wa { background: #1f8f4e; color: #fff; border-radius: 6px; padding: 6px 12px; font-weight: 600; }
+.btn-wa:hover { text-decoration: none; filter: brightness(1.08); }
+.btn-plain { border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; color: var(--ink); background: var(--panel); }
+.btn-plain:hover { text-decoration: none; border-color: #c9a24a; }
+textarea.cell { width: 100%; min-width: 300px; font: inherit; }

@@ -13,6 +13,19 @@ export type RuleTable = {
 /** Regeltabellen per onderdeel. Nieuwe tabel: hier één blok toevoegen. */
 export const ruleTables: RuleTable[] = [
   {
+    section: 'Berichten',
+    table: 'message_templates',
+    title: 'Berichten aan klanten',
+    explanation:
+      'Teksten voor WhatsApp en mail. Tussen accolades wordt automatisch ingevuld: {voornaam}, {naam}, {projectcode}, {link} (de portaallink) en {email}.',
+    columns: [
+      { key: 'label', label: 'Bericht', width: 220 },
+      { key: 'body', label: 'Tekst', type: 'textarea' },
+    ],
+    orderBy: 'id',
+    newRow: { key: 'nieuw_' + Date.now(), label: 'Nieuw bericht', body: '' },
+  },
+  {
     section: 'Prijzen',
     table: 'manual_prices',
     title: 'Eigen artikels',

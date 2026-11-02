@@ -6,7 +6,7 @@ import { ErrorBox, Loading } from './ui'
 export type EditCol = {
   key: string
   label: string
-  type?: 'text' | 'number' | 'bool' | 'select'
+  type?: 'text' | 'number' | 'bool' | 'select' | 'textarea'
   options?: string[]
   width?: number
   placeholder?: string
@@ -96,6 +96,12 @@ function Cell({ col, value, onSave, autoFocus }: { col: EditCol; value: unknown;
       <select value={v} onChange={(e) => { setV(e.target.value); onSave(e.target.value === '' ? null : e.target.value) }}>
         {(col.options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}
       </select>
+    )
+  if (col.type === 'textarea')
+    return (
+      <textarea className="cell" rows={4} autoFocus={autoFocus} value={v} placeholder={col.placeholder}
+        onChange={(e) => setV(e.target.value)}
+        onBlur={() => { const orig = value == null ? '' : String(value); if (v !== orig) onSave(v.trim() === '' ? null : v) }} />
     )
   const commit = () => {
     const orig = value == null ? '' : String(value)

@@ -6,7 +6,7 @@ import { ErrorBox, Loading, Tabs } from '../../core/ui'
 import { RuleSentence, type Rule } from './RuleSentence'
 import { ruleTables } from './tables'
 
-const SECTIONS = ['Bestellen', 'Platen', 'Plaatoptimalisatie', 'Kanten', 'Lades', 'Productiekosten', 'Prijzen', 'Kasten']
+const SECTIONS = ['Bestellen', 'Platen', 'Plaatoptimalisatie', 'Kanten', 'Lades', 'Productiekosten', 'Prijzen', 'Kasten', 'Berichten']
 
 /** Alle rekenregels als zinnen en tabellen. Wat je hier wijzigt, geldt meteen voor alle berekeningen. */
 export function RulesPage() {
