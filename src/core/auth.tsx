@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './supabase'
+import logo from '../assets/vonstruct-logo.webp'
 
 /** Login-poort: zonder geldige sessie én toegang (tabel app_users) zie je niets. */
 export function AuthGate({ children }: { children: ReactNode }) {
@@ -63,8 +64,8 @@ function Login() {
 
   return (
     <div className="auth">
-      <aside className="auth-hero" aria-hidden="true">
-        <svg className="auth-lines" viewBox="20 120 510 600" preserveAspectRatio="xMaxYMin meet">
+      <aside className="auth-hero">
+        <svg className="auth-lines" aria-hidden="true" viewBox="20 120 510 600" preserveAspectRatio="xMaxYMin meet">
           <g fill="none" stroke="currentColor" strokeWidth="1">
             <rect x="90" y="140" width="420" height="520" />
             <line x1="90" y1="270" x2="510" y2="270" />
@@ -85,10 +86,10 @@ function Login() {
           </g>
         </svg>
         <div className="auth-hero-top">
-          <span className="auth-mark">V</span>
-          <span className="brand">Vonstruct</span>
+          <img className="auth-logo" src={logo} alt="Vonstruct" />
+          <span className="auth-tagline">Custom interiors</span>
         </div>
-        <div className="auth-hero-text">
+        <div className="auth-hero-text" aria-hidden="true">
           <h1>Van ontwerp tot stuklijst.</h1>
           <p>Projecten, versies, kosten en regels — op één plek.</p>
         </div>
@@ -96,10 +97,6 @@ function Login() {
 
       <main className="auth-main">
         <form className="auth-form" onSubmit={submit}>
-          <div className="auth-mobile-brand">
-            <span className="auth-mark">V</span>
-            <span className="brand">Vonstruct</span>
-          </div>
           <header>
             <h2>{mode === 'in' ? 'Welkom terug' : 'Account aanmaken'}</h2>
             <p className="muted">{mode === 'in' ? 'Meld je aan om verder te gaan.' : 'Maak een account aan met je werkadres.'}</p>
