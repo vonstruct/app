@@ -566,3 +566,29 @@ textarea { font: inherit; }
 .visits-when::first-letter { text-transform: uppercase; }
 label.check { display: flex; align-items: center; gap: 6px; font-size: 13px; }
 label.check input { width: auto; height: auto; }
+/* bevestiging zichtbaar in de agenda */
+.agenda-ev.unconf, .agenda-block.unconf, .agenda-mev.unconf { border-style: dashed; border-left-style: solid; background-image: repeating-linear-gradient(135deg, transparent 0 6px, rgba(0,0,0,.035) 6px 12px); }
+.agenda-ev.unconf .agenda-title::before, .agenda-block.unconf .agenda-title::before, .agenda-mev.unconf::before { content: '? '; color: var(--warn); font-weight: 700; }
+.agenda-ev.prop .agenda-title::before, .agenda-block.prop .agenda-title::before, .agenda-mev.prop::before { content: '⇄ '; }
+.agenda-ev.conf .agenda-title::before, .agenda-block.conf .agenda-title::before, .agenda-mev.conf::before { content: '✓ '; color: var(--good); }
+.job-st.voorstel { background: rgba(107,79,160,.15); color: #6b4fa0; }
+.proposal { border: 1px solid rgba(107,79,160,.4); background: rgba(107,79,160,.07); border-radius: 10px; padding: 10px 14px; margin: 10px 0; }
+.proposal p { margin: 6px 0; }
+.job-log { margin: 10px 0; font-size: 13px; }
+.job-log ul { margin: 6px 0 0; padding-left: 18px; }
+.jobs-filters { margin: 10px 0 14px; flex-wrap: wrap; }
+.badge { display: inline-block; min-width: 18px; margin-left: 6px; padding: 0 5px; border-radius: 9px; background: #c0392b; color: #fff; font-size: 11px; line-height: 18px; }
+.jobs-list { display: flex; flex-direction: column; gap: 8px; }
+.jobs-row { display: grid; grid-template-columns: 120px minmax(0, 1fr) 170px; gap: 14px; align-items: start; text-align: left; background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: 10px; padding: 12px 14px; color: var(--ink); cursor: pointer; }
+.jobs-row:hover { border-color: var(--muted); }
+.jobs-row.st-gepland { border-left-color: var(--warn); }
+.jobs-row.st-voorstel { border-left-color: #6b4fa0; }
+.jobs-row.st-bevestigd, .jobs-row.st-bezig { border-left-color: var(--good); }
+.jobs-row.st-klaar { opacity: .7; }
+.jobs-when, .jobs-main, .jobs-side { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.jobs-side { align-items: flex-end; text-align: right; }
+.jobs-prop { color: #6b4fa0; font-size: 13px; }
+.jobs-note { font-size: 13px; }
+@media (max-width: 760px) { .jobs-row { grid-template-columns: 1fr; } .jobs-side { align-items: flex-start; text-align: left; } }
+.agenda-mev.unconf { border: 1px dashed var(--c); border-left: 3px solid var(--c); }
+.agenda-ev.unconf, .agenda-block.unconf { border-color: var(--c); border-left-color: var(--c); }

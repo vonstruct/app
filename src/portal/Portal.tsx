@@ -76,6 +76,7 @@ function ClientProjects({ preview, lang, onSurvey }: { preview: boolean; lang: L
   const t = tr(lang)
   const [rows, setRows] = useState<Project[] | null>(null)
   const [visits, setVisits] = useState<Visit[]>([])
+  const loadVisits = () => { if (!preview) supabase.rpc('portal_client_visits').then(({ data }) => setVisits((data as Visit[]) ?? [])) }
   useEffect(() => {
     if (preview) { const d = new Date(); d.setDate(d.getDate() + 3); return setVisits([{ id: 'v', project_code: '209901', title: 'Keuken plaatsen', job_type: 'Nieuwbouw', slot: 'dag', start_at: d.toISOString(), end_at: new Date(d.getTime() + 86400000).toISOString(), status: 'bevestigd', who: 'Vonstruct' }]) }
     supabase.rpc('portal_client_visits').then(({ data }) => setVisits((data as Visit[]) ?? []))
@@ -114,7 +115,7 @@ function ClientProjects({ preview, lang, onSurvey }: { preview: boolean; lang: L
                 </li>
               ))}
             </ol>
-            <Visits list={visits.filter((v) => v.project_code === p.project_code)} lang={lang} />
+            <Visits list={visits.filter((v) => v.project_code === p.project_code)} lang={lang} onChange={loadVisits} />
             {p.target_install_week && <p className="muted">{t.plannedInstall(p.target_install_week)}</p>}
             {p.survey_status !== 'submitted' ? (
               <div className="portal-todo">
@@ -136,10 +137,10 @@ function ClientProjects({ preview, lang, onSurvey }: { preview: boolean; lang: L
   )
 }
 
-type Visit = { id: string; project_code: string; title: string; job_type: string | null; slot: string | null; start_at: string; end_at: string; status: string; who: string | null }
+type Visit = { id: string; project_code: string; title: string; job_type: string | null; slot: string | null; start_at: string; end_at: string; status: string; who: string | null; proposed_start?: string | null; proposed_end?: string | null; proposed_slot?: string | null; proposal_note?: string | null }
 
 /** Klant: wie komt wanneer (datum, dagdeel of uur, wie, wat). */
-function Visits({ list, lang }: { list: Visit[]; lang: Lang }) {
+function Visits({ list, lang, onChange }: { list: Visit[]; lang: Lang; onChange: () => void }) {
   const t = tr(lang)
   if (!list.length) return null
   const loc = lang === 'en' ? 'en-GB' : lang === 'de' ? 'de-BE' : 'nl-BE'
@@ -153,10 +154,18 @@ function Visits({ list, lang }: { list: Visit[]; lang: Lang }) {
           const s = new Date(v.start_at), e = new Date(v.end_at)
           const when = v.slot ? (s.toDateString() === e.toDateString() ? `${d(s)} · ${t.jobs.slots[v.slot]}` : `${d(s)} ${t.jobs.until} ${d(e)}`) : `${d(s)} · ${tm(s)}–${tm(e)}`
           const done = v.status === 'klaar'
+          const fmt = (a: string, b: string, sl?: string | null) => { const x = new Date(a), y = new Date(b); return sl ? (x.toDateString() === y.toDateString() ? `${d(x)} · ${t.jobs.slots[sl]}` : `${d(x)} ${t.jobs.until} ${d(y)}`) : `${d(x)} · ${tm(x)}–${tm(y)}` }
+          const decide = async (ok: boolean) => { await supabase.rpc('job_decide_proposal', { p_job: v.id, p_accept: ok }); onChange() }
           return (
             <li key={v.id} className={done ? 'done' : ''}>
               <span className="visits-when">{done ? '✓ ' : ''}{when}</span>
               <span>{v.who ? <strong>{v.who}</strong> : null}{v.who ? ' · ' : ''}{v.title}{v.job_type ? ` (${t.jobs.types[v.job_type] ?? v.job_type})` : ''}</span>
+              {v.status === 'voorstel' && v.proposed_start && (
+                <span className="proposal">
+                  {t.visitProposal(v.who ?? 'Vonstruct')} <b>{fmt(v.proposed_start, v.proposed_end!, v.proposed_slot)}</b>{v.proposal_note ? ` – “${v.proposal_note}”` : ''}
+                  <span className="toolbar"><button className="primary" onClick={() => decide(true)}>{t.agree}</button><button onClick={() => decide(false)}>{t.disagree}</button></span>
+                </span>
+              )}
             </li>
           )
         })}

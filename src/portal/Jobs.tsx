@@ -2,11 +2,13 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../core/supabase'
 import { tr, type Lang } from './i18n'
 import { RouteLinks } from '../core/address'
+import { SLOTS, type Slot } from '../modules/agenda/JobEditor'
 
 type Job = {
   id: string; title: string; start_at: string; end_at: string; status: string; address: string | null
   contact_name: string | null; contact_phone: string | null; instructions: string | null; sub_note: string | null
   project_code: string | null; project_title: string | null; job_type?: string | null; slot?: string | null
+  proposed_start?: string | null; proposed_end?: string | null; proposed_slot?: string | null; proposal_note?: string | null
 }
 const BUCKET = 'job-files'
 
@@ -77,6 +79,13 @@ function JobCard({ j, lang, preview, onChange, compact }: { j: Job; lang: Lang; 
   const s = new Date(j.start_at), e = new Date(j.end_at)
   const time = (d: Date) => d.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit' })
   const day = s.toLocaleDateString(loc, { weekday: 'long', day: 'numeric', month: 'long' })
+  const [prop, setProp] = useState(false)
+  const fmtWhen = (a: string, b: string, sl?: string | null) => {
+    const x = new Date(a), y = new Date(b)
+    const d = (z: Date) => z.toLocaleDateString(loc, { weekday: 'long', day: 'numeric', month: 'long' })
+    if (sl) return x.toDateString() === y.toDateString() ? `${d(x)} · ${t.jobs.slots[sl]}` : `${d(x)} ${t.jobs.until} ${d(y)}`
+    return `${d(x)} · ${time(x)}–${time(y)}`
+  }
   const plans = files.filter((f) => !f.werf), photos = files.filter((f) => f.werf)
   const tel = (j.contact_phone ?? '').replace(/[^\d+]/g, '')
 
@@ -107,11 +116,16 @@ function JobCard({ j, lang, preview, onChange, compact }: { j: Job; lang: Lang; 
               ))}</div>
             </div>
           )}
-          {j.status !== 'klaar' && (
+          {j.status === 'voorstel' && j.proposed_start && (
+            <div className="proposal"><strong>⇄ {t.jobs.proposedWait}</strong><p>{fmtWhen(j.proposed_start, j.proposed_end!, j.proposed_slot)}{j.proposal_note ? ` – “${j.proposal_note}”` : ''}</p></div>
+          )}
+          {prop && <ProposeForm j={j} lang={lang} onDone={() => { setProp(false); onChange() }} onCancel={() => setProp(false)} />}
+          {j.status !== 'klaar' && !prop && (
             <div className="toolbar job-actions">
               {j.status === 'gepland' && <button className="primary" disabled={preview} onClick={() => update('bevestigd', null)}>✓ {t.jobs.confirm}</button>}
               {j.status === 'bevestigd' && <button disabled={preview} onClick={() => update('bezig', null)}>{t.jobs.start}</button>}
               {(j.status === 'bevestigd' || j.status === 'bezig') && <button className="primary" disabled={preview} onClick={() => update('klaar', note || null)}>{t.jobs.markDone}</button>}
+              {['gepland', 'bevestigd', 'voorstel'].includes(j.status) && <button disabled={preview} onClick={() => setProp(true)}>⇄ {t.jobs.propose}</button>}
             </div>
           )}
           <label className="q">{t.jobs.note}
@@ -135,5 +149,56 @@ function JobCard({ j, lang, preview, onChange, compact }: { j: Job; lang: Lang; 
         </>
       )}
     </article>
+  )
+}
+
+/** Onderaannemer stelt een ander moment voor (dagdeel of vast uur). */
+function ProposeForm({ j, lang, onDone, onCancel }: { j: Job; lang: Lang; onDone: () => void; onCancel: () => void }) {
+  const t = tr(lang)
+  const local = (iso: string) => { const d = new Date(iso); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString() }
+  const [slot, setSlot] = useState<Slot | ''>((j.slot as Slot) ?? '')
+  const [date, setDate] = useState(local(j.start_at).slice(0, 10))
+  const [from, setFrom] = useState(local(j.start_at).slice(11, 16))
+  const [to, setTo] = useState(local(j.end_at).slice(11, 16))
+  const [days, setDays] = useState(1)
+  const [reason, setReason] = useState('')
+  const [err, setErr] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const send = async () => {
+    let s: Date, e: Date
+    const hm = (d: string, [h, m]: [number, number]) => { const x = new Date(d + 'T00:00'); x.setHours(h, m, 0, 0); return x }
+    if (slot) {
+      s = hm(date, SLOTS[slot].from)
+      const end = new Date(date + 'T12:00'); end.setDate(end.getDate() + (slot === 'dag' ? days - 1 : 0))
+      const ymd = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`
+      e = hm(ymd, SLOTS[slot].to)
+    } else {
+      s = new Date(`${date}T${from}`); e = new Date(`${date}T${to}`)
+    }
+    if (!(e > s)) return setErr('⚠')
+    setBusy(true)
+    const { error } = await supabase.rpc('portal_job_propose', { p_job: j.id, p_start: s.toISOString(), p_end: e.toISOString(), p_slot: slot || null, p_note: reason })
+    setBusy(false)
+    if (error) return setErr(error.message)
+    onDone()
+  }
+  return (
+    <div className="proposal">
+      <strong>⇄ {t.jobs.propose}</strong>
+      <p className="muted small">{t.jobs.proposeIntro}</p>
+      <div className="slot-pick">
+        {(Object.keys(SLOTS) as Slot[]).map((k) => <button key={k} type="button" className={slot === k ? 'on' : ''} onClick={() => setSlot(k)}>{t.jobs.slots[k]}</button>)}
+        <button type="button" className={!slot ? 'on' : ''} onClick={() => setSlot('')}>{t.jobs.fixedTime}</button>
+      </div>
+      <div className="form-grid" style={{ marginTop: 10 }}>
+        <label>{t.jobs.date}<input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
+        {slot === 'dag' && <label>#<input type="number" min={1} max={30} value={days} onChange={(e) => setDays(Math.max(1, Number(e.target.value)))} /></label>}
+        {!slot && <label>{t.jobs.from}<input type="time" value={from} onChange={(e) => setFrom(e.target.value)} /></label>}
+        {!slot && <label>{t.jobs.to}<input type="time" value={to} onChange={(e) => setTo(e.target.value)} /></label>}
+        <label className="wide">{t.jobs.reason}<textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} /></label>
+      </div>
+      {err && <p className="error small">{err}</p>}
+      <div className="toolbar"><button className="primary" disabled={busy} onClick={send}>{t.jobs.proposeSend}</button><button onClick={onCancel}>{t.jobs.cancel}</button></div>
+    </div>
   )
 }

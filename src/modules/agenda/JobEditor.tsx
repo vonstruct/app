@@ -16,8 +16,14 @@ export type Job = {
   contact_name: string | null
   contact_phone: string | null
   instructions: string | null
-  status: 'gepland' | 'bevestigd' | 'bezig' | 'klaar' | 'geannuleerd'
-  job_type: 'Herstelling' | 'Renovatie' | 'Nieuwbouw' | null
+  status: 'gepland' | 'bevestigd' | 'voorstel' | 'bezig' | 'klaar' | 'geannuleerd'
+  proposed_start: string | null
+  proposed_end: string | null
+  proposed_slot: Slot | null
+  proposal_note: string | null
+  decided_by: string | null
+  decided_at: string | null
+  job_type: (typeof JOB_TYPES)[number] | null
   slot: Slot | null
   for_me: boolean
   show_client: boolean
@@ -36,10 +42,10 @@ export const SLOTS: Record<Slot, { label: string; from: [number, number]; to: [n
   voormiddag: { label: 'Voormiddag', from: [8, 0], to: [12, 0] },
   namiddag: { label: 'Namiddag', from: [12, 30], to: [16, 30] },
 }
-export const JOB_TYPES = ['Herstelling', 'Renovatie', 'Nieuwbouw'] as const
+export const JOB_TYPES = ['Herstelling', 'Renovatie', 'Nieuwbouw', 'Ophaling', 'Bestellen', 'Productie'] as const
 const at = (d: Date, [h, m]: [number, number]) => { const x = new Date(d); x.setHours(h, m, 0, 0); return x }
 const dayInput = (iso: string) => toLocalInput(iso).slice(0, 10)
-export const JOB_STATUS: Record<Job['status'], string> = { gepland: 'Gepland', bevestigd: 'Bevestigd', bezig: 'Bezig', klaar: 'Klaar', geannuleerd: 'Geannuleerd' }
+export const JOB_STATUS: Record<Job['status'], string> = { gepland: 'Te bevestigen', bevestigd: 'Bevestigd', voorstel: 'Ander moment voorgesteld', bezig: 'Bezig', klaar: 'Klaar', geannuleerd: 'Geannuleerd' }
 const BUCKET = 'job-files'
 const LINK = 'https://app.vonstruct.com'
 const toLocalInput = (iso: string) => { const d = new Date(iso); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16) }
@@ -50,7 +56,7 @@ const waNumber = (phone: string | null) => {
   else if (d.startsWith('0')) d = '32' + d.slice(1)
   return d
 }
-const when = (s: string, e: string, slot?: Slot | null) => {
+export const when = (s: string, e: string, slot?: Slot | null) => {
   if (slot) {
     const a = new Date(s), b = new Date(e)
     const d = (x: Date) => x.toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' })
@@ -76,6 +82,17 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
   const [sent, setSent] = useState<{ text: string; to: Who } | null>(null)
   const [tpl, setTpl] = useState<Record<string, string>>({})
   const isNew = !j.id
+  const [log, setLog] = useState<{ at: string; actor: string | null; what: string }[]>([])
+  useEffect(() => { if (j.id) supabase.from('job_log').select('at,actor,what').eq('job_id', j.id).order('at', { ascending: false }).then(({ data }) => setLog((data as typeof log) ?? [])) }, [j.id, j.status, j.start_at])
+  const decide = async (accept: boolean) => {
+    setBusy(true); setErr(null)
+    const { error } = await supabase.rpc('job_decide_proposal', { p_job: j.id, p_accept: accept })
+    if (error) { setBusy(false); return setErr(error.message) }
+    const { data } = await supabase.from('jobs').select('*').eq('id', j.id!).single()
+    setBusy(false)
+    if (data) setJ(data as Job)
+    onSaved()
+  }
 
   useEffect(() => {
     Promise.all([
@@ -201,6 +218,15 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
           </div>
         ) : (
           <>
+            {j.status === 'voorstel' && j.proposed_start && (
+              <div className="proposal">
+                <strong>⇄ {assignee?.name ?? 'De onderaannemer'} stelt een ander moment voor</strong>
+                <p>Nu: {when(j.start_at!, j.end_at!, j.slot)}<br />Voorstel: <b>{when(j.proposed_start, j.proposed_end!, j.proposed_slot)}</b>{j.proposal_note ? <><br />“{j.proposal_note}”</> : null}</p>
+                <p className="muted small">Jij of de klant (in zijn portaal) kan het voorstel aanvaarden.</p>
+                <div className="toolbar"><button className="primary" disabled={busy} onClick={() => decide(true)}>Aanvaarden</button><button disabled={busy} onClick={() => decide(false)}>Weigeren (oud moment blijft)</button></div>
+              </div>
+            )}
+            {j.decided_by && j.decided_at && j.status !== 'voorstel' && <p className="muted small">Laatste voorstel {j.status === 'bevestigd' ? 'aanvaard' : 'beslist'} door {j.decided_by} op {new Date(j.decided_at).toLocaleString('nl-BE')}</p>}
             {j.sub_note && <p className="agenda-notes agenda-mynote">💬 {assignee?.name ?? 'Onderaannemer'}: {j.sub_note}</p>}
             {j.confirmed_at && <p className="muted small">Bevestigd op {new Date(j.confirmed_at).toLocaleString('nl-BE')}{j.done_at ? ` · klaar gemeld op ${new Date(j.done_at).toLocaleString('nl-BE')}` : ''}</p>}
             <div className="form-grid agenda-form">
@@ -272,6 +298,11 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
                 </label>
               </div>
             </div>
+            {log.length > 0 && (
+              <details className="job-log"><summary>Geschiedenis ({log.length})</summary>
+                <ul>{log.map((l, i) => <li key={i}><span className="muted small">{new Date(l.at).toLocaleString('nl-BE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} · {l.actor === 'info@vonstruct.com' ? 'jij' : l.actor ?? '—'}</span> {l.what}</li>)}</ul>
+              </details>
+            )}
             {err && <p className="auth-msg error">{err}</p>}
             <div className="toolbar">
               <button className="primary" disabled={busy} onClick={save}>{busy ? 'Bewaren…' : isNew ? 'Opdracht aanmaken' : 'Bewaren'}</button>

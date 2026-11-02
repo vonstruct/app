@@ -200,7 +200,7 @@ export function Agenda() {
     : view === 'week'
       ? `Week ${isoWeek(from).week} · ${from.toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' })} – ${addDays(from, 6).toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', year: 'numeric' })}`
       : anchor.toLocaleDateString('nl-BE', { month: 'long', year: 'numeric' })
-  const cls = (e: Ev) => 'cat-' + classify(e)
+  const cls = (e: Ev) => 'cat-' + classify(e) + (e.job && !e.job.for_me ? (e.job.status === 'gepland' ? ' unconf' : e.job.status === 'voorstel' ? ' unconf prop' : ' conf') : '')
   const loading = events === null
 
   return (
