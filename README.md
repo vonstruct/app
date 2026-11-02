@@ -2,7 +2,7 @@
 
 Webapp voor Vonstruct: projecten, ontwerpversies uit PaletteCAD (stuklijst Vonstruct_Export), en straks kosten, offerte, bestellingen en brochure.
 
-Live: https://vonstruct.github.io/app/ (login vereist).
+Live: https://app.vonstruct.com (login vereist; ook https://vonstruct.github.io/app/).
 
 ## Principes
 

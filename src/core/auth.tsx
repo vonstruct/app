@@ -47,7 +47,7 @@ function Login() {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) setMsg(error.message === 'Invalid login credentials' ? 'E-mail of wachtwoord klopt niet.' : error.message)
     } else {
-      const { error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin + import.meta.env.BASE_URL } })
+      const { error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin + window.location.pathname } })
       setMsg(error ? error.message : 'Account aangemaakt. Bevestig via de link in je mailbox en meld je daarna hier aan.')
       if (!error) setMode('in')
     }
@@ -56,7 +56,7 @@ function Login() {
 
   const reset = async () => {
     if (!email) return setMsg('Vul eerst je e-mailadres in.')
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + import.meta.env.BASE_URL })
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + window.location.pathname })
     setMsg(error ? error.message : 'Je krijgt een mail om je wachtwoord opnieuw in te stellen.')
   }
 
