@@ -90,8 +90,10 @@ export function JobsOverview() {
                 {r.sub_note && <span className="jobs-note">💬 {r.sub_note}</span>}
               </span>
               <span className="jobs-side">
-                {r.for_me ? <span className="job-st bevestigd">Mezelf</span> : <span className={'job-st ' + r.status}>{r.status === 'bevestigd' ? '✓ ' : r.status === 'gepland' ? '? ' : ''}{JOB_STATUS[r.status]}</span>}
-                {r.confirmed_at && <span className="muted small">bevestigd {new Date(r.confirmed_at).toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' })}</span>}
+                <span className={'job-st ' + r.status}>{r.status === 'bevestigd' ? '✓ ' : r.status === 'gepland' ? '? ' : ''}{JOB_STATUS[r.status]}</span>
+                {!r.for_me && <span className="small">{name(r)}: {r.confirmed_at ? <b className="ok-t">✓</b> : <b className="wait-t">?</b>}</span>}
+                {r.notify_client && r.show_client && r.project_code && <span className="small">Klant: {r.client_confirmed_at ? <b className="ok-t">✓</b> : <b className="wait-t">?</b>}</span>}
+                {r.changed_by && r.changed_by !== 'vonstruct' && r.status === 'gepland' && <span className="small jobs-prop">⇄ gewijzigd door {r.changed_by === 'klant' ? 'klant' : name(r)}</span>}
                 {r.show_client && r.project_code && <span className="muted small">👁 klant ziet dit</span>}
               </span>
             </button>

@@ -11,6 +11,8 @@ type Job = {
   contact_name: string | null; contact_phone: string | null; instructions: string | null; sub_note: string | null
   project_code: string | null; project_title: string | null; job_type?: string | null; slot?: string | null
   proposed_start?: string | null; proposed_end?: string | null; proposed_slot?: string | null; proposal_note?: string | null
+  confirmed_at?: string | null; client_confirmed_at?: string | null; client_in_loop?: boolean
+  prev_start?: string | null; prev_end?: string | null; prev_slot?: string | null; changed_by?: string | null; change_note?: string | null
 }
 const BUCKET = 'job-files'
 
@@ -125,14 +127,19 @@ export function JobCard({ j, lang, preview, demo = false, onChange, compact }: {
               ))}</div>
             </div>
           )}
-          {j.status === 'voorstel' && j.proposed_start && (
-            <div className="proposal"><strong>⇄ {t.jobs.proposedWait}</strong><p>{fmtWhen(j.proposed_start, j.proposed_end!, j.proposed_slot)}{j.proposal_note ? ` – “${j.proposal_note}”` : ''}</p></div>
+          {j.changed_by && j.changed_by !== 'onderaannemer' && !j.confirmed_at && j.prev_start && (
+            <div className="proposal"><strong>⇄ {t.jobs.loop.changedBy(t.jobs.loop.by[j.changed_by] ?? j.changed_by)}</strong>
+              <p>{t.jobs.loop.was}: <s>{fmtWhen(j.prev_start, j.prev_end!, j.prev_slot)}</s>{j.change_note ? <><br />“{j.change_note}”</> : null}</p></div>
           )}
-          {prop && <ProposeForm j={j} lang={lang} onDone={() => { setProp(false); onChange() }} onCancel={() => setProp(false)} />}
+          <div className="loop-status">
+            <span>{t.jobs.loop.you}: <b className={j.confirmed_at ? 'ok' : 'wait'}>{j.confirmed_at ? t.jobs.loop.ok : t.jobs.loop.wait}</b></span>
+            {j.client_in_loop && <span>{t.jobs.loop.client}: <b className={j.client_confirmed_at ? 'ok' : 'wait'}>{j.client_confirmed_at ? t.jobs.loop.ok : t.jobs.loop.wait}</b></span>}
+          </div>
+          {prop && <MomentForm j={j} lang={lang} onDone={() => { setProp(false); onChange() }} onCancel={() => setProp(false)} />}
           {j.status !== 'klaar' && !prop && (
             <div className="toolbar job-actions">
-              {j.status === 'gepland' && <button className="primary" disabled={preview} onClick={() => update('bevestigd', null)}>✓ {t.jobs.confirm}</button>}
-              {j.status === 'bevestigd' && <button disabled={preview} onClick={() => update('bezig', null)}>{t.jobs.start}</button>}
+              {!j.confirmed_at && j.status !== 'klaar' && <button className="primary" disabled={preview} onClick={() => update('bevestigd', null)}>✓ {t.jobs.confirm}</button>}
+              {j.confirmed_at && j.status === 'bevestigd' && <button disabled={preview} onClick={() => update('bezig', null)}>{t.jobs.start}</button>}
               {(j.status === 'bevestigd' || j.status === 'bezig') && <button className="primary" disabled={preview} onClick={() => update('klaar', note || null)}>{t.jobs.markDone}</button>}
               {['gepland', 'bevestigd', 'voorstel'].includes(j.status) && <button disabled={preview} onClick={() => setProp(true)}>⇄ {t.jobs.propose}</button>}
             </div>
@@ -161,8 +168,8 @@ export function JobCard({ j, lang, preview, demo = false, onChange, compact }: {
   )
 }
 
-/** Onderaannemer stelt een ander moment voor (dagdeel of vast uur). */
-function ProposeForm({ j, lang, onDone, onCancel }: { j: Job; lang: Lang; onDone: () => void; onCancel: () => void }) {
+/** Ander moment kiezen (onderaannemer of klant); de anderen moeten het daarna bevestigen. */
+export function MomentForm({ j, lang, onDone, onCancel }: { j: { id: string; start_at: string; end_at: string; slot?: string | null }; lang: Lang; onDone: () => void; onCancel: () => void }) {
   const t = tr(lang)
   const local = (iso: string) => { const d = new Date(iso); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString() }
   const [slot, setSlot] = useState<Slot | ''>((j.slot as Slot) ?? '')
@@ -186,7 +193,7 @@ function ProposeForm({ j, lang, onDone, onCancel }: { j: Job; lang: Lang; onDone
     }
     if (!(e > s)) return setErr('⚠')
     setBusy(true)
-    const { error } = await supabase.rpc('portal_job_propose', { p_job: j.id, p_start: s.toISOString(), p_end: e.toISOString(), p_slot: slot || null, p_note: reason })
+    const { error } = await supabase.rpc('job_change_moment', { p_job: j.id, p_start: s.toISOString(), p_end: e.toISOString(), p_slot: slot || '', p_note: reason })
     setBusy(false)
     if (error) return setErr(error.message)
     onDone()
@@ -223,6 +230,6 @@ export function fromAdminRow(r: AdminRow): Job {
     contact_name: r.contact_name ?? ([p?.clients?.first_name, p?.clients?.last_name].filter(Boolean).join(' ') || null),
     contact_phone: r.contact_phone ?? p?.clients?.phone ?? null,
     instructions: r.instructions, sub_note: r.sub_note, project_code: r.project_code, project_title: p?.title ?? null,
-    job_type: r.job_type, slot: r.slot, proposed_start: r.proposed_start, proposed_end: r.proposed_end, proposed_slot: r.proposed_slot, proposal_note: r.proposal_note,
+    job_type: r.job_type, slot: r.slot, confirmed_at: (r.confirmed_at as string | null) ?? null, client_confirmed_at: (r.client_confirmed_at as string | null) ?? null, client_in_loop: !!(r.notify_client && r.show_client && r.project_code), prev_start: (r.prev_start as string | null) ?? null, prev_end: (r.prev_end as string | null) ?? null, prev_slot: (r.prev_slot as string | null) ?? null, changed_by: (r.changed_by as string | null) ?? null, change_note: (r.change_note as string | null) ?? null, proposed_start: r.proposed_start, proposed_end: r.proposed_end, proposed_slot: r.proposed_slot, proposal_note: r.proposal_note,
   }
 }

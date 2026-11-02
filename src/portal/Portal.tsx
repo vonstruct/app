@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../core/supabase'
 import logo from '../assets/vonstruct-logo.webp'
 import { Survey } from './Survey'
-import { Jobs, type ViewAs } from './Jobs'
+import { Jobs, MomentForm, type ViewAs } from './Jobs'
 import { LANGS, asLang, storeLang, storedLang, tr, type Lang } from './i18n'
 
 export type PortalRole = 'klant' | 'partner' | 'onderaannemer'
@@ -78,7 +78,7 @@ function ClientProjects({ preview, lang, onSurvey }: { preview: boolean; lang: L
   const [visits, setVisits] = useState<Visit[]>([])
   const loadVisits = () => { if (!preview) supabase.rpc('portal_client_visits').then(({ data }) => setVisits((data as Visit[]) ?? [])) }
   useEffect(() => {
-    if (preview) { const d = new Date(); d.setDate(d.getDate() + 3); return setVisits([{ id: 'v', project_code: '209901', title: 'Keuken plaatsen', job_type: 'Nieuwbouw', slot: 'dag', start_at: d.toISOString(), end_at: new Date(d.getTime() + 86400000).toISOString(), status: 'bevestigd', who: 'Vonstruct' }]) }
+    if (preview) { const d = new Date(); d.setDate(d.getDate() + 3); return setVisits([{ id: 'v', project_code: '209901', title: 'Keuken plaatsen', job_type: 'Nieuwbouw', slot: 'dag', start_at: d.toISOString(), end_at: new Date(d.getTime() + 86400000).toISOString(), status: 'gepland', who: 'Elektricien – Jan Peeters BV', client_in_loop: true, client_confirmed_at: null, sub_confirmed: true }]) }
     supabase.rpc('portal_client_visits').then(({ data }) => setVisits((data as Visit[]) ?? []))
   }, [preview])
   useEffect(() => {
@@ -115,7 +115,7 @@ function ClientProjects({ preview, lang, onSurvey }: { preview: boolean; lang: L
                 </li>
               ))}
             </ol>
-            <Visits list={visits.filter((v) => v.project_code === p.project_code)} lang={lang} onChange={loadVisits} />
+            <Visits list={visits.filter((v) => v.project_code === p.project_code)} lang={lang} onChange={loadVisits} preview={preview} />
             {p.target_install_week && <p className="muted">{t.plannedInstall(p.target_install_week)}</p>}
             {p.survey_status !== 'submitted' ? (
               <div className="portal-todo">
@@ -137,11 +137,12 @@ function ClientProjects({ preview, lang, onSurvey }: { preview: boolean; lang: L
   )
 }
 
-type Visit = { id: string; project_code: string; title: string; job_type: string | null; slot: string | null; start_at: string; end_at: string; status: string; who: string | null; proposed_start?: string | null; proposed_end?: string | null; proposed_slot?: string | null; proposal_note?: string | null }
+type Visit = { id: string; project_code: string; title: string; job_type: string | null; slot: string | null; start_at: string; end_at: string; status: string; who: string | null; proposed_start?: string | null; proposed_end?: string | null; proposed_slot?: string | null; proposal_note?: string | null; client_in_loop?: boolean; client_confirmed_at?: string | null; sub_confirmed?: boolean; prev_start?: string | null; prev_end?: string | null; prev_slot?: string | null; changed_by?: string | null; change_note?: string | null }
 
 /** Klant: wie komt wanneer (datum, dagdeel of uur, wie, wat). */
-function Visits({ list, lang, onChange }: { list: Visit[]; lang: Lang; onChange: () => void }) {
+function Visits({ list, lang, onChange, preview = false }: { list: Visit[]; lang: Lang; onChange: () => void; preview?: boolean }) {
   const t = tr(lang)
+  const [changing, setChanging] = useState<string | null>(null)
   if (!list.length) return null
   const loc = lang === 'en' ? 'en-GB' : lang === 'de' ? 'de-BE' : 'nl-BE'
   const d = (x: Date) => x.toLocaleDateString(loc, { weekday: 'long', day: 'numeric', month: 'long' })
@@ -155,17 +156,28 @@ function Visits({ list, lang, onChange }: { list: Visit[]; lang: Lang; onChange:
           const when = v.slot ? (s.toDateString() === e.toDateString() ? `${d(s)} · ${t.jobs.slots[v.slot]}` : `${d(s)} ${t.jobs.until} ${d(e)}`) : `${d(s)} · ${tm(s)}–${tm(e)}`
           const done = v.status === 'klaar'
           const fmt = (a: string, b: string, sl?: string | null) => { const x = new Date(a), y = new Date(b); return sl ? (x.toDateString() === y.toDateString() ? `${d(x)} · ${t.jobs.slots[sl]}` : `${d(x)} ${t.jobs.until} ${d(y)}`) : `${d(x)} · ${tm(x)}–${tm(y)}` }
-          const decide = async (ok: boolean) => { await supabase.rpc('job_decide_proposal', { p_job: v.id, p_accept: ok }); onChange() }
+          const confirm = async () => { await supabase.rpc('job_confirm', { p_job: v.id }); onChange() }
+          const loop = v.client_in_loop && !done
           return (
             <li key={v.id} className={done ? 'done' : ''}>
               <span className="visits-when">{done ? '✓ ' : ''}{when}</span>
               <span>{v.who ? <strong>{v.who}</strong> : null}{v.who ? ' · ' : ''}{v.title}{v.job_type ? ` (${t.jobs.types[v.job_type] ?? v.job_type})` : ''}</span>
-              {v.status === 'voorstel' && v.proposed_start && (
-                <span className="proposal">
-                  {t.visitProposal(v.who ?? 'Vonstruct')} <b>{fmt(v.proposed_start, v.proposed_end!, v.proposed_slot)}</b>{v.proposal_note ? ` – “${v.proposal_note}”` : ''}
-                  <span className="toolbar"><button className="primary" onClick={() => decide(true)}>{t.agree}</button><button onClick={() => decide(false)}>{t.disagree}</button></span>
+              {loop && v.changed_by && v.changed_by !== 'klant' && !v.client_confirmed_at && v.prev_start && (
+                <span className="visits-change">⇄ {t.jobs.loop.changedBy(v.changed_by === 'vonstruct' ? 'Vonstruct' : v.who ?? '')} · {t.jobs.loop.was}: <s>{fmt(v.prev_start, v.prev_end!, v.prev_slot)}</s>{v.change_note ? ` – “${v.change_note}”` : ''}</span>
+              )}
+              {loop && (
+                <span className="loop-status">
+                  <span>{t.jobs.loop.you}: <b className={v.client_confirmed_at ? 'ok' : 'wait'}>{v.client_confirmed_at ? t.jobs.loop.ok : t.jobs.loop.wait}</b></span>
+                  {v.who !== 'Vonstruct' && <span>{v.who}: <b className={v.sub_confirmed ? 'ok' : 'wait'}>{v.sub_confirmed ? t.jobs.loop.ok : t.jobs.loop.wait}</b></span>}
                 </span>
               )}
+              {loop && changing !== v.id && (
+                <span className="toolbar">
+                  {!v.client_confirmed_at && <button className="primary" disabled={preview} onClick={confirm}>✓ {t.jobs.confirm}</button>}
+                  <button disabled={preview} onClick={() => setChanging(v.id)}>⇄ {t.jobs.propose}</button>
+                </span>
+              )}
+              {changing === v.id && <MomentForm j={v} lang={lang} onDone={() => { setChanging(null); onChange() }} onCancel={() => setChanging(null)} />}
             </li>
           )
         })}

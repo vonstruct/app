@@ -31,6 +31,13 @@ export type Job = {
   notify_client: boolean
   sub_note: string | null
   confirmed_at: string | null
+  client_confirmed_at?: string | null
+  prev_start?: string | null
+  prev_end?: string | null
+  prev_slot?: Slot | null
+  changed_by?: string | null
+  change_note?: string | null
+  changed_at?: string | null
   done_at: string | null
 }
 export type JobDraft = Partial<Job> & { title?: string; start_at?: string; end_at?: string }
@@ -47,7 +54,7 @@ export const SLOTS: Record<Slot, { label: string; from: [number, number]; to: [n
 export const JOB_TYPES = ['Herstelling', 'Renovatie', 'Nieuwbouw', 'Ophaling', 'Bestellen', 'Productie'] as const
 const at = (d: Date, [h, m]: [number, number]) => { const x = new Date(d); x.setHours(h, m, 0, 0); return x }
 const dayInput = (iso: string) => toLocalInput(iso).slice(0, 10)
-export const JOB_STATUS: Record<Job['status'], string> = { gepland: 'Te bevestigen', bevestigd: 'Bevestigd', voorstel: 'Ander moment voorgesteld', bezig: 'Bezig', klaar: 'Klaar', geannuleerd: 'Geannuleerd' }
+export const JOB_STATUS: Record<Job['status'], string> = { gepland: 'Wacht op bevestiging', bevestigd: 'Bevestigd', voorstel: 'Ander moment voorgesteld', bezig: 'Bezig', klaar: 'Klaar', geannuleerd: 'Geannuleerd' }
 const BUCKET = 'job-files'
 const LINK = 'https://app.vonstruct.com'
 const toLocalInput = (iso: string) => { const d = new Date(iso); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16) }
@@ -87,15 +94,16 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
   const [asSub, setAsSub] = useState(false)
   const [log, setLog] = useState<{ at: string; actor: string | null; what: string }[]>([])
   useEffect(() => { if (j.id) supabase.from('job_log').select('at,actor,what').eq('job_id', j.id).order('at', { ascending: false }).then(({ data }) => setLog((data as typeof log) ?? [])) }, [j.id, j.status, j.start_at])
-  const decide = async (accept: boolean) => {
+  const confirmFor = async (who: 'onderaannemer' | 'klant') => {
     setBusy(true); setErr(null)
-    const { error } = await supabase.rpc('job_decide_proposal', { p_job: j.id, p_accept: accept })
+    const { error } = await supabase.rpc('job_confirm', { p_job: j.id, p_for: who })
     if (error) { setBusy(false); return setErr(error.message) }
     const { data } = await supabase.from('jobs').select('*').eq('id', j.id!).single()
     setBusy(false)
     if (data) setJ(data as Job)
     onSaved()
   }
+
 
   useEffect(() => {
     Promise.all([
@@ -229,17 +237,24 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
                 <JobCard j={fromAdminRow({ ...(j as Job), projects: null } as unknown as Parameters<typeof fromAdminRow>[0])} lang="nl" preview onChange={() => {}} />
               </div>
             )}
-            {j.status === 'voorstel' && j.proposed_start && (
-              <div className="proposal">
-                <strong>⇄ {assignee?.name ?? 'De onderaannemer'} stelt een ander moment voor</strong>
-                <p>Nu: {when(j.start_at!, j.end_at!, j.slot)}<br />Voorstel: <b>{when(j.proposed_start, j.proposed_end!, j.proposed_slot)}</b>{j.proposal_note ? <><br />“{j.proposal_note}”</> : null}</p>
-                <p className="muted small">Jij of de klant (in zijn portaal) kan het voorstel aanvaarden.</p>
-                <div className="toolbar"><button className="primary" disabled={busy} onClick={() => decide(true)}>Aanvaarden</button><button disabled={busy} onClick={() => decide(false)}>Weigeren (oud moment blijft)</button></div>
+            {!isNew && j.status !== 'geannuleerd' && (
+              <div className="confirm-box">
+                <strong>Bevestigingen{j.status === 'bevestigd' || j.status === 'bezig' || j.status === 'klaar' ? ' – alles bevestigd ✓' : ''}</strong>
+                {j.changed_by && j.prev_start && <p className="muted small">⇄ Moment gewijzigd door {j.changed_by === 'vonstruct' ? 'jou' : j.changed_by === 'klant' ? 'de klant' : assignee?.name ?? 'de onderaannemer'}{j.changed_at ? ` op ${new Date(j.changed_at).toLocaleString('nl-BE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''} · was: <s>{when(j.prev_start, j.prev_end!, j.prev_slot)}</s>{j.change_note ? ` – “${j.change_note}”` : ''}</p>}
+                <ul>
+                  <li><span>Vonstruct (jij)</span><b className="ok">✓ gepland</b></li>
+                  {assignee && assignee.kind !== 'mezelf' && (
+                    <li><span>{assignee.name}</span>{j.confirmed_at ? <b className="ok">✓ {new Date(j.confirmed_at).toLocaleString('nl-BE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</b> : <><b className="wait">wacht</b><button className="link" disabled={busy} onClick={() => confirmFor('onderaannemer')}>bevestig namens hem/haar</button></>}</li>
+                  )}
+                  {j.notify_client && j.show_client && j.project_code && (
+                    <li><span>Klant</span>{j.client_confirmed_at ? <b className="ok">✓ {new Date(j.client_confirmed_at).toLocaleString('nl-BE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</b> : <><b className="wait">wacht</b><button className="link" disabled={busy} onClick={() => confirmFor('klant')}>bevestig namens de klant</button></>}</li>
+                  )}
+                </ul>
+                <p className="muted small">Wijzig je hieronder het moment, dan moeten de anderen opnieuw bevestigen (ze krijgen een mail).</p>
               </div>
             )}
-            {j.decided_by && j.decided_at && j.status !== 'voorstel' && <p className="muted small">Laatste voorstel {j.status === 'bevestigd' ? 'aanvaard' : 'beslist'} door {j.decided_by} op {new Date(j.decided_at).toLocaleString('nl-BE')}</p>}
             {j.sub_note && <p className="agenda-notes agenda-mynote">💬 {assignee?.name ?? 'Onderaannemer'}: {j.sub_note}</p>}
-            {j.confirmed_at && <p className="muted small">Bevestigd op {new Date(j.confirmed_at).toLocaleString('nl-BE')}{j.done_at ? ` · klaar gemeld op ${new Date(j.done_at).toLocaleString('nl-BE')}` : ''}</p>}
+            {j.done_at && <p className="muted small">Klaar gemeld op {new Date(j.done_at).toLocaleString('nl-BE')}</p>}
             <div className="form-grid agenda-form">
               <label>Voor
                 <select value={assignee?.key ?? ''} onChange={(e) => { const w = who.find((x) => x.key === e.target.value); set({ for_me: w?.kind === 'mezelf', subcontractor_id: w?.kind === 'onderaannemer' ? w.id : null, partner_id: w?.kind === 'partner' ? w.id : null }) }}>
@@ -280,7 +295,7 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
               </label>
               <label className="wide check">
                 <input type="checkbox" checked={!!j.notify_client && (j.show_client ?? true)} onChange={(e) => set({ notify_client: e.target.checked })} disabled={!j.project_code || !(j.show_client ?? true)} />
-                {' '}Klant op de hoogte houden per mail (in zijn taal): nieuw bezoek, bevestiging, nieuw moment, voorstel, klaar of geannuleerd
+                {' '}Klant in de loop: klant krijgt mails (in zijn taal) en moet het moment ook bevestigen; hij kan zelf een ander moment voorstellen
               </label>
               <AddressFields value={j.address ?? null} onChange={(v) => set({ address: v })} />
               <label>Contact ter plaatse<input value={j.contact_name ?? ''} onChange={(e) => set({ contact_name: e.target.value })} /></label>
