@@ -4,6 +4,8 @@ import { tr, type Lang } from './i18n'
 import { RouteLinks } from '../core/address'
 import { SLOTS, type Slot } from '../modules/agenda/JobEditor'
 
+export type PortalJob = Job
+export type ViewAs = { kind: 'onderaannemer' | 'partner'; id: string }
 type Job = {
   id: string; title: string; start_at: string; end_at: string; status: string; address: string | null
   contact_name: string | null; contact_phone: string | null; instructions: string | null; sub_note: string | null
@@ -13,16 +15,23 @@ type Job = {
 const BUCKET = 'job-files'
 
 /** Opdrachten voor onderaannemers en partners, met alle info om het werk te doen. */
-export function Jobs({ lang, preview, empty }: { lang: Lang; preview: boolean; empty: React.ReactNode }) {
+export function Jobs({ lang, preview, empty, viewAs }: { lang: Lang; preview: boolean; empty: React.ReactNode; viewAs?: ViewAs | null }) {
   const t = tr(lang)
   const [rows, setRows] = useState<Job[] | null>(null)
   const load = useCallback(() => {
+    if (viewAs) {
+      // beheerder bekijkt de echte opdrachten van één onderaannemer/partner
+      supabase.from('jobs').select('*, projects(title, site_street, site_postal_code, site_city, clients(first_name, last_name, phone))')
+        .eq(viewAs.kind === 'partner' ? 'partner_id' : 'subcontractor_id', viewAs.id).neq('status', 'geannuleerd').order('start_at')
+        .then(({ data }) => setRows(((data ?? []) as AdminRow[]).map(fromAdminRow)))
+      return
+    }
     if (preview) {
       const d = new Date(); d.setDate(d.getDate() + 2); d.setHours(8, 0, 0, 0)
       return setRows([{ id: 'x', title: 'Keuken plaatsen', start_at: d.toISOString(), end_at: new Date(d.getTime() + 8 * 3600000).toISOString(), status: 'gepland', job_type: 'Nieuwbouw', slot: 'dag', address: 'Kerkstraat 1, 2440 Geel', contact_name: 'Jan Peeters', contact_phone: '0470 00 00 00', instructions: 'Onderkasten eerst, eiland op het einde. Sleutel ligt bij de buren (nr. 3).', sub_note: null, project_code: '209901', project_title: 'Keuken + berging' }])
     }
     supabase.rpc('portal_my_jobs').then(({ data }) => setRows((data as Job[]) ?? []))
-  }, [preview])
+  }, [preview, viewAs])
   useEffect(() => { load() }, [load])
   if (rows === null) return <p className="muted">{t.loading}</p>
   if (rows.length === 0) return <>{empty}</>
@@ -32,14 +41,14 @@ export function Jobs({ lang, preview, empty }: { lang: Lang; preview: boolean; e
   return (
     <div className="jobs">
       {next.length > 0 && <h2 className="portal-h">{t.jobs.upcoming}</h2>}
-      {next.map((j) => <JobCard key={j.id} j={j} lang={lang} preview={preview} onChange={load} />)}
+      {next.map((j) => <JobCard key={j.id} j={j} lang={lang} preview={preview} demo={preview && !viewAs} onChange={load} />)}
       {past.length > 0 && <h2 className="portal-h">{t.jobs.past}</h2>}
-      {past.map((j) => <JobCard key={j.id} j={j} lang={lang} preview={preview} onChange={load} compact />)}
+      {past.map((j) => <JobCard key={j.id} j={j} lang={lang} preview={preview} demo={preview && !viewAs} onChange={load} compact />)}
     </div>
   )
 }
 
-function JobCard({ j, lang, preview, onChange, compact }: { j: Job; lang: Lang; preview: boolean; onChange: () => void; compact?: boolean }) {
+export function JobCard({ j, lang, preview, demo = false, onChange, compact }: { j: Job; lang: Lang; preview: boolean; demo?: boolean; onChange: () => void; compact?: boolean }) {
   const t = tr(lang)
   const loc = lang === 'en' ? 'en-GB' : lang === 'de' ? 'de-BE' : 'nl-BE'
   const [files, setFiles] = useState<{ name: string; url?: string; werf: boolean; path: string }[]>([])
@@ -48,7 +57,7 @@ function JobCard({ j, lang, preview, onChange, compact }: { j: Job; lang: Lang; 
   const [busy, setBusy] = useState(0)
   const [open, setOpen] = useState(!compact)
   const loadFiles = useCallback(async () => {
-    if (preview) return
+    if (demo) return
     const [a, b] = await Promise.all([supabase.storage.from(BUCKET).list(j.id), supabase.storage.from(BUCKET).list(j.id + '/werf')])
     const list = [
       ...(a.data ?? []).filter((f) => f.id).map((f) => ({ name: f.name.replace(/^\d+-/, ''), path: `${j.id}/${f.name}`, werf: false })),
@@ -56,7 +65,7 @@ function JobCard({ j, lang, preview, onChange, compact }: { j: Job; lang: Lang; 
     ]
     const { data } = list.length ? await supabase.storage.from(BUCKET).createSignedUrls(list.map((f) => f.path), 3600) : { data: [] }
     setFiles(list.map((f) => ({ ...f, url: data?.find((d) => d.path === f.path)?.signedUrl ?? undefined })))
-  }, [j.id, preview])
+  }, [j.id, demo])
   useEffect(() => { if (open) loadFiles() }, [open, loadFiles])
 
   const update = async (status: string | null, n: string | null) => {
@@ -201,4 +210,19 @@ function ProposeForm({ j, lang, onDone, onCancel }: { j: Job; lang: Lang; onDone
       <div className="toolbar"><button className="primary" disabled={busy} onClick={send}>{t.jobs.proposeSend}</button><button onClick={onCancel}>{t.jobs.cancel}</button></div>
     </div>
   )
+}
+
+type AdminRow = Record<string, unknown> & { id: string; title: string; start_at: string; end_at: string; status: string; address: string | null; contact_name: string | null; contact_phone: string | null; instructions: string | null; sub_note: string | null; project_code: string | null; job_type: string | null; slot: string | null; proposed_start: string | null; proposed_end: string | null; proposed_slot: string | null; proposal_note: string | null; projects: { title: string | null; site_street: string | null; site_postal_code: string | null; site_city: string | null; clients: { first_name: string | null; last_name: string | null; phone: string | null } | null } | null }
+/** Opdracht uit de tabel omzetten naar wat het portaal toont (zelfde regels als portal_my_jobs). */
+export function fromAdminRow(r: AdminRow): Job {
+  const p = r.projects
+  const siteAddr = p ? [p.site_street, [p.site_postal_code, p.site_city].filter(Boolean).join(' ')].filter(Boolean).join(', ') : ''
+  return {
+    id: r.id, title: r.title, start_at: r.start_at, end_at: r.end_at, status: r.status,
+    address: r.address ?? (siteAddr || null),
+    contact_name: r.contact_name ?? ([p?.clients?.first_name, p?.clients?.last_name].filter(Boolean).join(' ') || null),
+    contact_phone: r.contact_phone ?? p?.clients?.phone ?? null,
+    instructions: r.instructions, sub_note: r.sub_note, project_code: r.project_code, project_title: p?.title ?? null,
+    job_type: r.job_type, slot: r.slot, proposed_start: r.proposed_start, proposed_end: r.proposed_end, proposed_slot: r.proposed_slot, proposal_note: r.proposal_note,
+  }
 }

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../core/supabase'
 import logo from '../assets/vonstruct-logo.webp'
 import { Survey } from './Survey'
-import { Jobs } from './Jobs'
+import { Jobs, type ViewAs } from './Jobs'
 import { LANGS, asLang, storeLang, storedLang, tr, type Lang } from './i18n'
 
 export type PortalRole = 'klant' | 'partner' | 'onderaannemer'
@@ -12,7 +12,7 @@ type Project = { project_code: string; title: string | null; phase: string | nul
 const STEPS = ['design', 'quote', 'production', 'installation', 'closed']
 
 /** Portaal voor klanten, de productiepartner en onderaannemers. `preview` = beheerder bekijkt het als voorbeeld. */
-export function Portal({ role, preview = false }: { role: PortalRole; preview?: boolean }) {
+export function Portal({ role, preview = false, viewAs = null }: { role: PortalRole; preview?: boolean; viewAs?: ViewAs | null }) {
   const [name, setName] = useState<string | null>(null)
   const [survey, setSurvey] = useState<string | null>(null)
   const [lang, setLang] = useState<Lang>(storedLang)
@@ -53,7 +53,7 @@ export function Portal({ role, preview = false }: { role: PortalRole; preview?: 
         ) : role === 'klant' ? (
           <ClientProjects preview={preview} lang={lang} onSurvey={setSurvey} />
         ) : (
-          <Jobs lang={lang} preview={preview} empty={<EmptyWork role={role} lang={lang} />} />
+          <Jobs lang={lang} preview={preview} viewAs={viewAs} empty={<EmptyWork role={role} lang={lang} />} />
         )}
         {!survey && role !== 'onderaannemer' && <h2 className="portal-h">{t.coming}</h2>}
         {!survey && role !== 'onderaannemer' && (

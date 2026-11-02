@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { supabase } from '../../core/supabase'
 import { AddressFields, RouteLinks } from '../../core/address'
+import { JobCard, fromAdminRow } from '../../portal/Jobs'
 
 /** Opdracht voor een onderaannemer of partner. Zichtbaar in de agenda en in hun portaal. */
 export type Job = {
@@ -82,6 +83,7 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
   const [sent, setSent] = useState<{ text: string; to: Who } | null>(null)
   const [tpl, setTpl] = useState<Record<string, string>>({})
   const isNew = !j.id
+  const [asSub, setAsSub] = useState(false)
   const [log, setLog] = useState<{ at: string; actor: string | null; what: string }[]>([])
   useEffect(() => { if (j.id) supabase.from('job_log').select('at,actor,what').eq('job_id', j.id).order('at', { ascending: false }).then(({ data }) => setLog((data as typeof log) ?? [])) }, [j.id, j.status, j.start_at])
   const decide = async (accept: boolean) => {
@@ -218,6 +220,14 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
           </div>
         ) : (
           <>
+            {!isNew && assignee?.kind !== 'mezelf' && (
+              <p><button type="button" className="link" onClick={() => setAsSub(!asSub)}>{asSub ? '▾' : '▸'} Zo ziet {assignee?.name ?? 'de onderaannemer'} deze opdracht in het portaal</button></p>
+            )}
+            {asSub && !isNew && (
+              <div className="as-sub portal">
+                <JobCard j={fromAdminRow({ ...(j as Job), projects: null } as unknown as Parameters<typeof fromAdminRow>[0])} lang="nl" preview onChange={() => {}} />
+              </div>
+            )}
             {j.status === 'voorstel' && j.proposed_start && (
               <div className="proposal">
                 <strong>⇄ {assignee?.name ?? 'De onderaannemer'} stelt een ander moment voor</strong>

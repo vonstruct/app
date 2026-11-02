@@ -592,3 +592,4 @@ label.check input { width: auto; height: auto; }
 @media (max-width: 760px) { .jobs-row { grid-template-columns: 1fr; } .jobs-side { align-items: flex-start; text-align: left; } }
 .agenda-mev.unconf { border: 1px dashed var(--c); border-left: 3px solid var(--c); }
 .agenda-ev.unconf, .agenda-block.unconf { border-color: var(--c); border-left-color: var(--c); }
+.as-sub { border: 1px dashed var(--line); border-radius: 12px; padding: 10px; margin: 8px 0 14px; background: var(--bg); min-height: 0; }
