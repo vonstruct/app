@@ -118,6 +118,7 @@ const nl = {
     until: 't.e.m.',
     status: { gepland: 'Nieuw – nog te bevestigen', bevestigd: 'Bevestigd', bezig: 'Bezig', klaar: 'Klaar', geannuleerd: 'Geannuleerd' } as Record<string, string>,
   },
+  visits: 'Wie komt wanneer',
   // vragenlijst
   surveyLoadErr: 'De vragenlijst kon niet geladen worden',
   back: 'Terug',
@@ -240,6 +241,7 @@ const en: Dict = {
     until: 'to',
     status: { gepland: 'New – please confirm', bevestigd: 'Confirmed', bezig: 'In progress', klaar: 'Done', geannuleerd: 'Cancelled' },
   },
+  visits: 'Who is coming when',
   surveyLoadErr: 'The questionnaire could not be loaded',
   back: 'Back',
   backArrow: '← Back',
@@ -360,6 +362,7 @@ const de: Dict = {
     until: 'bis',
     status: { gepland: 'Neu – bitte bestätigen', bevestigd: 'Bestätigt', bezig: 'In Arbeit', klaar: 'Fertig', geannuleerd: 'Storniert' },
   },
+  visits: 'Wer kommt wann',
   surveyLoadErr: 'Der Fragebogen konnte nicht geladen werden',
   back: 'Zurück',
   backArrow: '← Zurück',

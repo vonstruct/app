@@ -118,7 +118,7 @@ export function Agenda() {
 
   type JobRow = Job & { subcontractors: { name: string } | null; partners: { name: string } | null }
   const jobEv = (j: JobRow): Ev => ({
-    id: 'j:' + j.id, source: 'job', job: j, title: `${j.subcontractors?.name ?? j.partners?.name ?? 'Opdracht'}: ${j.title}`,
+    id: 'j:' + j.id, source: 'job', job: j, title: j.for_me ? j.title : `${j.subcontractors?.name ?? j.partners?.name ?? 'Opdracht'}: ${j.title}`,
     start: j.start_at, end: j.end_at, all_day: j.slot === 'dag', location: j.address, notes: j.instructions, project_code: j.project_code,
     customer: j.contact_name || j.contact_phone ? { name: j.contact_name ?? undefined, phone: j.contact_phone ?? undefined } : null,
   })
@@ -156,7 +156,7 @@ export function Agenda() {
   const classify = useCallback((e: Ev): Cat => {
     const n = notes[keyOf(e)]
     if (n?.category) return n.category
-    if (e.source === 'job') return e.job?.partner_id ? 'partner' : 'onderaannemer'
+    if (e.source === 'job') return e.job?.for_me ? 'mezelf' : e.job?.partner_id ? 'partner' : 'onderaannemer'
     if (e.source === 'planning') return 'project'
     if (e.source === 'bookings') return 'klant'
     const cats = norm((e.categories ?? []).join(' '))

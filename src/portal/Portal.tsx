@@ -75,6 +75,11 @@ export function Portal({ role, preview = false }: { role: PortalRole; preview?: 
 function ClientProjects({ preview, lang, onSurvey }: { preview: boolean; lang: Lang; onSurvey: (code: string) => void }) {
   const t = tr(lang)
   const [rows, setRows] = useState<Project[] | null>(null)
+  const [visits, setVisits] = useState<Visit[]>([])
+  useEffect(() => {
+    if (preview) { const d = new Date(); d.setDate(d.getDate() + 3); return setVisits([{ id: 'v', project_code: '209901', title: 'Keuken plaatsen', job_type: 'Nieuwbouw', slot: 'dag', start_at: d.toISOString(), end_at: new Date(d.getTime() + 86400000).toISOString(), status: 'bevestigd', who: 'Vonstruct' }]) }
+    supabase.rpc('portal_client_visits').then(({ data }) => setVisits((data as Visit[]) ?? []))
+  }, [preview])
   useEffect(() => {
     if (preview) return setRows([{ project_code: '209901', title: 'Keuken en berging', phase: 'design', target_install_week: null, site_city: 'Geel', survey_status: 'submitted' }])
     supabase.rpc('portal_my_projects').then(({ data }) => setRows((data as Project[]) ?? []))
@@ -109,6 +114,7 @@ function ClientProjects({ preview, lang, onSurvey }: { preview: boolean; lang: L
                 </li>
               ))}
             </ol>
+            <Visits list={visits.filter((v) => v.project_code === p.project_code)} lang={lang} />
             {p.target_install_week && <p className="muted">{t.plannedInstall(p.target_install_week)}</p>}
             {p.survey_status !== 'submitted' ? (
               <div className="portal-todo">
@@ -126,6 +132,35 @@ function ClientProjects({ preview, lang, onSurvey }: { preview: boolean; lang: L
           </article>
         )
       })}
+    </div>
+  )
+}
+
+type Visit = { id: string; project_code: string; title: string; job_type: string | null; slot: string | null; start_at: string; end_at: string; status: string; who: string | null }
+
+/** Klant: wie komt wanneer (datum, dagdeel of uur, wie, wat). */
+function Visits({ list, lang }: { list: Visit[]; lang: Lang }) {
+  const t = tr(lang)
+  if (!list.length) return null
+  const loc = lang === 'en' ? 'en-GB' : lang === 'de' ? 'de-BE' : 'nl-BE'
+  const d = (x: Date) => x.toLocaleDateString(loc, { weekday: 'long', day: 'numeric', month: 'long' })
+  const tm = (x: Date) => x.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit' })
+  return (
+    <div className="visits">
+      <strong>{t.visits}</strong>
+      <ul>
+        {list.map((v) => {
+          const s = new Date(v.start_at), e = new Date(v.end_at)
+          const when = v.slot ? (s.toDateString() === e.toDateString() ? `${d(s)} · ${t.jobs.slots[v.slot]}` : `${d(s)} ${t.jobs.until} ${d(e)}`) : `${d(s)} · ${tm(s)}–${tm(e)}`
+          const done = v.status === 'klaar'
+          return (
+            <li key={v.id} className={done ? 'done' : ''}>
+              <span className="visits-when">{done ? '✓ ' : ''}{when}</span>
+              <span>{v.who ? <strong>{v.who}</strong> : null}{v.who ? ' · ' : ''}{v.title}{v.job_type ? ` (${t.jobs.types[v.job_type] ?? v.job_type})` : ''}</span>
+            </li>
+          )
+        })}
+      </ul>
     </div>
   )
 }

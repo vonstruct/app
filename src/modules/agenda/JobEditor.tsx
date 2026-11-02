@@ -19,12 +19,14 @@ export type Job = {
   status: 'gepland' | 'bevestigd' | 'bezig' | 'klaar' | 'geannuleerd'
   job_type: 'Herstelling' | 'Renovatie' | 'Nieuwbouw' | null
   slot: Slot | null
+  for_me: boolean
+  show_client: boolean
   sub_note: string | null
   confirmed_at: string | null
   done_at: string | null
 }
 export type JobDraft = Partial<Job> & { title?: string; start_at?: string; end_at?: string }
-type Who = { key: string; kind: 'onderaannemer' | 'partner'; id: string; name: string; email: string | null; phone: string | null; contact: string | null }
+type Who = { key: string; kind: 'onderaannemer' | 'partner' | 'mezelf'; id: string; name: string; email: string | null; phone: string | null; contact: string | null }
 type P = { project_code: string; title: string | null; site_street: string | null; site_postal_code: string | null; site_city: string | null; clients: { first_name: string | null; last_name: string | null; phone: string | null } | null }
 
 export type Slot = 'dag' | 'voormiddag' | 'namiddag'
@@ -65,7 +67,7 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
   const [projects, setProjects] = useState<P[]>([])
   const [j, setJ] = useState<JobDraft>(() => {
     const s = draft.start_at ?? new Date(new Date().setHours(8, 0, 0, 0)).toISOString()
-    return { status: 'gepland', ...draft, start_at: s, end_at: draft.end_at ?? new Date(new Date(s).getTime() + 4 * 3600000).toISOString() }
+    return { status: 'gepland', show_client: true, ...draft, start_at: s, end_at: draft.end_at ?? new Date(new Date(s).getTime() + 4 * 3600000).toISOString() }
   })
   const [files, setFiles] = useState<{ name: string; path: string; url?: string; werf: boolean }[]>([])
   const [pending, setPending] = useState<File[]>([])
@@ -82,7 +84,7 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
       supabase.from('projects').select('project_code,title,site_street,site_postal_code,site_city,clients(first_name,last_name,phone)').order('project_code', { ascending: false }),
       supabase.from('message_templates').select('key,body').eq('lang', 'nl').in('key', ['opdracht', 'opdracht_gewijzigd']),
     ]).then(([s, p, pr, t]) => {
-      const out: Who[] = []
+      const out: Who[] = [{ key: 'me', kind: 'mezelf', id: '', name: 'Mezelf (Vonstruct)', email: null, phone: null, contact: null }]
       for (const r of (s.data ?? []) as { id: string; name: string; email: string | null; phone: string | null; contact_person: string | null; trade: string | null }[]) out.push({ key: 's:' + r.id, kind: 'onderaannemer', id: r.id, name: r.trade ? `${r.name} (${r.trade})` : r.name, email: r.email, phone: r.phone, contact: r.contact_person })
       for (const r of (p.data ?? []) as { id: string; name: string; email: string | null; phone: string | null; contact_person: string | null }[]) out.push({ key: 'p:' + r.id, kind: 'partner', id: r.id, name: r.name, email: r.email, phone: r.phone, contact: r.contact_person })
       setWho(out)
@@ -102,7 +104,7 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
   }
   useEffect(() => { if (j.id) loadFiles(j.id) }, [j.id])
 
-  const assignee = who.find((w) => (j.subcontractor_id && w.key === 's:' + j.subcontractor_id) || (j.partner_id && w.key === 'p:' + j.partner_id))
+  const assignee = who.find((w) => (j.for_me && w.key === 'me') || (j.subcontractor_id && w.key === 's:' + j.subcontractor_id) || (j.partner_id && w.key === 'p:' + j.partner_id))
   const set = (patch: Partial<Job>) => setJ((x) => ({ ...x, ...patch }))
   const pickProject = (code: string) => {
     const p = projects.find((x) => x.project_code === code)
@@ -123,11 +125,11 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
   const save = async () => {
     if (!j.title?.trim()) return setErr('Geef de opdracht een omschrijving (bv. "Keuken plaatsen").')
     if (!assignee) return setErr('Kies voor wie de opdracht is.')
-    if (!assignee.email) return setErr(`${assignee.name} heeft nog geen e-mailadres. Zonder e-mailadres kan hij/zij niet inloggen op het portaal. Vul het eerst in bij Relaties.`)
+    if (assignee.kind !== 'mezelf' && !assignee.email) return setErr(`${assignee.name} heeft nog geen e-mailadres. Zonder e-mailadres kan hij/zij niet inloggen op het portaal. Vul het eerst in bij Relaties.`)
     if (new Date(j.end_at!) <= new Date(j.start_at!)) return setErr('Het einde ligt voor het begin.')
     setBusy(true); setErr(null)
     const row = {
-      project_code: j.project_code || null, subcontractor_id: assignee.kind === 'onderaannemer' ? assignee.id : null, partner_id: assignee.kind === 'partner' ? assignee.id : null,
+      project_code: j.project_code || null, for_me: assignee.kind === 'mezelf', show_client: j.show_client ?? true, subcontractor_id: assignee.kind === 'onderaannemer' ? assignee.id : null, partner_id: assignee.kind === 'partner' ? assignee.id : null,
       title: j.title.trim(), start_at: j.start_at, end_at: j.end_at, address: j.address || null, contact_name: j.contact_name || null, contact_phone: j.contact_phone || null,
       instructions: j.instructions || null, status: j.status ?? 'gepland', job_type: j.job_type || null, slot: j.slot || null, updated_at: new Date().toISOString(),
     }
@@ -152,8 +154,9 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
       .replaceAll('{adres}', saved.address ? `${saved.address}\nRoute: https://waze.com/ul?q=${encodeURIComponent(saved.address)}&navigate=yes` : '—')
       .replaceAll('{contact}', [saved.contact_name, saved.contact_phone].filter(Boolean).join(', ') || '—')
       .replaceAll('{link}', LINK)
-    setSent({ text: body, to: assignee })
     onSaved()
+    if (assignee.kind === 'mezelf') return onClose()
+    setSent({ text: body, to: assignee })
   }
   const [upBusy, setUpBusy] = useState(0)
   const uploadNow = async (list: File[]) => {
@@ -202,12 +205,13 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
             {j.confirmed_at && <p className="muted small">Bevestigd op {new Date(j.confirmed_at).toLocaleString('nl-BE')}{j.done_at ? ` · klaar gemeld op ${new Date(j.done_at).toLocaleString('nl-BE')}` : ''}</p>}
             <div className="form-grid agenda-form">
               <label>Voor
-                <select value={assignee?.key ?? ''} onChange={(e) => { const w = who.find((x) => x.key === e.target.value); set({ subcontractor_id: w?.kind === 'onderaannemer' ? w.id : null, partner_id: w?.kind === 'partner' ? w.id : null }) }}>
+                <select value={assignee?.key ?? ''} onChange={(e) => { const w = who.find((x) => x.key === e.target.value); set({ for_me: w?.kind === 'mezelf', subcontractor_id: w?.kind === 'onderaannemer' ? w.id : null, partner_id: w?.kind === 'partner' ? w.id : null }) }}>
                   <option value="">— kies —</option>
+                  <option value="me">Mezelf (Vonstruct)</option>
                   <optgroup label="Onderaannemers">{who.filter((w) => w.kind === 'onderaannemer').map((w) => <option key={w.key} value={w.key}>{w.name}</option>)}</optgroup>
                   <optgroup label="Partners">{who.filter((w) => w.kind === 'partner').map((w) => <option key={w.key} value={w.key}>{w.name}</option>)}</optgroup>
                 </select>
-                {assignee && !assignee.email && <small className="addr-bad">⚠ Geen e-mailadres. <Link to={`/relaties?tab=${assignee.kind === 'partner' ? 'partners' : 'onderaannemers'}&focus=${assignee.id}:email`} onClick={onClose}>Invullen bij Relaties</Link></small>}
+                {assignee && assignee.kind !== 'mezelf' && !assignee.email && <small className="addr-bad">⚠ Geen e-mailadres. <Link to={`/relaties?tab=${assignee.kind === 'partner' ? 'partners' : 'onderaannemers'}&focus=${assignee.id}:email`} onClick={onClose}>Invullen bij Relaties</Link></small>}
               </label>
               <label>Project
                 <select value={j.project_code ?? ''} onChange={(e) => pickProject(e.target.value)}>
@@ -232,6 +236,10 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
                   <option value="">—</option>
                   {JOB_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
+              </label>
+              <label className="wide check">
+                <input type="checkbox" checked={j.show_client ?? true} onChange={(e) => set({ show_client: e.target.checked })} disabled={!j.project_code} />
+                {' '}Klant ziet dit in zijn portaal: datum, {assignee?.kind === 'mezelf' ? 'Vonstruct' : 'wie er komt'} en het werk (zonder instructies){!j.project_code && ' – kies eerst een project'}
               </label>
               <AddressFields value={j.address ?? null} onChange={(v) => set({ address: v })} />
               <label>Contact ter plaatse<input value={j.contact_name ?? ''} onChange={(e) => set({ contact_name: e.target.value })} /></label>
