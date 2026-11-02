@@ -41,6 +41,7 @@ export function ControlTower() {
       case 'survey_nieuw': return { to: `${proj}?focus=survey`, label: 'Vragenlijst bekijken' }
       case 'survey_open': return { to: `${proj}?focus=survey`, label: 'Klant contacteren' }
       case 'leverancier': return { to: '/regels', label: 'Regels bekijken' }
+      case 'aanvraag_nieuw': return { to: proj, label: 'Aanvraag openen' }
       case 'opdracht': return { to: `/opdrachten?focus=${f.ref}`, label: 'Opdracht bekijken' }
       default: return { to: proj, label: 'Openen' }
     }

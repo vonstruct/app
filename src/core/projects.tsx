@@ -137,6 +137,7 @@ export function ProjectCard({ p, phases, onSaved, planning }: { p: ProjectRow; p
           <Link to={href} className="pcard-code">
             {p.project_code}
           </Link>
+          {p.phase === 'lead' && <span className="pcard-new">Nieuwe aanvraag</span>}
           <h3>
             <Link to={href}>{p.title || p.scene_title || 'Zonder titel'}</Link>
           </h3>
