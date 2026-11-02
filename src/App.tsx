@@ -1,10 +1,13 @@
 import { HashRouter, Navigate, Route, Routes } from 'react-router'
 import { AuthGate } from './core/auth'
+import { InstallPrompt } from './core/InstallPrompt'
 import { Layout } from './core/Layout'
 import { modules } from './modules/registry'
 
 export default function App() {
   return (
+    <>
+    <InstallPrompt />
     <AuthGate>
       <HashRouter>
         <Routes>
@@ -15,5 +18,6 @@ export default function App() {
         </Routes>
       </HashRouter>
     </AuthGate>
+    </>
   )
 }

@@ -688,3 +688,18 @@ a.action-btn.primary { background: #16233a; color: #f3e3a0; border-color: #16233
 .mail-side { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
 @media (max-width: 1100px) { .ct2 .ct-grid { grid-template-columns: 1fr; } .ct-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 620px) { .ct-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ct-item { grid-template-columns: 24px minmax(0, 1fr); } .ct-side { grid-column: 2; align-items: flex-start; flex-direction: row; gap: 10px; } .mail-row { grid-template-columns: 1fr; } .mail-side { align-items: flex-start; } }
+
+/* Installeren op de gsm */
+.install-prompt { position: fixed; left: 12px; right: 12px; bottom: calc(14px + env(safe-area-inset-bottom)); z-index: 1000; display: flex; gap: 12px; align-items: flex-start;
+  padding: 14px; border-radius: 14px; color: #f4f1ea; background: linear-gradient(165deg, #16233a, #05070c); border: 1px solid rgba(201, 162, 74, .45);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .35); font-size: 14px; line-height: 1.4; max-width: 460px; margin: 0 auto; animation: install-in .35s ease-out; }
+.install-prompt img { width: 48px; height: 48px; border-radius: 11px; flex: none; }
+.install-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.install-text strong { font-size: 15px; }
+.install-share { color: #f3e3a0; white-space: nowrap; }
+.install-actions { display: flex; gap: 8px; margin-top: 6px; }
+.install-actions button { border-radius: 8px; padding: 7px 14px; font-size: 14px; cursor: pointer; }
+.install-go { background: linear-gradient(90deg, #f3e3a0, #c9a24a); color: #0d1626; border: 0; font-weight: 600; }
+.install-later { background: transparent; color: #cfd6e2; border: 1px solid rgba(255, 255, 255, .25); }
+.install-arrow { position: absolute; bottom: -16px; left: 50%; transform: translateX(-50%); color: #c9a24a; font-size: 14px; }
+@keyframes install-in { from { transform: translateY(20px); opacity: 0 } to { transform: none; opacity: 1 } }
