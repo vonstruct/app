@@ -57,8 +57,11 @@ function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   // Geen zelfregistratie: klanten, partners en medewerkers krijgen een uitnodiging per mail.
-  const [mode, setMode] = useState<'pw' | 'link'>('pw')
-  const [msg, setMsg] = useState<{ text: string; error: boolean } | null>(null)
+  const linkError = (() => { try { const h = sessionStorage.getItem('authLinkError'); sessionStorage.removeItem('authLinkError'); return h } catch { return null } })()
+  const [mode, setMode] = useState<'pw' | 'link'>(linkError ? 'link' : 'pw')
+  const [msg, setMsg] = useState<{ text: string; error: boolean } | null>(
+    linkError ? { error: true, text: 'Deze inloglink is al gebruikt of verlopen (een link werkt maar één keer). Vul je e-mailadres in, dan krijg je meteen een nieuwe.' } : null,
+  )
   const [busy, setBusy] = useState(false)
   const [showPw, setShowPw] = useState(false)
   const redirectTo = window.location.origin + window.location.pathname

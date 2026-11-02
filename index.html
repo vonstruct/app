@@ -8,6 +8,10 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // foutmelding van een inloglink (bv. al gebruikt of verlopen) bewaren voor het loginscherm
+      if (/error_code=|error_description=/.test(location.hash)) sessionStorage.setItem("authLinkError", location.hash)
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
