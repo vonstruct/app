@@ -42,7 +42,7 @@ export type Job = {
 }
 export type JobDraft = Partial<Job> & { title?: string; start_at?: string; end_at?: string }
 type Who = { key: string; kind: 'onderaannemer' | 'partner' | 'mezelf'; id: string; name: string; email: string | null; phone: string | null; contact: string | null }
-type P = { project_code: string; title: string | null; site_street: string | null; site_postal_code: string | null; site_city: string | null; clients: { first_name: string | null; last_name: string | null; phone: string | null } | null }
+type P = { project_code: string; title: string | null; site_street: string | null; site_postal_code: string | null; site_city: string | null; clients: { first_name: string | null; last_name: string | null; phone: string | null; email: string | null } | null }
 
 export type Slot = 'dag' | 'voormiddag' | 'namiddag'
 /** Vaste uren per dagdeel. */
@@ -82,7 +82,7 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
   const [projects, setProjects] = useState<P[]>([])
   const [j, setJ] = useState<JobDraft>(() => {
     const s = draft.start_at ?? new Date(new Date().setHours(8, 0, 0, 0)).toISOString()
-    return { status: 'gepland', show_client: true, notify_client: true, ...draft, start_at: s, end_at: draft.end_at ?? new Date(new Date(s).getTime() + 4 * 3600000).toISOString() }
+    return { status: 'gepland', show_client: true, notify_client: false, ...draft, start_at: s, end_at: draft.end_at ?? new Date(new Date(s).getTime() + 4 * 3600000).toISOString() }
   })
   const [files, setFiles] = useState<{ name: string; path: string; url?: string; werf: boolean }[]>([])
   const [pending, setPending] = useState<File[]>([])
@@ -109,7 +109,7 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
     Promise.all([
       supabase.from('subcontractors').select('id,name,email,phone,contact_person,trade,active').order('name'),
       supabase.from('partners').select('id,name,email,phone,contact_person,active').order('name'),
-      supabase.from('projects').select('project_code,title,site_street,site_postal_code,site_city,clients(first_name,last_name,phone)').order('project_code', { ascending: false }),
+      supabase.from('projects').select('project_code,title,site_street,site_postal_code,site_city,clients(first_name,last_name,phone,email)').order('project_code', { ascending: false }),
       supabase.from('message_templates').select('key,body').eq('lang', 'nl').in('key', ['opdracht', 'opdracht_gewijzigd']),
     ]).then(([s, p, pr, t]) => {
       const out: Who[] = [{ key: 'me', kind: 'mezelf', id: '', name: 'Mezelf (Vonstruct)', email: null, phone: null, contact: null }]
@@ -295,7 +295,7 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
               </label>
               <label className="wide check">
                 <input type="checkbox" checked={!!j.notify_client && (j.show_client ?? true)} onChange={(e) => set({ notify_client: e.target.checked })} disabled={!j.project_code || !(j.show_client ?? true)} />
-                {' '}Klant in de loop: klant krijgt mails (in zijn taal) en moet het moment ook bevestigen; hij kan zelf een ander moment voorstellen
+                {' '}Klant in de loop: klant krijgt mails (in zijn taal) en moet het moment ook bevestigen; hij kan zelf een ander moment voorstellen{(() => { const e = projects.find((p) => p.project_code === j.project_code)?.clients?.email; return e ? <b className="addr-bad"> → mails gaan naar {e}</b> : null })()}
               </label>
               <AddressFields value={j.address ?? null} onChange={(v) => set({ address: v })} />
               <label>Contact ter plaatse<input value={j.contact_name ?? ''} onChange={(e) => set({ contact_name: e.target.value })} /></label>
