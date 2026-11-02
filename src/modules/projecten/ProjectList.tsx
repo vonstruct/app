@@ -1,49 +1,48 @@
-import { Link } from 'react-router'
-import { supabase } from '../../core/supabase'
-import { useQuery } from '../../core/useQuery'
-import { DataTable } from '../../core/DataTable'
+import { useState } from 'react'
 import { ErrorBox, Loading } from '../../core/ui'
-import { fmtDate, fmtInt } from '../../core/format'
+import { ProjectCard, usePhases, useProjects } from '../../core/projects'
 
-type Row = {
-  project_code: string
-  project_title: string | null
-  customer: string | null
-  scene_title: string | null
-  n_versions: number
-  last_version: number
-  last_received: string
-  n_cabinets: number
-  n_parts: number
-  n_errors: number
-  n_warnings: number
-}
+type Filter = 'lopend' | 'alle' | 'afgesloten'
 
 export function ProjectList() {
-  const q = useQuery<Row[]>(() => supabase.from('app_project_overview').select('*').order('last_received', { ascending: false }), [])
+  const q = useProjects()
+  const ph = usePhases()
+  const [filter, setFilter] = useState<Filter>('lopend')
+  const [search, setSearch] = useState('')
+  const all = q.data ?? []
+  const needle = search.trim().toLowerCase()
+  const rows = all
+    .filter((p) => (filter === 'alle' ? true : filter === 'lopend' ? p.phase_active !== false : p.phase_active === false))
+    .filter((p) => !needle || [p.project_code, p.title, p.client_name, p.site_city, p.scene_title].some((v) => (v ?? '').toLowerCase().includes(needle)))
+  const count = (f: Filter) => all.filter((p) => (f === 'alle' ? true : f === 'lopend' ? p.phase_active !== false : p.phase_active === false)).length
+
   return (
     <section>
-      <h1>Projecten</h1>
-      <p className="muted">Elke klik op Supabase in de stuklijst Vonstruct_Export maakt een nieuwe versie.</p>
-      <ErrorBox error={q.error} />
-      {q.loading ? (
+      <div className="page-head">
+        <div>
+          <h1>Projecten</h1>
+          <p className="muted">Elke upload uit PaletteCAD (knop Supabase) maakt een nieuwe versie. Een nieuw project en de klant worden automatisch aangemaakt.</p>
+        </div>
+        <input className="search-input" placeholder="Zoek op code, klant, gemeente…" value={search} onChange={(e) => setSearch(e.target.value)} />
+      </div>
+      <div className="segmented">
+        {(['lopend', 'alle', 'afgesloten'] as Filter[]).map((f) => (
+          <button key={f} className={f === filter ? 'on' : ''} onClick={() => setFilter(f)}>
+            {f === 'lopend' ? 'Lopend' : f === 'alle' ? 'Alle' : 'Afgesloten'} <span>{count(f)}</span>
+          </button>
+        ))}
+      </div>
+      <ErrorBox error={q.error ?? ph.error} />
+      {q.loading || ph.loading ? (
         <Loading />
+      ) : rows.length === 0 ? (
+        <p className="muted">Geen projecten.</p>
       ) : (
-        <DataTable
-          rows={q.data ?? []}
-          rowKey={(r) => r.project_code}
-          empty="Nog geen exports"
-          columns={[
-            { key: 'project_code', label: 'Project', render: (r) => <Link to={`/projecten/${encodeURIComponent(r.project_code)}`}>{r.project_code}</Link> },
-            { key: 'customer', label: 'Klant' },
-            { key: 'scene_title', label: 'Tekening' },
-            { key: 'last_version', label: 'Laatste versie', align: 'right', render: (r) => <Link to={`/projecten/${encodeURIComponent(r.project_code)}/v/${r.last_version}`}>v{r.last_version}</Link> },
-            { key: 'last_received', label: 'Ontvangen', render: (r) => fmtDate(r.last_received) },
-            { key: 'n_cabinets', label: 'Kasten', align: 'right', render: (r) => fmtInt(r.n_cabinets) },
-            { key: 'n_parts', label: 'Onderdelen', align: 'right', render: (r) => fmtInt(r.n_parts) },
-            { key: 'n_errors', label: 'Fouten', align: 'right', render: (r) => (r.n_errors ? <span className="badge bad">{r.n_errors}</span> : '0') },
-          ]}
-        />
+        <div className="pcards">
+          {rows.map((p) => (
+            <ProjectCard key={p.project_id} p={p} phases={ph.data ?? []} onSaved={q.reload} />
+          ))}
+        </div>
       )}
     </section>
   )

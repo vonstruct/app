@@ -6,6 +6,7 @@ import { DataTable } from '../../core/DataTable'
 import { ErrorBox, Loading } from '../../core/ui'
 import { fmtDate, fmtInt } from '../../core/format'
 import { Compare } from './Compare'
+import { ProjectCard, usePhases, type ProjectRow } from '../../core/projects'
 
 export type Version = {
   id: string
@@ -30,6 +31,9 @@ export function ProjectDetail() {
         .order('version', { ascending: false }),
     [code],
   )
+  const pq = useQuery<ProjectRow[]>(() => supabase.from('app_projects').select('*').eq('project_code', code), [code])
+  const ph = usePhases()
+  const project = pq.data?.[0]
   const versions = q.data ?? []
   const [a, setA] = useState<number | null>(null)
   const [b, setB] = useState<number | null>(null)
@@ -42,7 +46,12 @@ export function ProjectDetail() {
         <Link to="/projecten">Projecten</Link> / {code}
       </p>
       <h1>Project {code}</h1>
-      <ErrorBox error={q.error} />
+      <ErrorBox error={q.error ?? pq.error} />
+      {project && ph.data && (
+        <div className="pcard-wide">
+          <ProjectCard p={project} phases={ph.data} onSaved={pq.reload} />
+        </div>
+      )}
       {q.loading ? (
         <Loading />
       ) : (
