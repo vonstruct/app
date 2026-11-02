@@ -36,29 +36,34 @@ export function AuthGate({ children }: { children: ReactNode }) {
 function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [mode, setMode] = useState<'in' | 'up'>('in')
+  // Geen zelfregistratie: klanten, partners en medewerkers krijgen een uitnodiging per mail.
+  const [mode, setMode] = useState<'pw' | 'link'>('pw')
   const [msg, setMsg] = useState<{ text: string; error: boolean } | null>(null)
   const [busy, setBusy] = useState(false)
   const [showPw, setShowPw] = useState(false)
+  const redirectTo = window.location.origin + window.location.pathname
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setBusy(true)
     setMsg(null)
-    if (mode === 'in') {
+    if (mode === 'pw') {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) setMsg({ error: true, text: error.message === 'Invalid login credentials' ? 'E-mail of wachtwoord klopt niet.' : error.message })
     } else {
-      const { error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin + window.location.pathname } })
-      setMsg(error ? { error: true, text: error.message } : { error: false, text: 'Account aangemaakt. Bevestig via de link in je mailbox en meld je daarna hier aan.' })
-      if (!error) setMode('in')
+      const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: redirectTo } })
+      setMsg(
+        error
+          ? { error: true, text: error.message.includes('Signups not allowed') ? 'Dit e-mailadres is niet bij ons gekend. Neem contact op met Vonstruct.' : error.message }
+          : { error: false, text: `We stuurden een inloglink naar ${email}. Open de mail op dit toestel.` },
+      )
     }
     setBusy(false)
   }
 
   const reset = async () => {
     if (!email) return setMsg({ error: true, text: 'Vul eerst je e-mailadres in.' })
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + window.location.pathname })
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo })
     setMsg(error ? { error: true, text: error.message } : { error: false, text: 'Je krijgt een mail om je wachtwoord opnieuw in te stellen.' })
   }
 
@@ -90,60 +95,60 @@ function Login() {
           <span className="auth-tagline">Custom interiors</span>
         </div>
         <div className="auth-hero-text" aria-hidden="true">
-          <h1>Van ontwerp tot stuklijst.</h1>
-          <p>Projecten, versies, kosten en regels — op één plek.</p>
+          <h1>Maatwerk, van eerste schets tot plaatsing.</h1>
+          <p>Je ontwerpen, afspraken en planning — altijd op één plek.</p>
         </div>
       </aside>
 
       <main className="auth-main">
         <form className="auth-form" onSubmit={submit}>
           <header>
-            <h2>{mode === 'in' ? 'Welkom terug' : 'Account aanmaken'}</h2>
-            <p className="muted">{mode === 'in' ? 'Meld je aan om verder te gaan.' : 'Maak een account aan met je werkadres.'}</p>
+            <h2>Welkom</h2>
+            <p className="muted">{mode === 'pw' ? 'Meld je aan met je e-mailadres en wachtwoord.' : 'We mailen je een link om meteen in te loggen.'}</p>
           </header>
 
           <label className="auth-field">
             <span>E-mail</span>
-            <input type="email" autoComplete="username" placeholder="naam@bedrijf.be" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
+            <input type="email" autoComplete="username" placeholder="naam@voorbeeld.be" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
           </label>
 
-          <label className="auth-field">
-            <span className="auth-field-head">
-              Wachtwoord
-              {mode === 'in' && (
+          {mode === 'pw' && (
+            <label className="auth-field">
+              <span className="auth-field-head">
+                Wachtwoord
                 <button type="button" className="link" onClick={reset}>
                   Vergeten?
                 </button>
-              )}
-            </span>
-            <span className="auth-pw">
-              <input
-                type={showPw ? 'text' : 'password'}
-                autoComplete={mode === 'in' ? 'current-password' : 'new-password'}
-                minLength={8}
-                placeholder={mode === 'up' ? 'Minstens 8 tekens' : '••••••••'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-              <button type="button" className="auth-eye" onClick={() => setShowPw(!showPw)} aria-label={showPw ? 'Wachtwoord verbergen' : 'Wachtwoord tonen'}>
-                {showPw ? 'Verberg' : 'Toon'}
-              </button>
-            </span>
-          </label>
+              </span>
+              <span className="auth-pw">
+                <input
+                  type={showPw ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+                <button type="button" className="auth-eye" onClick={() => setShowPw(!showPw)} aria-label={showPw ? 'Wachtwoord verbergen' : 'Wachtwoord tonen'}>
+                  {showPw ? 'Verberg' : 'Toon'}
+                </button>
+              </span>
+            </label>
+          )}
 
           {msg && <p className={msg.error ? 'auth-msg error' : 'auth-msg'} role="status">{msg.text}</p>}
 
           <button type="submit" className="primary auth-submit" disabled={busy}>
-            {busy ? <span className="auth-spinner" aria-label="Bezig" /> : mode === 'in' ? 'Aanmelden' : 'Account aanmaken'}
+            {busy ? <span className="auth-spinner" aria-label="Bezig" /> : mode === 'pw' ? 'Aanmelden' : 'Stuur inloglink'}
           </button>
 
-          <p className="auth-switch muted">
-            {mode === 'in' ? 'Eerste keer hier?' : 'Al een account?'}{' '}
-            <button type="button" className="link" onClick={() => { setMode(mode === 'in' ? 'up' : 'in'); setMsg(null) }}>
-              {mode === 'in' ? 'Account aanmaken' : 'Aanmelden'}
-            </button>
-          </p>
+          <div className="auth-or"><span>of</span></div>
+
+          <button type="button" className="auth-alt" onClick={() => { setMode(mode === 'pw' ? 'link' : 'pw'); setMsg(null) }}>
+            {mode === 'pw' ? 'Inloggen met een link per mail' : 'Inloggen met wachtwoord'}
+          </button>
+
+          <p className="auth-switch muted">Nog geen toegang? Je ontvangt een uitnodiging van Vonstruct zodra je project start.</p>
         </form>
         <footer className="auth-foot muted">© {new Date().getFullYear()} Vonstruct</footer>
       </main>
