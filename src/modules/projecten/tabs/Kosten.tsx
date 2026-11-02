@@ -5,6 +5,7 @@ import { useQuery } from '../../../core/useQuery'
 import { ErrorBox, Loading } from '../../../core/ui'
 import { fmtEur, fmtNum } from '../../../core/format'
 import { OwnArticleEditor } from '../../../core/OwnArticle'
+import { ItemWhere } from '../../../core/ItemWhere'
 
 type Line = { id: string; category: string; subgroup: string | null; sort: number; description: string; supplier: string | null; article_no: string | null; qty: number | null; unit: string | null; unit_price: number | null; total: number; ordered_by: string | null; note: string | null }
 type Status = { cost_status: string | null; cost_at: string | null }
@@ -79,7 +80,7 @@ export function Kosten({ dvId }: { dvId: string }) {
             <tbody>
               {lines.filter((l) => l.note?.startsWith('prijs ontbreekt')).map((l) => (
                 <tr key={l.id}>
-                  <td>{l.description}</td><td>{l.supplier}</td><td>{l.article_no}</td>
+                  <td>{l.description} <ItemWhere dvId={dvId} name={l.description} /></td><td>{l.supplier}</td><td>{l.article_no}</td>
                   <td className="num">{l.qty == null ? '' : `${fmtNum(l.qty, 2)}${l.unit ? ' ' + l.unit : ''}`}</td>
                   <td><OwnArticleEditor articleNo={l.article_no} description={l.description} supplier={l.supplier} onSaved={onSaved} /></td>
                 </tr>
@@ -111,7 +112,7 @@ export function Kosten({ dvId }: { dvId: string }) {
                       )}
                       {ls.filter((l) => (l.subgroup ?? '') === s).map((l) => (
                         <tr key={l.id}>
-                          <td>{l.description}</td>
+                          <td>{l.description}{!['Platen', 'Kanten', 'Productiekosten'].includes(l.category) && <> <ItemWhere dvId={dvId} name={l.description} /></>}</td>
                           <td>{l.supplier}</td>
                           <td>{l.article_no}</td>
                           <td className="num">{l.qty == null ? '' : `${fmtNum(l.qty, 2)}${l.unit ? ' ' + l.unit : ''}`}</td>

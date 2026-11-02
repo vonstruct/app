@@ -363,3 +363,11 @@ tr.focus-row .cell:focus { border-color: #c9a24a; }
 .own-editor .price-input { width: 96px; }
 .own-editor button { padding: 4px 12px; }
 .badge.ok { background: color-mix(in srgb, var(--good) 15%, transparent); color: var(--good); }
+.where { position: relative; display: inline-block; }
+.where-btn { font-size: 11px; padding: 1px 7px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); background: var(--panel); margin-left: 4px; }
+.where-btn:hover { border-color: #c9a24a; color: var(--ink); }
+.where-pop { position: absolute; z-index: 20; top: 24px; left: 0; width: 320px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  box-shadow: 0 12px 30px -12px rgba(0,0,0,.35); padding: 12px 14px; font-size: 13px; white-space: normal; }
+.where-pop p { margin: 4px 0 8px; }
+.where-pop table { width: 100%; }
+.where-pop th, .where-pop td { padding: 4px 6px; position: static; }

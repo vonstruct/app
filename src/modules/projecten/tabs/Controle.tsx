@@ -4,6 +4,7 @@ import { useQuery } from '../../../core/useQuery'
 import { DataTable } from '../../../core/DataTable'
 import { ErrorBox, Loading } from '../../../core/ui'
 import { OwnArticleEditor } from '../../../core/OwnArticle'
+import { ItemWhere } from '../../../core/ItemWhere'
 
 type Row = { id: string; level: string; code: string; message: string; cabinet: string | null; part: string | null; resolved: boolean; resolution: string | null }
 
@@ -29,7 +30,7 @@ export function Controle({ dvId }: { dvId: string }) {
         empty="Geen meldingen"
         columns={[
           { key: 'level', label: 'Niveau', render: (r) => r.resolved ? <span className="badge ok">opgelost</span> : <span className={r.level === 'fout' ? 'badge bad' : 'badge warn'}>{r.level}</span> },
-          { key: 'part', label: 'Onderdeel' },
+          { key: 'part', label: 'Onderdeel', render: (r) => r.part ? <>{r.part} {r.code === 'GEEN_ARTIKELNR' && <ItemWhere dvId={dvId} name={r.part} />}</> : null },
           { key: 'cabinet', label: 'Kast' },
           { key: 'message', label: 'Melding', render: (r) => <span className={r.resolved ? 'muted' : undefined}>{r.message}</span> },
           {
