@@ -21,11 +21,26 @@ type Ev = {
   attendees?: number
   project_code?: string | null
   show_as?: string
+  categories?: string[]
+  emails?: string[]
 }
 type Proj = { project_code: string; title: string | null; client_name: string | null; intro_at: string | null; target_install_week: string | null; phase: string }
+type Note = { event_key: string; note: string | null; category: Cat | null; project_code: string | null }
+type Rel = { kind: 'klant' | 'onderaannemer' | 'partner'; name: string; email: string | null }
+
+export type Cat = 'klant' | 'onderaannemer' | 'partner' | 'mezelf' | 'project'
+const CATS: { id: Cat; label: string }[] = [
+  { id: 'klant', label: 'Klanten' },
+  { id: 'onderaannemer', label: 'Onderaannemers' },
+  { id: 'partner', label: 'Partners' },
+  { id: 'mezelf', label: 'Mezelf' },
+  { id: 'project', label: 'Projecten' },
+]
+const CAT_ONE: Record<Cat, string> = { klant: 'Klant', onderaannemer: 'Onderaannemer', partner: 'Partner', mezelf: 'Mezelf', project: 'Project' }
 
 const DAY = 86400000
 const startOfWeek = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x }
+const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x }
 const addDays = (d: Date, n: number) => { const x = new Date(d); x.setDate(x.getDate() + n); return x }
 const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString()
 const hm = (iso: string) => new Date(iso).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })
@@ -37,32 +52,63 @@ const mondayOfWeek = (s: string | null, ref: Date): Date | null => {
   const m = s.match(/^(?:(\d{4})\D*W?)?(\d{1,2})$/i)
   if (!m) return null
   const year = m[1] ? Number(m[1]) : isoWeek(ref).year
-  const jan4 = new Date(year, 0, 4)
-  return addDays(startOfWeek(jan4), (Number(m[2]) - 1) * 7)
+  return addDays(startOfWeek(new Date(year, 0, 4)), (Number(m[2]) - 1) * 7)
 }
 const SRC: Record<Ev['source'], string> = { outlook: 'Outlook', bookings: 'Bookings', planning: 'Planning' }
+const keyOf = (e: Ev) => e.bookings_id ?? e.outlook_id ?? e.id
+const codeIn = (s: string) => s.match(/\b(20\d{4})\b/)?.[1] ?? null
+const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+
+type View = 'dag' | 'week' | 'maand'
 
 export function Agenda() {
-  const [view, setView] = useState<'week' | 'maand'>(() => { try { return localStorage.getItem('agenda.view') === 'maand' ? 'maand' : 'week' } catch { return 'week' } })
+  const [view, setView] = useState<View>(() => { try { const v = localStorage.getItem('agenda.view'); return v === 'maand' || v === 'dag' ? v : 'week' } catch { return 'week' } })
   const [anchor, setAnchor] = useState(() => new Date())
   const [events, setEvents] = useState<Ev[] | null>(null)
   const [upcoming, setUpcoming] = useState<Ev[] | null>(null)
   const [projects, setProjects] = useState<Proj[]>([])
+  const [notes, setNotes] = useState<Record<string, Note>>({})
+  const [rels, setRels] = useState<Rel[]>([])
+  const [hidden, setHidden] = useState<Cat[]>(() => { try { return JSON.parse(localStorage.getItem('agenda.hidden') ?? '[]') } catch { return [] } })
   const [warn, setWarn] = useState<string[]>([])
   const [err, setErr] = useState<string | null>(null)
   const [sel, setSel] = useState<Ev | null>(null)
   const [creating, setCreating] = useState(false)
-  // zichtbare periode: week, of maand als volledige weken (ma–zo)
-  const { from, to, week } = useMemo(() => {
-    if (view === 'week') { const w = startOfWeek(anchor); return { from: w, to: addDays(w, 7), week: w } }
+
+  const { from, to } = useMemo(() => {
+    if (view === 'dag') { const d = startOfDay(anchor); return { from: d, to: addDays(d, 1) } }
+    if (view === 'week') { const w = startOfWeek(anchor); return { from: w, to: addDays(w, 7) } }
     const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1)
     const last = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0)
-    const f = startOfWeek(first)
-    return { from: f, to: addDays(startOfWeek(last), 7), week: f }
+    return { from: startOfWeek(first), to: addDays(startOfWeek(last), 7) }
   }, [view, anchor])
   const days = useMemo(() => Array.from({ length: Math.round((to.getTime() - from.getTime()) / DAY) }, (_, i) => addDays(from, i)), [from, to])
-  const setV = (v: 'week' | 'maand') => { setView(v); try { localStorage.setItem('agenda.view', v) } catch { /* */ } }
-  const step = (n: number) => setAnchor((a) => (view === 'week' ? addDays(a, 7 * n) : new Date(a.getFullYear(), a.getMonth() + n, 1)))
+  const setV = (v: View) => { setView(v); try { localStorage.setItem('agenda.view', v) } catch { /* */ } }
+  const openDay = (d: Date) => { setAnchor(d); setV('dag') }
+  const step = (n: number) => setAnchor((a) => (view === 'dag' ? addDays(a, n) : view === 'week' ? addDays(a, 7 * n) : new Date(a.getFullYear(), a.getMonth() + n, 1)))
+  const toggle = (c: Cat) => setHidden((h) => { const n = h.includes(c) ? h.filter((x) => x !== c) : [...h, c]; try { localStorage.setItem('agenda.hidden', JSON.stringify(n)) } catch { /* */ } return n })
+
+  const loadNotes = useCallback(async () => {
+    const { data } = await supabase.from('agenda_notes').select('event_key,note,category,project_code')
+    setNotes(Object.fromEntries(((data as Note[]) ?? []).map((n) => [n.event_key, n])))
+  }, [])
+  useEffect(() => {
+    loadNotes()
+    Promise.all([
+      supabase.from('clients').select('first_name,last_name,company,email'),
+      supabase.from('partners').select('name,email'),
+      supabase.from('subcontractors').select('name,email'),
+    ]).then(([c, p, s]) => {
+      const out: Rel[] = []
+      for (const r of (c.data ?? []) as { first_name: string | null; last_name: string | null; company: string | null; email: string | null }[]) {
+        const name = [r.first_name, r.last_name].filter(Boolean).join(' ') || r.company || ''
+        out.push({ kind: 'klant', name, email: r.email })
+      }
+      for (const r of (p.data ?? []) as { name: string; email: string | null }[]) out.push({ kind: 'partner', name: r.name, email: r.email })
+      for (const r of (s.data ?? []) as { name: string; email: string | null }[]) out.push({ kind: 'onderaannemer', name: r.name, email: r.email })
+      setRels(out)
+    })
+  }, [loadNotes])
 
   const load = useCallback(async () => {
     setErr(null)
@@ -73,14 +119,36 @@ export function Agenda() {
       supabase.from('app_projects').select('project_code,title,client_name,intro_at,target_install_week,phase'),
       supabase.functions.invoke('agenda', { body: { action: 'list', from: now.toISOString(), to: addDays(now, 45).toISOString() } }),
     ])
-    setUpcoming(up.error ? [] : ((up.data as { events?: Ev[] })?.events ?? []).filter((e) => new Date(e.end) > now && e.show_as !== 'free'))
     setProjects((pr.data as Proj[]) ?? [])
+    setUpcoming(up.error ? [] : ((up.data as { events?: Ev[] })?.events ?? []).filter((e) => new Date(e.end) > now && e.show_as !== 'free'))
     const e = ag.error ? (await (ag.error as { context?: Response }).context?.json?.().catch(() => null))?.error ?? ag.error.message : (ag.data as { error?: string })?.error
     if (e) { setErr(e); setEvents([]); return }
     setEvents((ag.data as { events: Ev[] }).events)
     setWarn((ag.data as { warnings: string[] }).warnings ?? [])
   }, [from, to])
   useEffect(() => { load() }, [load])
+
+  /** Soort afspraak: eigen keuze > planning/Bookings > Outlook-categorie > genodigden > naam in de titel > mezelf. */
+  const classify = useCallback((e: Ev): Cat => {
+    const n = notes[keyOf(e)]
+    if (n?.category) return n.category
+    if (e.source === 'planning') return 'project'
+    if (e.source === 'bookings') return 'klant'
+    const cats = norm((e.categories ?? []).join(' '))
+    if (/onderaannemer|aannemer/.test(cats)) return 'onderaannemer'
+    if (/partner/.test(cats)) return 'partner'
+    if (/klant/.test(cats)) return 'klant'
+    if (/project/.test(cats)) return 'project'
+    if (/prive|mezelf|persoonlijk/.test(cats)) return 'mezelf'
+    const emails = new Set(e.emails ?? [])
+    for (const kind of ['onderaannemer', 'partner', 'klant'] as const) if (rels.some((r) => r.kind === kind && r.email && emails.has(r.email.toLowerCase()))) return kind
+    const t = norm(e.title + ' ' + (e.location ?? ''))
+    for (const kind of ['partner', 'onderaannemer'] as const) if (rels.some((r) => r.kind === kind && r.name.length > 2 && t.includes(norm(r.name)))) return kind
+    if (codeIn(e.title)) return 'project'
+    if (rels.some((r) => r.kind === 'klant' && r.name.length > 3 && t.includes(norm(r.name)))) return 'klant'
+    return 'mezelf'
+  }, [notes, rels])
+  const projectOf = (e: Ev) => notes[keyOf(e)]?.project_code ?? e.project_code ?? codeIn(e.title)
 
   // planning uit de projecten: kennismakingen (als ze niet al uit Bookings komen) en plaatsingsweken
   const planning = useMemo(() => {
@@ -94,19 +162,21 @@ export function Agenda() {
         if (s >= from && s < to) out.push({ id: 'p:i:' + p.project_code, source: 'planning', title: `Kennismaking ${name}`, start: p.intro_at, end: new Date(s.getTime() + 3600000).toISOString(), all_day: false, project_code: p.project_code })
       }
       const mon = mondayOfWeek(p.target_install_week, anchor)
-      if (mon && mon >= from && mon < to) out.push({ id: 'p:w:' + p.project_code, source: 'planning', title: `Plaatsing ${name}`, start: mon.toISOString(), end: addDays(mon, 5).toISOString(), all_day: true, project_code: p.project_code, notes: p.title })
+      if (mon && mon < to && addDays(mon, 5) > from) out.push({ id: 'p:w:' + p.project_code, source: 'planning', title: `Plaatsing ${name}`, start: mon.toISOString(), end: addDays(mon, 5).toISOString(), all_day: true, project_code: p.project_code, notes: p.title })
     }
     return out
   }, [projects, events, from, to, anchor])
 
-  const all = [...(events ?? []), ...planning]
-  const weekItems = view === 'week' ? all.filter((e) => e.source === 'planning' && e.all_day) : []
+  const all = [...(events ?? []), ...planning].filter((e) => !hidden.includes(classify(e))).sort((a, b) => a.start.localeCompare(b.start))
+  const itemsOn = (d: Date) => all.filter((e) => (e.all_day ? new Date(e.start) < addDays(d, 1) && new Date(e.end) > d : sameDay(new Date(e.start), d)))
   const today = new Date()
-  const { week: wn } = isoWeek(week)
-  const label = view === 'week'
-    ? `Week ${wn} · ${week.toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' })} – ${addDays(week, 6).toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', year: 'numeric' })}`
-    : anchor.toLocaleDateString('nl-BE', { month: 'long', year: 'numeric' })
-  const itemsOn = (d: Date) => all.filter((e) => !(view === 'week' && e.source === 'planning' && e.all_day) && (e.all_day ? new Date(e.start) < addDays(d, 1) && new Date(e.end) > d : sameDay(new Date(e.start), d)))
+  const label = view === 'dag'
+    ? anchor.toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    : view === 'week'
+      ? `Week ${isoWeek(from).week} · ${from.toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' })} – ${addDays(from, 6).toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', year: 'numeric' })}`
+      : anchor.toLocaleDateString('nl-BE', { month: 'long', year: 'numeric' })
+  const cls = (e: Ev) => 'cat-' + classify(e)
+  const loading = events === null
 
   return (
     <div className="agenda">
@@ -114,8 +184,7 @@ export function Agenda() {
         <h1>Agenda</h1>
         <div className="toolbar">
           <div className="seg">
-            <button className={view === 'week' ? 'on' : ''} onClick={() => setV('week')}>Week</button>
-            <button className={view === 'maand' ? 'on' : ''} onClick={() => setV('maand')}>Maand</button>
+            {(['dag', 'week', 'maand'] as View[]).map((v) => <button key={v} className={view === v ? 'on' : ''} onClick={() => setV(v)}>{v[0].toUpperCase() + v.slice(1)}</button>)}
           </div>
           <button onClick={() => step(-1)} aria-label="Vorige">←</button>
           <button onClick={() => setAnchor(new Date())}>Vandaag</button>
@@ -124,69 +193,119 @@ export function Agenda() {
           <button className="primary" onClick={() => setCreating(true)}>+ Nieuwe afspraak</button>
         </div>
       </div>
+      <div className="agenda-legend">
+        {CATS.map((c) => (
+          <button key={c.id} className={'cat-' + c.id + (hidden.includes(c.id) ? ' off' : '')} onClick={() => toggle(c.id)} title={hidden.includes(c.id) ? 'Tonen' : 'Verbergen'}>
+            <i />{c.label}
+          </button>
+        ))}
+      </div>
       {err && <div className="auth-msg error">{err}</div>}
       {warn.map((w) => <p key={w} className="notice">{w}</p>)}
-      {weekItems.length > 0 && (
-        <div className="agenda-weekbar">
-          {weekItems.map((e) => <button key={e.id} className="agenda-ev planning" onClick={() => setSel(e)}>{e.title}{e.notes ? ` · ${e.notes}` : ''}</button>)}
-        </div>
-      )}
       <div className="agenda-layout">
         <div>
-          {view === 'week' ? (
+          {view === 'dag' && <DayView day={startOfDay(anchor)} items={itemsOn(startOfDay(anchor))} loading={loading} cls={cls} notes={notes} onPick={setSel} />}
+          {view === 'week' && (
             <div className="agenda-grid">
               {days.map((d) => {
                 const items = itemsOn(d)
                 return (
                   <section key={d.toISOString()} className={'agenda-day' + (sameDay(d, today) ? ' today' : '') + (d.getDay() % 6 === 0 ? ' weekend' : '')}>
-                    <h3>{d.toLocaleDateString('nl-BE', { weekday: 'short' })} <span>{d.getDate()}</span></h3>
-                    {events === null ? <p className="muted small">Laden…</p> : items.length === 0 ? <p className="muted small agenda-empty">—</p> : items.map((e) => (
-                      <button key={e.id} className={'agenda-ev ' + e.source} onClick={() => setSel(e)}>
+                    <h3><button className="agenda-dhead" title="Dag tonen" onClick={() => openDay(d)}>{d.toLocaleDateString('nl-BE', { weekday: 'short' })} <span>{d.getDate()}</span></button></h3>
+                    {loading ? <p className="muted small">Laden…</p> : items.length === 0 ? <p className="muted small agenda-empty">—</p> : items.map((e) => (
+                      <button key={e.id} className={'agenda-ev ' + cls(e)} onClick={() => setSel(e)}>
                         <span className="agenda-time">{e.all_day ? 'Hele dag' : `${hm(e.start)}–${hm(e.end)}`}</span>
                         <span className="agenda-title">{e.title}</span>
                         {e.location && <span className="agenda-loc">{e.location}</span>}
+                        {notes[keyOf(e)]?.note && <span className="agenda-loc">✎ {notes[keyOf(e)]!.note}</span>}
                       </button>
                     ))}
                   </section>
                 )
               })}
             </div>
-          ) : (
+          )}
+          {view === 'maand' && (
             <div className="agenda-month">
               {['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'].map((n) => <div key={n} className="agenda-mhead">{n}</div>)}
               {days.map((d) => {
                 const items = itemsOn(d)
                 const out = d.getMonth() !== anchor.getMonth()
                 return (
-                  <section key={d.toISOString()} className={'agenda-mday' + (sameDay(d, today) ? ' today' : '') + (out ? ' out' : '') + (d.getDay() % 6 === 0 ? ' weekend' : '')}>
-                    <button className="agenda-mnum" title="Week tonen" onClick={() => { setAnchor(d); setV('week') }}>{d.getDate()}</button>
+                  <section key={d.toISOString()} className={'agenda-mday' + (sameDay(d, today) ? ' today' : '') + (out ? ' out' : '') + (d.getDay() % 6 === 0 ? ' weekend' : '')} onClick={() => openDay(d)} title="Dag tonen">
+                    <span className="agenda-mnum">{d.getDate()}</span>
                     {items.slice(0, 4).map((e) => (
-                      <button key={e.id} className={'agenda-mev ' + e.source} onClick={() => setSel(e)} title={e.title}>
+                      <button key={e.id} className={'agenda-mev ' + cls(e)} onClick={(ev) => { ev.stopPropagation(); setSel(e) }} title={e.title}>
                         {!e.all_day && <span className="agenda-time">{hm(e.start)}</span>} {e.title}
                       </button>
                     ))}
-                    {items.length > 4 && <button className="link small" onClick={() => { setAnchor(d); setV('week') }}>+{items.length - 4} meer</button>}
+                    {items.length > 4 && <span className="muted small">+{items.length - 4} meer</span>}
                   </section>
                 )
               })}
             </div>
           )}
         </div>
-        <Upcoming items={upcoming} onPick={setSel} />
+        <Upcoming items={upcoming?.filter((e) => !hidden.includes(classify(e))) ?? null} cls={cls} onPick={setSel} />
       </div>
-      <p className="muted small">Outlook-agenda van info@vonstruct.com, Bookings-afspraken van klanten (groen) en de planning uit je projecten (goud).</p>
-      {sel && <Detail ev={sel} onClose={() => setSel(null)} onChanged={() => { setSel(null); load() }} />}
-      {creating && <NewEvent day={days.find((d) => sameDay(d, today)) ?? from} onClose={() => setCreating(false)} onCreated={() => { setCreating(false); load() }} />}
+      <p className="muted small">Outlook-agenda van info@vonstruct.com, Bookings-afspraken en de planning uit je projecten. De kleur volgt de soort: automatisch (genodigden, namen, projectcode of Outlook-categorie) of zelf gekozen bij de afspraak.</p>
+      {sel && <Detail ev={sel} cat={classify(sel)} note={notes[keyOf(sel)]} project={projectOf(sel)} projects={projects} onClose={() => setSel(null)} onChanged={(reload) => { setSel(null); loadNotes(); if (reload) load() }} />}
+      {creating && <NewEvent day={view === 'dag' ? anchor : days.find((d) => sameDay(d, today)) ?? from} projects={projects} onClose={() => setCreating(false)} onCreated={() => { setCreating(false); loadNotes(); load() }} />}
+    </div>
+  )
+}
+
+/** Dag met tijdlijn (6u–22u); overlappende afspraken naast elkaar. */
+function DayView({ day, items, loading, cls, notes, onPick }: { day: Date; items: Ev[]; loading: boolean; cls: (e: Ev) => string; notes: Record<string, Note>; onPick: (e: Ev) => void }) {
+  const H0 = 6, H1 = 22, PX = 56
+  const timed = items.filter((e) => !e.all_day).sort((a, b) => a.start.localeCompare(b.start))
+  const allDay = items.filter((e) => e.all_day)
+  const first = timed.length ? Math.min(H0, new Date(timed[0].start).getHours()) : H0
+  const lastEnd = timed.reduce((m, e) => Math.max(m, new Date(e.end).getHours() + 1), H1)
+  const h0 = first, h1 = Math.min(24, Math.max(H1, lastEnd))
+  // banen voor overlap
+  const lanes: number[] = []
+  const placed = timed.map((e) => {
+    const s = new Date(e.start).getTime(), en = new Date(e.end).getTime()
+    let lane = lanes.findIndex((end) => end <= s)
+    if (lane < 0) { lane = lanes.length; lanes.push(en) } else lanes[lane] = en
+    return { e, s, en, lane }
+  })
+  const width = Math.max(1, lanes.length)
+  const top = (t: number) => ((t - day.getTime()) / 3600000 - h0) * PX
+  const now = new Date()
+  return (
+    <div className="agenda-dayview panel">
+      {allDay.length > 0 && <div className="agenda-weekbar">{allDay.map((e) => <button key={e.id} className={'agenda-ev ' + cls(e)} onClick={() => onPick(e)}>{e.title}{e.notes ? ` · ${e.notes}` : ''}</button>)}</div>}
+      {loading && <p className="muted small">Laden…</p>}
+      {!loading && timed.length === 0 && allDay.length === 0 && <p className="muted">Geen afspraken op deze dag.</p>}
+      <div className="agenda-timeline" style={{ height: (h1 - h0) * PX }}>
+        {Array.from({ length: h1 - h0 }, (_, i) => <div key={i} className="agenda-hour" style={{ top: i * PX }}><span>{String(h0 + i).padStart(2, '0')}:00</span></div>)}
+        {sameDay(now, day) && <div className="agenda-now" style={{ top: top(now.getTime()) }} />}
+        {placed.map(({ e, s, en, lane }) => {
+          const n = notes[keyOf(e)]
+          return (
+            <button key={e.id} className={'agenda-block ' + cls(e)} onClick={() => onPick(e)}
+              style={{ top: top(s), height: Math.max(26, ((en - s) / 3600000) * PX - 3), left: `calc(56px + (100% - 60px) * ${lane / width})`, width: `calc((100% - 60px) / ${width} - 4px)` }}>
+              <span className="agenda-time">{hm(e.start)}–{hm(e.end)}</span>
+              <span className="agenda-title">{e.title}</span>
+              {e.location && <span className="agenda-loc">📍 {e.location}</span>}
+              {e.customer?.phone && <span className="agenda-loc">📞 {e.customer.phone}</span>}
+              {n?.note && <span className="agenda-loc">✎ {n.note}</span>}
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }
 
 /** Korte lijst van de volgende afspraken: wanneer, wie, wat, waar. */
-function Upcoming({ items, onPick }: { items: Ev[] | null; onPick: (e: Ev) => void }) {
+function Upcoming({ items, cls, onPick }: { items: Ev[] | null; cls: (e: Ev) => string; onPick: (e: Ev) => void }) {
   const now = new Date()
   const rel = (iso: string) => {
     const d = new Date(iso)
-    const days = Math.round((new Date(d.toDateString()).getTime() - new Date(now.toDateString()).getTime()) / DAY)
+    const days = Math.round((startOfDay(d).getTime() - startOfDay(now).getTime()) / DAY)
     if (days === 0) return 'Vandaag'
     if (days === 1) return 'Morgen'
     if (days < 7) return d.toLocaleDateString('nl-BE', { weekday: 'long' })
@@ -203,7 +322,7 @@ function Upcoming({ items, onPick }: { items: Ev[] | null; onPick: (e: Ev) => vo
             const who = e.customer?.name
             const what = e.source === 'bookings' ? (e.title.split(':')[0] || 'Afspraak') : e.title
             return (
-              <li key={e.id} className={'agenda-next-item ' + e.source}>
+              <li key={e.id} className={'agenda-next-item ' + cls(e)}>
                 <button onClick={() => onPick(e)}>
                   <span className="agenda-next-when">{nowOn ? 'Nu bezig' : rel(e.start)} · {hm(e.start)}–{hm(e.end)}</span>
                   <strong>{who ? `${who}` : what}</strong>
@@ -230,56 +349,112 @@ async function call(body: Record<string, unknown>) {
   return error ? (await (error as { context?: Response }).context?.json?.().catch(() => null))?.error ?? error.message : (data as { error?: string })?.error ?? null
 }
 
-function Detail({ ev, onClose, onChanged }: { ev: Ev; onClose: () => void; onChanged: () => void }) {
-  const [mode, setMode] = useState<'view' | 'move' | 'cancel'>('view')
+/** Eigen info bij een afspraak (enkel in de app): notitie, soort en project. */
+async function saveNote(key: string, note: string, category: Cat | '', project: string) {
+  const row = { event_key: key, note: note.trim() || null, category: category || null, project_code: project.trim() || null, updated_at: new Date().toISOString() }
+  if (!row.note && !row.category && !row.project_code) return (await supabase.from('agenda_notes').delete().eq('event_key', key)).error?.message ?? null
+  return (await supabase.from('agenda_notes').upsert(row)).error?.message ?? null
+}
+
+function InfoFields({ note, setNote, cat, setCat, project, setProject, projects }: { note: string; setNote: (s: string) => void; cat: Cat | ''; setCat: (c: Cat | '') => void; project: string; setProject: (s: string) => void; projects: Proj[] }) {
+  return (
+    <>
+      <label>Soort
+        <select value={cat} onChange={(e) => setCat(e.target.value as Cat | '')}>
+          <option value="">Automatisch</option>
+          {CATS.map((c) => <option key={c.id} value={c.id}>{CAT_ONE[c.id]}</option>)}
+        </select>
+      </label>
+      <label>Project
+        <select value={project} onChange={(e) => setProject(e.target.value)}>
+          <option value="">—</option>
+          {projects.map((p) => <option key={p.project_code} value={p.project_code}>{p.project_code} · {p.client_name ?? p.title}</option>)}
+        </select>
+      </label>
+      <label className="wide">Extra info (enkel voor jou, in de app)
+        <textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Bv. sleutel bij de buren, maten meenemen, staalkaarten Egger…" />
+      </label>
+    </>
+  )
+}
+
+function Detail({ ev, cat, note, project, projects, onClose, onChanged }: { ev: Ev; cat: Cat; note?: Note; project: string | null; projects: Proj[]; onClose: () => void; onChanged: (reload: boolean) => void }) {
+  const [mode, setMode] = useState<'view' | 'edit' | 'cancel'>('view')
   const [start, setStart] = useState(toLocalInput(ev.start))
   const [dur, setDur] = useState(Math.max(15, Math.round((new Date(ev.end).getTime() - new Date(ev.start).getTime()) / 60000)))
   const [title, setTitle] = useState(ev.title)
   const [loc, setLoc] = useState(ev.location ?? '')
+  const [info, setInfo] = useState(note?.note ?? '')
+  const [c, setC] = useState<Cat | ''>(note?.category ?? '')
+  const [proj, setProj] = useState(note?.project_code ?? project ?? '')
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
-  const editable = ev.source !== 'planning' && !ev.all_day
-  const run = async (body: Record<string, unknown>) => {
+  const timeEditable = ev.source !== 'planning' && !ev.all_day
+  const ids = { source: ev.source, bookings_id: ev.bookings_id, business_id: ev.business_id, outlook_id: ev.outlook_id, organizer_is_me: ev.organizer_is_me, attendees: ev.attendees }
+  const save = async () => {
     setBusy(true); setErr(null)
-    const e = await call({ ...body, source: ev.source, bookings_id: ev.bookings_id, business_id: ev.business_id, outlook_id: ev.outlook_id, organizer_is_me: ev.organizer_is_me, attendees: ev.attendees })
+    let reload = false
+    if (timeEditable) {
+      const s = new Date(start)
+      const changed = s.getTime() !== new Date(ev.start).getTime() || dur * 60000 !== new Date(ev.end).getTime() - new Date(ev.start).getTime() || (ev.source === 'outlook' && (title !== ev.title || loc !== (ev.location ?? '')))
+      if (changed) {
+        const e = await call({ action: 'move', ...ids, start: s.toISOString(), end: new Date(s.getTime() + dur * 60000).toISOString(), ...(ev.source === 'outlook' ? { title, location: loc } : {}) })
+        if (e) { setBusy(false); return setErr(e) }
+        reload = true
+      }
+    }
+    const e = await saveNote(keyOf(ev), info, c, proj)
     setBusy(false)
     if (e) return setErr(e)
-    onChanged()
+    onChanged(reload)
   }
-  const move = () => {
-    const s = new Date(start)
-    run({ action: 'move', start: s.toISOString(), end: new Date(s.getTime() + dur * 60000).toISOString(), ...(ev.source === 'outlook' ? { title, location: loc } : {}) })
+  const cancel = async () => {
+    setBusy(true); setErr(null)
+    const e = await call({ action: 'cancel', ...ids, message: msg })
+    setBusy(false)
+    if (e) return setErr(e)
+    onChanged(true)
   }
   return (
     <div className="modal-back" onClick={onClose}>
       <div className="modal" role="dialog" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <span className={'chip agenda-src ' + ev.source}>{SRC[ev.source]}</span>
+          <span className="toolbar">
+            <span className={'chip agenda-cat cat-' + cat}><i />{CAT_ONE[cat]}</span>
+            <span className="muted small">{SRC[ev.source]}</span>
+          </span>
           <button className="link" onClick={onClose} aria-label="Sluiten">✕</button>
         </div>
         <h2>{ev.title}</h2>
         <p>{new Date(ev.start).toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}{!ev.all_day && ` · ${hm(ev.start)}–${hm(ev.end)}`}</p>
-        {ev.location && <p className="muted">📍 {ev.location}</p>}
-        {ev.customer?.name && (
-          <p className="muted">
-            {ev.customer.name}
-            {ev.customer.phone && <> · <a href={`tel:${ev.customer.phone}`}>{ev.customer.phone}</a></>}
-            {ev.customer.email && <> · <a href={`mailto:${ev.customer.email}`}>{ev.customer.email}</a></>}
-          </p>
-        )}
-        {ev.notes && ev.source !== 'planning' && <p className="agenda-notes">{ev.notes}</p>}
-        {ev.online_url && <p><a href={ev.online_url} target="_blank" rel="noreferrer">Online vergadering openen</a></p>}
-        {ev.project_code && <p><Link to={`/projecten/${ev.project_code}`} onClick={onClose}>Project {ev.project_code} openen →</Link></p>}
-        {ev.source === 'planning' && <p className="muted small">Dit komt uit de projectgegevens. Wijzig het op de projectpagina.</p>}
 
-        {mode === 'move' && (
+        {mode !== 'edit' && (
+          <>
+            {ev.location && <p className="muted">📍 {ev.location} · <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.location)}`} target="_blank" rel="noreferrer">Route</a></p>}
+            {ev.customer?.name && (
+              <p className="muted">
+                {ev.customer.name}
+                {ev.customer.phone && <> · <a href={`tel:${ev.customer.phone}`}>{ev.customer.phone}</a></>}
+                {ev.customer.email && <> · <a href={`mailto:${ev.customer.email}`}>{ev.customer.email}</a></>}
+              </p>
+            )}
+            {note?.note && <p className="agenda-notes agenda-mynote">✎ {note.note}</p>}
+            {ev.notes && ev.source !== 'planning' && <p className="agenda-notes">{ev.notes}</p>}
+            {ev.online_url && <p><a href={ev.online_url} target="_blank" rel="noreferrer">Online vergadering openen</a></p>}
+            {project && <p><Link to={`/projecten/${project}`} onClick={onClose}>Project {project} openen →</Link></p>}
+            {ev.source === 'planning' && <p className="muted small">Datum en uur komen uit de projectgegevens; wijzig die op de projectpagina. Extra info kan je hier wel toevoegen.</p>}
+          </>
+        )}
+
+        {mode === 'edit' && (
           <div className="form-grid agenda-form">
             {ev.source === 'outlook' && <label className="wide">Titel<input value={title} onChange={(e) => setTitle(e.target.value)} /></label>}
-            <label>Begin<input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} /></label>
-            <label>Duur (min)<input type="number" min={15} step={15} value={dur} onChange={(e) => setDur(Number(e.target.value))} /></label>
+            {timeEditable && <label>Begin<input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} /></label>}
+            {timeEditable && <label>Duur (min)<input type="number" min={15} step={15} value={dur} onChange={(e) => setDur(Number(e.target.value))} /></label>}
             {ev.source === 'outlook' && <label className="wide">Locatie<input value={loc} onChange={(e) => setLoc(e.target.value)} /></label>}
-            {ev.source === 'bookings' && <p className="muted small wide">De klant krijgt van Bookings automatisch een mail met het nieuwe tijdstip.</p>}
+            <InfoFields note={info} setNote={setInfo} cat={c} setCat={setC} project={proj} setProject={setProj} projects={projects} />
+            {ev.source === 'bookings' && <p className="muted small wide">Verplaats je deze afspraak, dan krijgt de klant van Bookings automatisch een mail met het nieuwe tijdstip.</p>}
           </div>
         )}
         {mode === 'cancel' && (
@@ -292,32 +467,34 @@ function Detail({ ev, onClose, onChanged }: { ev: Ev; onClose: () => void; onCha
           </div>
         )}
         {err && <p className="auth-msg error">{err}</p>}
-        {editable && (
-          <div className="toolbar">
-            {mode === 'view' && <><button className="primary" onClick={() => setMode('move')}>Wijzigen</button><button className="danger-btn" onClick={() => setMode('cancel')}>Annuleren</button></>}
-            {mode === 'move' && <><button className="primary" disabled={busy} onClick={move}>{busy ? 'Bewaren…' : 'Bewaren'}</button><button onClick={() => setMode('view')}>Terug</button></>}
-            {mode === 'cancel' && <><button className="danger-btn" disabled={busy} onClick={() => run({ action: 'cancel', message: msg })}>{busy ? 'Annuleren…' : 'Afspraak annuleren'}</button><button onClick={() => setMode('view')}>Terug</button></>}
-          </div>
-        )}
+        <div className="toolbar">
+          {mode === 'view' && <><button className="primary" onClick={() => setMode('edit')}>Wijzigen / info toevoegen</button>{timeEditable && <button className="danger-btn" onClick={() => setMode('cancel')}>Annuleren</button>}</>}
+          {mode === 'edit' && <><button className="primary" disabled={busy} onClick={save}>{busy ? 'Bewaren…' : 'Bewaren'}</button><button onClick={() => setMode('view')}>Terug</button></>}
+          {mode === 'cancel' && <><button className="danger-btn" disabled={busy} onClick={cancel}>{busy ? 'Annuleren…' : 'Afspraak annuleren'}</button><button onClick={() => setMode('view')}>Terug</button></>}
+        </div>
       </div>
     </div>
   )
 }
 
-function NewEvent({ day, onClose, onCreated }: { day: Date; onClose: () => void; onCreated: () => void }) {
+function NewEvent({ day, projects, onClose, onCreated }: { day: Date; projects: Proj[]; onClose: () => void; onCreated: () => void }) {
   const d = new Date(day); d.setHours(9, 0, 0, 0)
   const [title, setTitle] = useState('')
   const [start, setStart] = useState(toLocalInput(d.toISOString()))
   const [dur, setDur] = useState(60)
   const [loc, setLoc] = useState('')
-  const [notes, setNotes] = useState('')
+  const [info, setInfo] = useState('')
+  const [c, setC] = useState<Cat | ''>('')
+  const [proj, setProj] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const save = async () => {
     if (!title.trim()) return setErr('Geef de afspraak een titel.')
     setBusy(true)
     const s = new Date(start)
-    const e = await call({ action: 'create', title, start: s.toISOString(), end: new Date(s.getTime() + dur * 60000).toISOString(), location: loc, notes })
+    const { data, error } = await supabase.functions.invoke('agenda', { body: { action: 'create', title, start: s.toISOString(), end: new Date(s.getTime() + dur * 60000).toISOString(), location: loc } })
+    const e = error ? (await (error as { context?: Response }).context?.json?.().catch(() => null))?.error ?? error.message : (data as { error?: string })?.error
+    if (!e && (data as { id?: string })?.id && (info || c || proj)) await saveNote((data as { id: string }).id, info, c, proj)
     setBusy(false)
     if (e) return setErr(e)
     onCreated()
@@ -325,14 +502,14 @@ function NewEvent({ day, onClose, onCreated }: { day: Date; onClose: () => void;
   return (
     <div className="modal-back" onClick={onClose}>
       <div className="modal" role="dialog" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-head"><span className="chip agenda-src outlook">Outlook</span><button className="link" onClick={onClose} aria-label="Sluiten">✕</button></div>
+        <div className="modal-head"><span className="muted small">Nieuwe afspraak in Outlook</span><button className="link" onClick={onClose} aria-label="Sluiten">✕</button></div>
         <h2>Nieuwe afspraak</h2>
         <div className="form-grid agenda-form">
           <label className="wide">Titel<input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Bv. Opmeting 209902 Geel" /></label>
           <label>Begin<input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} /></label>
           <label>Duur (min)<input type="number" min={15} step={15} value={dur} onChange={(e) => setDur(Number(e.target.value))} /></label>
           <label className="wide">Locatie<input value={loc} onChange={(e) => setLoc(e.target.value)} /></label>
-          <label className="wide">Notitie<textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} /></label>
+          <InfoFields note={info} setNote={setInfo} cat={c} setCat={setC} project={proj} setProject={setProj} projects={projects} />
         </div>
         {err && <p className="auth-msg error">{err}</p>}
         <div className="toolbar"><button className="primary" disabled={busy} onClick={save}>{busy ? 'Bewaren…' : 'In Outlook zetten'}</button><button onClick={onClose}>Annuleren</button></div>
