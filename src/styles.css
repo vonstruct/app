@@ -529,3 +529,21 @@ textarea.cell { width: 100%; min-width: 300px; font: inherit; }
 .agenda-block { position: absolute; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; overflow: hidden; text-align: left; padding: 4px 8px; border-radius: 7px; border: 1px solid var(--line); border-left: 4px solid var(--c); color: var(--ink); font-size: 12.5px; cursor: pointer; }
 .agenda-block:hover { border-color: var(--muted); border-left-color: var(--c); }
 .modal textarea, .agenda-form textarea { font: inherit; }
+.modal-wide { width: min(720px, 100%); }
+.job-st { font-size: 11px; padding: 1px 8px; border-radius: 999px; background: var(--line); color: var(--ink); }
+.job-st.gepland { background: rgba(154,103,0,.15); color: var(--warn); }
+.job-st.bevestigd { background: rgba(47,125,50,.14); color: var(--good); }
+.job-st.bezig { background: rgba(44,74,124,.15); color: #2c4a7c; }
+.job-st.klaar { background: rgba(47,125,50,.25); color: var(--good); font-weight: 600; }
+.job-st.geannuleerd { text-decoration: line-through; }
+.job-facts { display: grid; gap: 6px; margin: 10px 0; }
+.job-facts div { display: grid; grid-template-columns: 150px 1fr; gap: 8px; }
+.job-facts dt { color: var(--muted); font-size: 13px; }
+.job-facts dd { margin: 0; }
+.job-info { background: var(--bg); border-radius: 8px; padding: 10px 12px; margin: 8px 0; }
+.job-info p { margin: 4px 0 0; white-space: pre-wrap; }
+.job-files { margin: 10px 0; }
+.job-actions { margin: 10px 0; }
+.job-card.gepland { border-left: 4px solid var(--warn); }
+@media (max-width: 600px) { .job-facts div { grid-template-columns: 1fr; gap: 0; } }
+textarea { font: inherit; }

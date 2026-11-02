@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../core/supabase'
 import logo from '../assets/vonstruct-logo.webp'
 import { Survey } from './Survey'
+import { Jobs } from './Jobs'
 import { LANGS, asLang, storeLang, storedLang, tr, type Lang } from './i18n'
 
 export type PortalRole = 'klant' | 'partner' | 'onderaannemer'
@@ -52,10 +53,10 @@ export function Portal({ role, preview = false }: { role: PortalRole; preview?: 
         ) : role === 'klant' ? (
           <ClientProjects preview={preview} lang={lang} onSurvey={setSurvey} />
         ) : (
-          <EmptyWork role={role} lang={lang} />
+          <Jobs lang={lang} preview={preview} empty={<EmptyWork role={role} lang={lang} />} />
         )}
-        {!survey && <h2 className="portal-h">{t.coming}</h2>}
-        {!survey && (
+        {!survey && role !== 'onderaannemer' && <h2 className="portal-h">{t.coming}</h2>}
+        {!survey && role !== 'onderaannemer' && (
           <div className="portal-grid">
             {t.comingTiles[role].map(([title, text]) => (
               <div key={title} className="portal-tile">

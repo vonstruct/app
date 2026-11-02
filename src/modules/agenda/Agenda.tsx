@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { supabase } from '../../core/supabase'
+import { JOB_STATUS, JobEditor, type Job, type JobDraft } from './JobEditor'
 
 /** Item in de agenda: Outlook (info@vonstruct.com), Bookings (klantafspraken) of planning uit de projecten. */
 type Ev = {
   id: string
-  source: 'outlook' | 'bookings' | 'planning'
+  source: 'outlook' | 'bookings' | 'planning' | 'job'
+  job?: Job
   bookings_id?: string
   business_id?: string
   outlook_id?: string
@@ -54,7 +56,7 @@ const mondayOfWeek = (s: string | null, ref: Date): Date | null => {
   const year = m[1] ? Number(m[1]) : isoWeek(ref).year
   return addDays(startOfWeek(new Date(year, 0, 4)), (Number(m[2]) - 1) * 7)
 }
-const SRC: Record<Ev['source'], string> = { outlook: 'Outlook', bookings: 'Bookings', planning: 'Planning' }
+const SRC: Record<Ev['source'], string> = { outlook: 'Outlook', bookings: 'Bookings', planning: 'Planning', job: 'Opdracht' }
 const keyOf = (e: Ev) => e.bookings_id ?? e.outlook_id ?? e.id
 const codeIn = (s: string) => s.match(/\b(20\d{4})\b/)?.[1] ?? null
 const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -74,6 +76,9 @@ export function Agenda() {
   const [err, setErr] = useState<string | null>(null)
   const [sel, setSel] = useState<Ev | null>(null)
   const [creating, setCreating] = useState(false)
+  const [jobDraft, setJobDraft] = useState<JobDraft | null>(null)
+  const [jobs, setJobs] = useState<Ev[]>([])
+  const [jobsNext, setJobsNext] = useState<Ev[]>([])
 
   const { from, to } = useMemo(() => {
     if (view === 'dag') { const d = startOfDay(anchor); return { from: d, to: addDays(d, 1) } }
@@ -110,6 +115,24 @@ export function Agenda() {
     })
   }, [loadNotes])
 
+  type JobRow = Job & { subcontractors: { name: string } | null; partners: { name: string } | null }
+  const jobEv = (j: JobRow): Ev => ({
+    id: 'j:' + j.id, source: 'job', job: j, title: `${j.subcontractors?.name ?? j.partners?.name ?? 'Opdracht'}: ${j.title}`,
+    start: j.start_at, end: j.end_at, all_day: false, location: j.address, notes: j.instructions, project_code: j.project_code,
+    customer: j.contact_name || j.contact_phone ? { name: j.contact_name ?? undefined, phone: j.contact_phone ?? undefined } : null,
+  })
+  const loadJobs = useCallback(async () => {
+    const now = new Date()
+    const q = () => supabase.from('jobs').select('*, subcontractors(name), partners(name)').neq('status', 'geannuleerd')
+    const [a, b] = await Promise.all([
+      q().lt('start_at', to.toISOString()).gt('end_at', from.toISOString()),
+      q().gt('end_at', now.toISOString()).lt('start_at', addDays(now, 45).toISOString()),
+    ])
+    setJobs(((a.data ?? []) as JobRow[]).map(jobEv))
+    setJobsNext(((b.data ?? []) as JobRow[]).map(jobEv))
+  }, [from, to])
+  useEffect(() => { loadJobs() }, [loadJobs])
+
   const load = useCallback(async () => {
     setErr(null)
     setEvents(null)
@@ -132,6 +155,7 @@ export function Agenda() {
   const classify = useCallback((e: Ev): Cat => {
     const n = notes[keyOf(e)]
     if (n?.category) return n.category
+    if (e.source === 'job') return e.job?.partner_id ? 'partner' : 'onderaannemer'
     if (e.source === 'planning') return 'project'
     if (e.source === 'bookings') return 'klant'
     const cats = norm((e.categories ?? []).join(' '))
@@ -167,7 +191,7 @@ export function Agenda() {
     return out
   }, [projects, events, from, to, anchor])
 
-  const all = [...(events ?? []), ...planning].filter((e) => !hidden.includes(classify(e))).sort((a, b) => a.start.localeCompare(b.start))
+  const all = [...(events ?? []), ...planning, ...jobs].filter((e) => !hidden.includes(classify(e))).sort((a, b) => a.start.localeCompare(b.start))
   const itemsOn = (d: Date) => all.filter((e) => (e.all_day ? new Date(e.start) < addDays(d, 1) && new Date(e.end) > d : sameDay(new Date(e.start), d)))
   const today = new Date()
   const label = view === 'dag'
@@ -190,6 +214,7 @@ export function Agenda() {
           <button onClick={() => setAnchor(new Date())}>Vandaag</button>
           <button onClick={() => step(1)} aria-label="Volgende">→</button>
           <strong className="agenda-range">{label}</strong>
+          <button onClick={() => setJobDraft({ start_at: (() => { const d = new Date(view === 'dag' ? anchor : new Date()); d.setHours(8, 0, 0, 0); return d.toISOString() })() })}>+ Opdracht</button>
           <button className="primary" onClick={() => setCreating(true)}>+ Nieuwe afspraak</button>
         </div>
       </div>
@@ -216,6 +241,7 @@ export function Agenda() {
                       <button key={e.id} className={'agenda-ev ' + cls(e)} onClick={() => setSel(e)}>
                         <span className="agenda-time">{e.all_day ? 'Hele dag' : `${hm(e.start)}–${hm(e.end)}`}</span>
                         <span className="agenda-title">{e.title}</span>
+                        {e.job && <span className={'job-st small ' + e.job.status}>{JOB_STATUS[e.job.status]}</span>}
                         {e.location && <span className="agenda-loc">{e.location}</span>}
                         {notes[keyOf(e)]?.note && <span className="agenda-loc">✎ {notes[keyOf(e)]!.note}</span>}
                       </button>
@@ -246,10 +272,12 @@ export function Agenda() {
             </div>
           )}
         </div>
-        <Upcoming items={upcoming?.filter((e) => !hidden.includes(classify(e))) ?? null} cls={cls} onPick={setSel} />
+        <Upcoming items={upcoming ? [...upcoming, ...jobsNext].sort((a, b) => a.start.localeCompare(b.start)).filter((e) => !hidden.includes(classify(e))) : null} cls={cls} onPick={setSel} />
       </div>
       <p className="muted small">Outlook-agenda van info@vonstruct.com, Bookings-afspraken en de planning uit je projecten. De kleur volgt de soort: automatisch (genodigden, namen, projectcode of Outlook-categorie) of zelf gekozen bij de afspraak.</p>
-      {sel && <Detail ev={sel} cat={classify(sel)} note={notes[keyOf(sel)]} project={projectOf(sel)} projects={projects} onClose={() => setSel(null)} onChanged={(reload) => { setSel(null); loadNotes(); if (reload) load() }} />}
+      {sel?.source === 'job' && <JobEditor draft={sel.job!} onClose={() => setSel(null)} onSaved={loadJobs} />}
+      {jobDraft && <JobEditor draft={jobDraft} onClose={() => setJobDraft(null)} onSaved={loadJobs} />}
+      {sel && sel.source !== 'job' && <Detail onJob={(d) => { setSel(null); setJobDraft(d) }} ev={sel} cat={classify(sel)} note={notes[keyOf(sel)]} project={projectOf(sel)} projects={projects} onClose={() => setSel(null)} onChanged={(reload) => { setSel(null); loadNotes(); if (reload) load() }} />}
       {creating && <NewEvent day={view === 'dag' ? anchor : days.find((d) => sameDay(d, today)) ?? from} projects={projects} onClose={() => setCreating(false)} onCreated={() => { setCreating(false); loadNotes(); load() }} />}
     </div>
   )
@@ -378,7 +406,7 @@ function InfoFields({ note, setNote, cat, setCat, project, setProject, projects 
   )
 }
 
-function Detail({ ev, cat, note, project, projects, onClose, onChanged }: { ev: Ev; cat: Cat; note?: Note; project: string | null; projects: Proj[]; onClose: () => void; onChanged: (reload: boolean) => void }) {
+function Detail({ ev, cat, note, project, projects, onClose, onChanged, onJob }: { onJob: (d: JobDraft) => void; ev: Ev; cat: Cat; note?: Note; project: string | null; projects: Proj[]; onClose: () => void; onChanged: (reload: boolean) => void }) {
   const [mode, setMode] = useState<'view' | 'edit' | 'cancel'>('view')
   const [start, setStart] = useState(toLocalInput(ev.start))
   const [dur, setDur] = useState(Math.max(15, Math.round((new Date(ev.end).getTime() - new Date(ev.start).getTime()) / 60000)))
@@ -468,7 +496,7 @@ function Detail({ ev, cat, note, project, projects, onClose, onChanged }: { ev: 
         )}
         {err && <p className="auth-msg error">{err}</p>}
         <div className="toolbar">
-          {mode === 'view' && <><button className="primary" onClick={() => setMode('edit')}>Wijzigen / info toevoegen</button>{timeEditable && <button className="danger-btn" onClick={() => setMode('cancel')}>Annuleren</button>}</>}
+          {mode === 'view' && <><button className="primary" onClick={() => setMode('edit')}>Wijzigen / info toevoegen</button><button onClick={() => onJob({ title: ev.source === 'planning' ? ev.title : '', start_at: ev.all_day ? new Date(new Date(ev.start).setHours(8, 0, 0, 0)).toISOString() : ev.start, end_at: ev.all_day ? new Date(new Date(ev.start).setHours(16, 0, 0, 0)).toISOString() : ev.end, address: ev.location ?? null, project_code: project ?? null, instructions: note?.note ?? null })}>Opdracht voor onderaannemer</button>{timeEditable && <button className="danger-btn" onClick={() => setMode('cancel')}>Annuleren</button>}</>}
           {mode === 'edit' && <><button className="primary" disabled={busy} onClick={save}>{busy ? 'Bewaren…' : 'Bewaren'}</button><button onClick={() => setMode('view')}>Terug</button></>}
           {mode === 'cancel' && <><button className="danger-btn" disabled={busy} onClick={cancel}>{busy ? 'Annuleren…' : 'Afspraak annuleren'}</button><button onClick={() => setMode('view')}>Terug</button></>}
         </div>

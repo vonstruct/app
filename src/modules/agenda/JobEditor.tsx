@@ -1,0 +1,223 @@
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router'
+import { supabase } from '../../core/supabase'
+
+/** Opdracht voor een onderaannemer of partner. Zichtbaar in de agenda en in hun portaal. */
+export type Job = {
+  id: string
+  project_code: string | null
+  subcontractor_id: string | null
+  partner_id: string | null
+  title: string
+  start_at: string
+  end_at: string
+  address: string | null
+  contact_name: string | null
+  contact_phone: string | null
+  instructions: string | null
+  status: 'gepland' | 'bevestigd' | 'bezig' | 'klaar' | 'geannuleerd'
+  sub_note: string | null
+  confirmed_at: string | null
+  done_at: string | null
+}
+export type JobDraft = Partial<Job> & { title?: string; start_at?: string; end_at?: string }
+type Who = { key: string; kind: 'onderaannemer' | 'partner'; id: string; name: string; email: string | null; phone: string | null; contact: string | null }
+type P = { project_code: string; title: string | null; site_street: string | null; site_postal_code: string | null; site_city: string | null; clients: { first_name: string | null; last_name: string | null; phone: string | null } | null }
+
+export const JOB_STATUS: Record<Job['status'], string> = { gepland: 'Gepland', bevestigd: 'Bevestigd', bezig: 'Bezig', klaar: 'Klaar', geannuleerd: 'Geannuleerd' }
+const BUCKET = 'job-files'
+const LINK = 'https://app.vonstruct.com'
+const toLocalInput = (iso: string) => { const d = new Date(iso); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16) }
+const waNumber = (phone: string | null) => {
+  let d = (phone ?? '').replace(/[^\d+]/g, '')
+  if (d.startsWith('+')) d = d.slice(1)
+  else if (d.startsWith('00')) d = d.slice(2)
+  else if (d.startsWith('0')) d = '32' + d.slice(1)
+  return d
+}
+const when = (s: string, e: string) => {
+  const a = new Date(s), b = new Date(e)
+  const day = a.toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' })
+  const t = (d: Date) => d.toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })
+  return a.toDateString() === b.toDateString() ? `${day}, ${t(a)}–${t(b)}` : `${day} ${t(a)} tot ${b.toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' })} ${t(b)}`
+}
+
+export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClose: () => void; onSaved: () => void }) {
+  const [who, setWho] = useState<Who[]>([])
+  const [projects, setProjects] = useState<P[]>([])
+  const [j, setJ] = useState<JobDraft>(() => {
+    const s = draft.start_at ?? new Date(new Date().setHours(8, 0, 0, 0)).toISOString()
+    return { status: 'gepland', ...draft, start_at: s, end_at: draft.end_at ?? new Date(new Date(s).getTime() + 4 * 3600000).toISOString() }
+  })
+  const [files, setFiles] = useState<{ name: string; path: string; url?: string; werf: boolean }[]>([])
+  const [pending, setPending] = useState<File[]>([])
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const [sent, setSent] = useState<{ text: string; to: Who } | null>(null)
+  const [tpl, setTpl] = useState<Record<string, string>>({})
+  const isNew = !j.id
+
+  useEffect(() => {
+    Promise.all([
+      supabase.from('subcontractors').select('id,name,email,phone,contact_person,trade,active').order('name'),
+      supabase.from('partners').select('id,name,email,phone,contact_person,active').order('name'),
+      supabase.from('projects').select('project_code,title,site_street,site_postal_code,site_city,clients(first_name,last_name,phone)').order('project_code', { ascending: false }),
+      supabase.from('message_templates').select('key,body').eq('lang', 'nl').in('key', ['opdracht', 'opdracht_gewijzigd']),
+    ]).then(([s, p, pr, t]) => {
+      const out: Who[] = []
+      for (const r of (s.data ?? []) as { id: string; name: string; email: string | null; phone: string | null; contact_person: string | null; trade: string | null }[]) out.push({ key: 's:' + r.id, kind: 'onderaannemer', id: r.id, name: r.trade ? `${r.name} (${r.trade})` : r.name, email: r.email, phone: r.phone, contact: r.contact_person })
+      for (const r of (p.data ?? []) as { id: string; name: string; email: string | null; phone: string | null; contact_person: string | null }[]) out.push({ key: 'p:' + r.id, kind: 'partner', id: r.id, name: r.name, email: r.email, phone: r.phone, contact: r.contact_person })
+      setWho(out)
+      setProjects((pr.data as unknown as P[]) ?? [])
+      setTpl(Object.fromEntries(((t.data ?? []) as { key: string; body: string }[]).map((x) => [x.key, x.body])))
+    })
+  }, [])
+
+  const loadFiles = async (id: string) => {
+    const [a, b] = await Promise.all([supabase.storage.from(BUCKET).list(id), supabase.storage.from(BUCKET).list(id + '/werf')])
+    const list = [
+      ...(a.data ?? []).filter((f) => f.id).map((f) => ({ name: f.name.replace(/^\d+-/, ''), path: `${id}/${f.name}`, werf: false })),
+      ...(b.data ?? []).filter((f) => f.id).map((f) => ({ name: f.name.replace(/^\d+-/, ''), path: `${id}/werf/${f.name}`, werf: true })),
+    ]
+    const { data } = list.length ? await supabase.storage.from(BUCKET).createSignedUrls(list.map((f) => f.path), 3600) : { data: [] }
+    setFiles(list.map((f) => ({ ...f, url: data?.find((d) => d.path === f.path)?.signedUrl ?? undefined })))
+  }
+  useEffect(() => { if (j.id) loadFiles(j.id) }, [j.id])
+
+  const assignee = who.find((w) => (j.subcontractor_id && w.key === 's:' + j.subcontractor_id) || (j.partner_id && w.key === 'p:' + j.partner_id))
+  const set = (patch: Partial<Job>) => setJ((x) => ({ ...x, ...patch }))
+  const pickProject = (code: string) => {
+    const p = projects.find((x) => x.project_code === code)
+    if (!p) return set({ project_code: null })
+    const addr = [p.site_street, [p.site_postal_code, p.site_city].filter(Boolean).join(' ')].filter(Boolean).join(', ')
+    const cname = [p.clients?.first_name, p.clients?.last_name].filter(Boolean).join(' ')
+    set({ project_code: code, address: j.address || addr || null, contact_name: j.contact_name || cname || null, contact_phone: j.contact_phone || p.clients?.phone || null })
+  }
+  const dur = Math.round((new Date(j.end_at!).getTime() - new Date(j.start_at!).getTime()) / 3600000 * 4) / 4
+
+  const save = async () => {
+    if (!j.title?.trim()) return setErr('Geef de opdracht een omschrijving (bv. "Keuken plaatsen").')
+    if (!assignee) return setErr('Kies voor wie de opdracht is.')
+    setBusy(true); setErr(null)
+    const row = {
+      project_code: j.project_code || null, subcontractor_id: assignee.kind === 'onderaannemer' ? assignee.id : null, partner_id: assignee.kind === 'partner' ? assignee.id : null,
+      title: j.title.trim(), start_at: j.start_at, end_at: j.end_at, address: j.address || null, contact_name: j.contact_name || null, contact_phone: j.contact_phone || null,
+      instructions: j.instructions || null, status: j.status ?? 'gepland', updated_at: new Date().toISOString(),
+    }
+    const res = isNew ? await supabase.from('jobs').insert(row).select('*').single() : await supabase.from('jobs').update(row).eq('id', j.id!).select('*').single()
+    if (res.error) { setBusy(false); return setErr(res.error.message) }
+    const saved = res.data as Job
+    for (const f of pending) {
+      const safe = f.name.normalize('NFD').replace(/[^\w.-]+/g, '_')
+      const { error } = await supabase.storage.from(BUCKET).upload(`${saved.id}/${Date.now()}-${safe}`, f)
+      if (error) setErr(`${f.name}: ${error.message}`)
+    }
+    setPending([])
+    setJ(saved)
+    await loadFiles(saved.id)
+    setBusy(false)
+    const body = (tpl[isNew ? 'opdracht' : 'opdracht_gewijzigd'] ?? '')
+      .replaceAll('{voornaam}', (assignee.contact || assignee.name).split(' ')[0])
+      .replaceAll('{naam}', assignee.name)
+      .replaceAll('{titel}', saved.title)
+      .replaceAll('{wanneer}', when(saved.start_at, saved.end_at))
+      .replaceAll('{adres}', saved.address ?? '—')
+      .replaceAll('{contact}', [saved.contact_name, saved.contact_phone].filter(Boolean).join(', ') || '—')
+      .replaceAll('{link}', LINK)
+    setSent({ text: body, to: assignee })
+    onSaved()
+  }
+  const removeFile = async (path: string) => { await supabase.storage.from(BUCKET).remove([path]); if (j.id) loadFiles(j.id) }
+  const invite = async () => {
+    if (!assignee?.email) return setErr('Vul eerst het e-mailadres in bij Relaties.')
+    const { data, error } = await supabase.functions.invoke('invite-client', { body: { team_email: assignee.email } })
+    const e = error ? (await (error as { context?: Response }).context?.json?.().catch(() => null))?.error ?? error.message : (data as { error?: string })?.error
+    setErr(e ? e : null)
+    if (!e) alert((data as { mode: string }).mode === 'invited' ? `Uitnodiging voor het portaal verstuurd naar ${assignee.email}.` : `${assignee.email} had al toegang: er is een inloglink verstuurd.`)
+  }
+
+  return (
+    <div className="modal-back" onClick={onClose}>
+      <div className="modal modal-wide" role="dialog" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <span className="toolbar"><span className={'chip agenda-cat cat-' + (assignee?.kind ?? 'onderaannemer')}><i />Opdracht</span>{!isNew && <span className={'chip job-st ' + j.status}>{JOB_STATUS[j.status!]}</span>}</span>
+          <button className="link" onClick={onClose} aria-label="Sluiten">✕</button>
+        </div>
+        <h2>{isNew ? 'Nieuwe opdracht' : j.title}</h2>
+        {sent ? (
+          <div className="msg-box">
+            <p className="notice">Opdracht bewaard. {sent.to.name} ziet ze nu in het portaal. Laat het hem/haar ook even weten:</p>
+            <textarea readOnly rows={9} value={sent.text} />
+            <div className="toolbar">
+              {waNumber(sent.to.phone) ? <a className="btn-wa" href={`https://wa.me/${waNumber(sent.to.phone)}?text=${encodeURIComponent(sent.text)}`} target="_blank" rel="noreferrer">Versturen via WhatsApp</a> : <span className="muted small">Geen telefoonnummer bij Relaties.</span>}
+              {sent.to.email && <a className="btn-plain" href={`mailto:${sent.to.email}?subject=${encodeURIComponent('Opdracht Vonstruct: ' + j.title)}&body=${encodeURIComponent(sent.text)}`}>Per mail</a>}
+              <button onClick={() => navigator.clipboard.writeText(sent.text)}>Kopiëren</button>
+              <button onClick={() => setSent(null)}>Verder bewerken</button>
+              <button className="primary" onClick={onClose}>Klaar</button>
+            </div>
+            <p className="muted small">Nog geen toegang tot het portaal? <button className="link" onClick={invite}>Stuur {sent.to.name} een uitnodiging</button> (mail in huisstijl).</p>
+          </div>
+        ) : (
+          <>
+            {j.sub_note && <p className="agenda-notes agenda-mynote">💬 {assignee?.name ?? 'Onderaannemer'}: {j.sub_note}</p>}
+            {j.confirmed_at && <p className="muted small">Bevestigd op {new Date(j.confirmed_at).toLocaleString('nl-BE')}{j.done_at ? ` · klaar gemeld op ${new Date(j.done_at).toLocaleString('nl-BE')}` : ''}</p>}
+            <div className="form-grid agenda-form">
+              <label>Voor
+                <select value={assignee?.key ?? ''} onChange={(e) => { const w = who.find((x) => x.key === e.target.value); set({ subcontractor_id: w?.kind === 'onderaannemer' ? w.id : null, partner_id: w?.kind === 'partner' ? w.id : null }) }}>
+                  <option value="">— kies —</option>
+                  <optgroup label="Onderaannemers">{who.filter((w) => w.kind === 'onderaannemer').map((w) => <option key={w.key} value={w.key}>{w.name}</option>)}</optgroup>
+                  <optgroup label="Partners">{who.filter((w) => w.kind === 'partner').map((w) => <option key={w.key} value={w.key}>{w.name}</option>)}</optgroup>
+                </select>
+              </label>
+              <label>Project
+                <select value={j.project_code ?? ''} onChange={(e) => pickProject(e.target.value)}>
+                  <option value="">—</option>
+                  {projects.map((p) => <option key={p.project_code} value={p.project_code}>{p.project_code} · {[p.clients?.first_name, p.clients?.last_name].filter(Boolean).join(' ') || p.title}</option>)}
+                </select>
+              </label>
+              <label className="wide">Wat moet er gebeuren (korte titel)<input value={j.title ?? ''} onChange={(e) => set({ title: e.target.value })} placeholder="Bv. Keuken plaatsen, Stopcontacten eiland aansluiten" /></label>
+              <label>Begin<input type="datetime-local" value={toLocalInput(j.start_at!)} onChange={(e) => { const s = new Date(e.target.value); const d = new Date(j.end_at!).getTime() - new Date(j.start_at!).getTime(); set({ start_at: s.toISOString(), end_at: new Date(s.getTime() + d).toISOString() }) }} /></label>
+              <label>Duur (uur)<input type="number" min={0.25} step={0.25} value={dur} onChange={(e) => set({ end_at: new Date(new Date(j.start_at!).getTime() + Number(e.target.value) * 3600000).toISOString() })} /></label>
+              <label className="wide">Adres<input value={j.address ?? ''} onChange={(e) => set({ address: e.target.value })} placeholder="Straat nr, postcode gemeente" /></label>
+              <label>Contact ter plaatse<input value={j.contact_name ?? ''} onChange={(e) => set({ contact_name: e.target.value })} /></label>
+              <label>Telefoon contact<input type="tel" value={j.contact_phone ?? ''} onChange={(e) => set({ contact_phone: e.target.value })} /></label>
+              <label className="wide">Instructies en info
+                <textarea rows={6} value={j.instructions ?? ''} onChange={(e) => set({ instructions: e.target.value })} placeholder={'Wat moet er precies gebeuren, materiaal, toegang (sleutel, code), parkeren, aandachtspunten…'} />
+              </label>
+              {!isNew && (
+                <label>Status
+                  <select value={j.status} onChange={(e) => set({ status: e.target.value as Job['status'] })}>
+                    {Object.entries(JOB_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  </select>
+                </label>
+              )}
+            </div>
+            <div className="q">
+              <div className="q-label"><span>Plannen, tekeningen en foto's</span><small>Zichtbaar voor de onderaannemer in het portaal. Foto's van de werf (van de onderaannemer) staan apart.</small></div>
+              <div className="uploads">
+                {files.map((f) => (
+                  <div key={f.path} className="upl">
+                    {/\.(jpe?g|png|webp|gif|heic)$/i.test(f.path) && f.url ? <img src={f.url} alt="" /> : <span className="upl-file">{f.path.split('.').pop()?.toUpperCase()}</span>}
+                    <a href={f.url} target="_blank" rel="noreferrer" className="upl-name">{f.werf ? '📷 ' : ''}{f.name}</a>
+                    {!f.werf && <button type="button" className="link danger" onClick={() => removeFile(f.path)}>✕</button>}
+                  </div>
+                ))}
+                {pending.map((f) => <div key={f.name} className="upl"><span className="upl-file">NIEUW</span><span className="upl-name">{f.name}</span></div>)}
+                <label className="upl-add">
+                  <input type="file" multiple onChange={(e) => { setPending((p) => [...p, ...Array.from(e.target.files ?? [])]); e.target.value = '' }} />
+                  + Bestanden toevoegen
+                </label>
+              </div>
+            </div>
+            {err && <p className="auth-msg error">{err}</p>}
+            <div className="toolbar">
+              <button className="primary" disabled={busy} onClick={save}>{busy ? 'Bewaren…' : isNew ? 'Opdracht aanmaken' : 'Bewaren'}</button>
+              <button onClick={onClose}>Sluiten</button>
+              {j.project_code && <Link to={`/projecten/${j.project_code}`} onClick={onClose}>Project {j.project_code} →</Link>}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
