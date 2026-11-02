@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { supabase } from '../../core/supabase'
-import { JOB_STATUS, JobEditor, type Job, type JobDraft } from './JobEditor'
+import { RouteLinks } from '../../core/address'
+import { JOB_STATUS, SLOTS, JobEditor, type Job, type JobDraft } from './JobEditor'
 
 /** Item in de agenda: Outlook (info@vonstruct.com), Bookings (klantafspraken) of planning uit de projecten. */
 type Ev = {
@@ -118,7 +119,7 @@ export function Agenda() {
   type JobRow = Job & { subcontractors: { name: string } | null; partners: { name: string } | null }
   const jobEv = (j: JobRow): Ev => ({
     id: 'j:' + j.id, source: 'job', job: j, title: `${j.subcontractors?.name ?? j.partners?.name ?? 'Opdracht'}: ${j.title}`,
-    start: j.start_at, end: j.end_at, all_day: false, location: j.address, notes: j.instructions, project_code: j.project_code,
+    start: j.start_at, end: j.end_at, all_day: j.slot === 'dag', location: j.address, notes: j.instructions, project_code: j.project_code,
     customer: j.contact_name || j.contact_phone ? { name: j.contact_name ?? undefined, phone: j.contact_phone ?? undefined } : null,
   })
   const loadJobs = useCallback(async () => {
@@ -239,7 +240,7 @@ export function Agenda() {
                     <h3><button className="agenda-dhead" title="Dag tonen" onClick={() => openDay(d)}>{d.toLocaleDateString('nl-BE', { weekday: 'short' })} <span>{d.getDate()}</span></button></h3>
                     {loading ? <p className="muted small">Laden…</p> : items.length === 0 ? <p className="muted small agenda-empty">—</p> : items.map((e) => (
                       <button key={e.id} className={'agenda-ev ' + cls(e)} onClick={() => setSel(e)}>
-                        <span className="agenda-time">{e.all_day ? 'Hele dag' : `${hm(e.start)}–${hm(e.end)}`}</span>
+                        <span className="agenda-time">{e.job?.slot ? SLOTS[e.job.slot].label : e.all_day ? 'Hele dag' : `${hm(e.start)}–${hm(e.end)}`}{e.job?.job_type ? ` · ${e.job.job_type}` : ''}</span>
                         <span className="agenda-title">{e.title}</span>
                         {e.job && <span className={'job-st small ' + e.job.status}>{JOB_STATUS[e.job.status]}</span>}
                         {e.location && <span className="agenda-loc">{e.location}</span>}
@@ -339,7 +340,7 @@ function Upcoming({ items, cls, onPick }: { items: Ev[] | null; cls: (e: Ev) => 
     if (days < 7) return d.toLocaleDateString('nl-BE', { weekday: 'long' })
     return d.toLocaleDateString('nl-BE', { weekday: 'short', day: 'numeric', month: 'short' })
   }
-  const list = (items ?? []).filter((e) => !e.all_day).slice(0, 12)
+  const list = (items ?? []).filter((e) => !e.all_day || e.source === 'job').slice(0, 12)
   return (
     <aside className="panel agenda-next">
       <h2>Volgende afspraken</h2>
@@ -352,14 +353,14 @@ function Upcoming({ items, cls, onPick }: { items: Ev[] | null; cls: (e: Ev) => 
             return (
               <li key={e.id} className={'agenda-next-item ' + cls(e)}>
                 <button onClick={() => onPick(e)}>
-                  <span className="agenda-next-when">{nowOn ? 'Nu bezig' : rel(e.start)} · {hm(e.start)}–{hm(e.end)}</span>
+                  <span className="agenda-next-when">{nowOn ? 'Nu bezig' : rel(e.start)} · {e.job?.slot ? SLOTS[e.job.slot].label : `${hm(e.start)}–${hm(e.end)}`}</span>
                   <strong>{who ? `${who}` : what}</strong>
                   {who && <span>{what}</span>}
                   {e.location ? <span className="muted">📍 {e.location}</span> : e.online_url ? <span className="muted">💻 Online</span> : null}
                 </button>
                 <span className="agenda-next-links">
                   {e.customer?.phone && <a href={`tel:${e.customer.phone}`}>📞 {e.customer.phone}</a>}
-                  {e.location && <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(e.location)}`} target="_blank" rel="noreferrer">Route</a>}
+                  {e.location && <RouteLinks address={e.location} />}
                   {e.online_url && <a href={e.online_url} target="_blank" rel="noreferrer">Deelnemen</a>}
                   {e.project_code && <Link to={`/projecten/${e.project_code}`}>Project {e.project_code}</Link>}
                 </span>
@@ -459,7 +460,7 @@ function Detail({ ev, cat, note, project, projects, onClose, onChanged, onJob }:
 
         {mode !== 'edit' && (
           <>
-            {ev.location && <p className="muted">📍 {ev.location} · <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.location)}`} target="_blank" rel="noreferrer">Route</a></p>}
+            {ev.location && <p className="muted">📍 {ev.location} · <RouteLinks address={ev.location} /></p>}
             {ev.customer?.name && (
               <p className="muted">
                 {ev.customer.name}
@@ -496,7 +497,7 @@ function Detail({ ev, cat, note, project, projects, onClose, onChanged, onJob }:
         )}
         {err && <p className="auth-msg error">{err}</p>}
         <div className="toolbar">
-          {mode === 'view' && <><button className="primary" onClick={() => setMode('edit')}>Wijzigen / info toevoegen</button><button onClick={() => onJob({ title: ev.source === 'planning' ? ev.title : '', start_at: ev.all_day ? new Date(new Date(ev.start).setHours(8, 0, 0, 0)).toISOString() : ev.start, end_at: ev.all_day ? new Date(new Date(ev.start).setHours(16, 0, 0, 0)).toISOString() : ev.end, address: ev.location ?? null, project_code: project ?? null, instructions: note?.note ?? null })}>Opdracht voor onderaannemer</button>{timeEditable && <button className="danger-btn" onClick={() => setMode('cancel')}>Annuleren</button>}</>}
+          {mode === 'view' && <><button className="primary" onClick={() => setMode('edit')}>Wijzigen / info toevoegen</button><button onClick={() => onJob({ title: ev.source === 'planning' ? ev.title : '', slot: ev.all_day ? 'dag' : null, start_at: ev.all_day ? new Date(new Date(ev.start).setHours(8, 0, 0, 0)).toISOString() : ev.start, end_at: ev.all_day ? new Date(new Date(new Date(ev.end).getTime() - 86400000).setHours(16, 30, 0, 0)).toISOString() : ev.end, address: ev.location ?? null, project_code: project ?? null, instructions: note?.note ?? null })}>Opdracht voor onderaannemer</button>{timeEditable && <button className="danger-btn" onClick={() => setMode('cancel')}>Annuleren</button>}</>}
           {mode === 'edit' && <><button className="primary" disabled={busy} onClick={save}>{busy ? 'Bewaren…' : 'Bewaren'}</button><button onClick={() => setMode('view')}>Terug</button></>}
           {mode === 'cancel' && <><button className="danger-btn" disabled={busy} onClick={cancel}>{busy ? 'Annuleren…' : 'Afspraak annuleren'}</button><button onClick={() => setMode('view')}>Terug</button></>}
         </div>

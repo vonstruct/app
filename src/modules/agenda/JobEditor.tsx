@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { supabase } from '../../core/supabase'
+import { AddressFields, RouteLinks } from '../../core/address'
 
 /** Opdracht voor een onderaannemer of partner. Zichtbaar in de agenda en in hun portaal. */
 export type Job = {
@@ -16,6 +17,8 @@ export type Job = {
   contact_phone: string | null
   instructions: string | null
   status: 'gepland' | 'bevestigd' | 'bezig' | 'klaar' | 'geannuleerd'
+  job_type: 'Herstelling' | 'Renovatie' | 'Nieuwbouw' | null
+  slot: Slot | null
   sub_note: string | null
   confirmed_at: string | null
   done_at: string | null
@@ -24,6 +27,16 @@ export type JobDraft = Partial<Job> & { title?: string; start_at?: string; end_a
 type Who = { key: string; kind: 'onderaannemer' | 'partner'; id: string; name: string; email: string | null; phone: string | null; contact: string | null }
 type P = { project_code: string; title: string | null; site_street: string | null; site_postal_code: string | null; site_city: string | null; clients: { first_name: string | null; last_name: string | null; phone: string | null } | null }
 
+export type Slot = 'dag' | 'voormiddag' | 'namiddag'
+/** Vaste uren per dagdeel. */
+export const SLOTS: Record<Slot, { label: string; from: [number, number]; to: [number, number] }> = {
+  dag: { label: 'Hele dag', from: [8, 0], to: [16, 30] },
+  voormiddag: { label: 'Voormiddag', from: [8, 0], to: [12, 0] },
+  namiddag: { label: 'Namiddag', from: [12, 30], to: [16, 30] },
+}
+export const JOB_TYPES = ['Herstelling', 'Renovatie', 'Nieuwbouw'] as const
+const at = (d: Date, [h, m]: [number, number]) => { const x = new Date(d); x.setHours(h, m, 0, 0); return x }
+const dayInput = (iso: string) => toLocalInput(iso).slice(0, 10)
 export const JOB_STATUS: Record<Job['status'], string> = { gepland: 'Gepland', bevestigd: 'Bevestigd', bezig: 'Bezig', klaar: 'Klaar', geannuleerd: 'Geannuleerd' }
 const BUCKET = 'job-files'
 const LINK = 'https://app.vonstruct.com'
@@ -35,7 +48,12 @@ const waNumber = (phone: string | null) => {
   else if (d.startsWith('0')) d = '32' + d.slice(1)
   return d
 }
-const when = (s: string, e: string) => {
+const when = (s: string, e: string, slot?: Slot | null) => {
+  if (slot) {
+    const a = new Date(s), b = new Date(e)
+    const d = (x: Date) => x.toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' })
+    return a.toDateString() === b.toDateString() ? `${d(a)}, ${SLOTS[slot].label.toLowerCase()}` : `${d(a)} t.e.m. ${d(b)} (hele dagen)`
+  }
   const a = new Date(s), b = new Date(e)
   const day = a.toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' })
   const t = (d: Date) => d.toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })
@@ -93,16 +111,25 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
     const cname = [p.clients?.first_name, p.clients?.last_name].filter(Boolean).join(' ')
     set({ project_code: code, address: j.address || addr || null, contact_name: j.contact_name || cname || null, contact_phone: j.contact_phone || p.clients?.phone || null })
   }
+  const slot = j.slot ?? null
+  const days = slot === 'dag' ? Math.max(1, Math.round((new Date(dayInput(j.end_at!)).getTime() - new Date(dayInput(j.start_at!)).getTime()) / 86400000) + 1) : 1
+  const setSlot = (sl: Slot | null, day = new Date(j.start_at!), n = days) => {
+    if (!sl) return set({ slot: null })
+    const end = new Date(day); end.setDate(end.getDate() + (sl === 'dag' ? n - 1 : 0))
+    set({ slot: sl, start_at: at(day, SLOTS[sl].from).toISOString(), end_at: at(end, SLOTS[sl].to).toISOString() })
+  }
   const dur = Math.round((new Date(j.end_at!).getTime() - new Date(j.start_at!).getTime()) / 3600000 * 4) / 4
 
   const save = async () => {
     if (!j.title?.trim()) return setErr('Geef de opdracht een omschrijving (bv. "Keuken plaatsen").')
     if (!assignee) return setErr('Kies voor wie de opdracht is.')
+    if (!assignee.email) return setErr(`${assignee.name} heeft nog geen e-mailadres. Zonder e-mailadres kan hij/zij niet inloggen op het portaal. Vul het eerst in bij Relaties.`)
+    if (new Date(j.end_at!) <= new Date(j.start_at!)) return setErr('Het einde ligt voor het begin.')
     setBusy(true); setErr(null)
     const row = {
       project_code: j.project_code || null, subcontractor_id: assignee.kind === 'onderaannemer' ? assignee.id : null, partner_id: assignee.kind === 'partner' ? assignee.id : null,
       title: j.title.trim(), start_at: j.start_at, end_at: j.end_at, address: j.address || null, contact_name: j.contact_name || null, contact_phone: j.contact_phone || null,
-      instructions: j.instructions || null, status: j.status ?? 'gepland', updated_at: new Date().toISOString(),
+      instructions: j.instructions || null, status: j.status ?? 'gepland', job_type: j.job_type || null, slot: j.slot || null, updated_at: new Date().toISOString(),
     }
     const res = isNew ? await supabase.from('jobs').insert(row).select('*').single() : await supabase.from('jobs').update(row).eq('id', j.id!).select('*').single()
     if (res.error) { setBusy(false); return setErr(res.error.message) }
@@ -120,12 +147,24 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
       .replaceAll('{voornaam}', (assignee.contact || assignee.name).split(' ')[0])
       .replaceAll('{naam}', assignee.name)
       .replaceAll('{titel}', saved.title)
-      .replaceAll('{wanneer}', when(saved.start_at, saved.end_at))
-      .replaceAll('{adres}', saved.address ?? '—')
+      .replaceAll('{wanneer}', when(saved.start_at, saved.end_at, saved.slot))
+      .replaceAll('{type}', saved.job_type ?? '')
+      .replaceAll('{adres}', saved.address ? `${saved.address}\nRoute: https://waze.com/ul?q=${encodeURIComponent(saved.address)}&navigate=yes` : '—')
       .replaceAll('{contact}', [saved.contact_name, saved.contact_phone].filter(Boolean).join(', ') || '—')
       .replaceAll('{link}', LINK)
     setSent({ text: body, to: assignee })
     onSaved()
+  }
+  const [upBusy, setUpBusy] = useState(0)
+  const uploadNow = async (list: File[]) => {
+    for (const f of list) {
+      setUpBusy((b) => b + 1)
+      const safe = f.name.normalize('NFD').replace(/[^\w.-]+/g, '_')
+      const { error } = await supabase.storage.from(BUCKET).upload(`${j.id}/${Date.now()}-${safe}`, f)
+      setUpBusy((b) => b - 1)
+      if (error) setErr(`${f.name}: ${error.message}`)
+    }
+    if (j.id) loadFiles(j.id)
   }
   const removeFile = async (path: string) => { await supabase.storage.from(BUCKET).remove([path]); if (j.id) loadFiles(j.id) }
   const invite = async () => {
@@ -146,7 +185,7 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
         <h2>{isNew ? 'Nieuwe opdracht' : j.title}</h2>
         {sent ? (
           <div className="msg-box">
-            <p className="notice">Opdracht bewaard. {sent.to.name} ziet ze nu in het portaal. Laat het hem/haar ook even weten:</p>
+            <p className="notice">Opdracht bewaard{files.length ? ` met ${files.length} bestand(en)` : ''}. {sent.to.name} ziet ze nu in het portaal. Laat het hem/haar ook even weten:</p>
             <textarea readOnly rows={9} value={sent.text} />
             <div className="toolbar">
               {waNumber(sent.to.phone) ? <a className="btn-wa" href={`https://wa.me/${waNumber(sent.to.phone)}?text=${encodeURIComponent(sent.text)}`} target="_blank" rel="noreferrer">Versturen via WhatsApp</a> : <span className="muted small">Geen telefoonnummer bij Relaties.</span>}
@@ -168,6 +207,7 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
                   <optgroup label="Onderaannemers">{who.filter((w) => w.kind === 'onderaannemer').map((w) => <option key={w.key} value={w.key}>{w.name}</option>)}</optgroup>
                   <optgroup label="Partners">{who.filter((w) => w.kind === 'partner').map((w) => <option key={w.key} value={w.key}>{w.name}</option>)}</optgroup>
                 </select>
+                {assignee && !assignee.email && <small className="addr-bad">⚠ Geen e-mailadres. <Link to={`/relaties?tab=${assignee.kind === 'partner' ? 'partners' : 'onderaannemers'}&focus=${assignee.id}:email`} onClick={onClose}>Invullen bij Relaties</Link></small>}
               </label>
               <label>Project
                 <select value={j.project_code ?? ''} onChange={(e) => pickProject(e.target.value)}>
@@ -176,9 +216,24 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
                 </select>
               </label>
               <label className="wide">Wat moet er gebeuren (korte titel)<input value={j.title ?? ''} onChange={(e) => set({ title: e.target.value })} placeholder="Bv. Keuken plaatsen, Stopcontacten eiland aansluiten" /></label>
-              <label>Begin<input type="datetime-local" value={toLocalInput(j.start_at!)} onChange={(e) => { const s = new Date(e.target.value); const d = new Date(j.end_at!).getTime() - new Date(j.start_at!).getTime(); set({ start_at: s.toISOString(), end_at: new Date(s.getTime() + d).toISOString() }) }} /></label>
-              <label>Duur (uur)<input type="number" min={0.25} step={0.25} value={dur} onChange={(e) => set({ end_at: new Date(new Date(j.start_at!).getTime() + Number(e.target.value) * 3600000).toISOString() })} /></label>
-              <label className="wide">Adres<input value={j.address ?? ''} onChange={(e) => set({ address: e.target.value })} placeholder="Straat nr, postcode gemeente" /></label>
+              <div className="wide">
+                <div className="q-label"><span>Wanneer</span></div>
+                <div className="slot-pick">
+                  {(Object.keys(SLOTS) as Slot[]).map((k) => <button key={k} type="button" className={slot === k ? 'on' : ''} onClick={() => setSlot(k)}>{SLOTS[k].label} <small>{SLOTS[k].from.join(':').replace(/:0$/, ':00')}–{SLOTS[k].to.join(':').replace(/:0$/, ':00')}</small></button>)}
+                  <button type="button" className={!slot ? 'on' : ''} onClick={() => setSlot(null)}>Vast uur</button>
+                </div>
+              </div>
+              {slot && <label>Datum<input type="date" value={dayInput(j.start_at!)} onChange={(e) => e.target.value && setSlot(slot, new Date(e.target.value + 'T12:00'))} /></label>}
+              {slot === 'dag' && <label>Aantal dagen<input type="number" min={1} max={30} value={days} onChange={(e) => setSlot('dag', new Date(j.start_at!), Math.max(1, Number(e.target.value)))} /></label>}
+              {!slot && <label>Begin<input type="datetime-local" value={toLocalInput(j.start_at!)} onChange={(e) => { const s = new Date(e.target.value); const d = new Date(j.end_at!).getTime() - new Date(j.start_at!).getTime(); set({ start_at: s.toISOString(), end_at: new Date(s.getTime() + d).toISOString() }) }} /></label>}
+              {!slot && <label>Duur (uur)<input type="number" min={0.25} step={0.25} value={dur} onChange={(e) => set({ end_at: new Date(new Date(j.start_at!).getTime() + Number(e.target.value) * 3600000).toISOString() })} /></label>}
+              <label>Type werk
+                <select value={j.job_type ?? ''} onChange={(e) => set({ job_type: (e.target.value || null) as Job['job_type'] })}>
+                  <option value="">—</option>
+                  {JOB_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </label>
+              <AddressFields value={j.address ?? null} onChange={(v) => set({ address: v })} />
               <label>Contact ter plaatse<input value={j.contact_name ?? ''} onChange={(e) => set({ contact_name: e.target.value })} /></label>
               <label>Telefoon contact<input type="tel" value={j.contact_phone ?? ''} onChange={(e) => set({ contact_phone: e.target.value })} /></label>
               <label className="wide">Instructies en info
@@ -202,10 +257,10 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
                     {!f.werf && <button type="button" className="link danger" onClick={() => removeFile(f.path)}>✕</button>}
                   </div>
                 ))}
-                {pending.map((f) => <div key={f.name} className="upl"><span className="upl-file">NIEUW</span><span className="upl-name">{f.name}</span></div>)}
+                {pending.map((f) => <div key={f.name} className="upl"><span className="upl-file">NIEUW</span><span className="upl-name">{f.name}</span><button type="button" className="link danger" onClick={() => setPending((p) => p.filter((x) => x !== f))}>✕</button></div>)}
                 <label className="upl-add">
-                  <input type="file" multiple onChange={(e) => { setPending((p) => [...p, ...Array.from(e.target.files ?? [])]); e.target.value = '' }} />
-                  + Bestanden toevoegen
+                  <input type="file" multiple onChange={(e) => { const list = Array.from(e.target.files ?? []); e.target.value = ''; if (j.id) uploadNow(list); else setPending((p) => [...p, ...list]) }} />
+                  {upBusy ? `Opladen… (${upBusy})` : '+ Bestanden toevoegen'}
                 </label>
               </div>
             </div>
@@ -214,6 +269,7 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
               <button className="primary" disabled={busy} onClick={save}>{busy ? 'Bewaren…' : isNew ? 'Opdracht aanmaken' : 'Bewaren'}</button>
               <button onClick={onClose}>Sluiten</button>
               {j.project_code && <Link to={`/projecten/${j.project_code}`} onClick={onClose}>Project {j.project_code} →</Link>}
+              <RouteLinks address={j.address} />
             </div>
           </>
         )}

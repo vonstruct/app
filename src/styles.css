@@ -547,3 +547,14 @@ textarea.cell { width: 100%; min-width: 300px; font: inherit; }
 .job-card.gepland { border-left: 4px solid var(--warn); }
 @media (max-width: 600px) { .job-facts div { grid-template-columns: 1fr; gap: 0; } }
 textarea { font: inherit; }
+.route-links { display: inline-flex; gap: 10px; }
+.addr-grid { display: grid; grid-template-columns: 2fr 0.8fr 1.4fr 1fr; gap: 10px 12px; }
+.addr-grid label { font-size: 12.5px; }
+.addr-grid input { height: 36px; width: 100%; }
+.addr-foot { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin-top: 6px; font-size: 13px; }
+.addr-ok { color: var(--good); }
+.addr-bad { color: var(--warn); }
+.slot-pick { display: flex; flex-wrap: wrap; gap: 6px; }
+.slot-pick button.on { background: #16233a; color: #f3e3a0; border-color: #16233a; }
+@media (max-width: 700px) { .addr-grid { grid-template-columns: 1fr 1fr; } .addr-street { grid-column: 1 / -1; } }
+.job-route a { display: inline-block; margin-top: 4px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px; text-decoration: none; font-size: 13px; }

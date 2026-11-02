@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../core/supabase'
 import { tr, type Lang } from './i18n'
+import { RouteLinks } from '../core/address'
 
 type Job = {
   id: string; title: string; start_at: string; end_at: string; status: string; address: string | null
   contact_name: string | null; contact_phone: string | null; instructions: string | null; sub_note: string | null
-  project_code: string | null; project_title: string | null
+  project_code: string | null; project_title: string | null; job_type?: string | null; slot?: string | null
 }
 const BUCKET = 'job-files'
 
@@ -16,7 +17,7 @@ export function Jobs({ lang, preview, empty }: { lang: Lang; preview: boolean; e
   const load = useCallback(() => {
     if (preview) {
       const d = new Date(); d.setDate(d.getDate() + 2); d.setHours(8, 0, 0, 0)
-      return setRows([{ id: 'x', title: 'Keuken plaatsen', start_at: d.toISOString(), end_at: new Date(d.getTime() + 8 * 3600000).toISOString(), status: 'gepland', address: 'Kerkstraat 1, 2440 Geel', contact_name: 'Jan Peeters', contact_phone: '0470 00 00 00', instructions: 'Onderkasten eerst, eiland op het einde. Sleutel ligt bij de buren (nr. 3).', sub_note: null, project_code: '209901', project_title: 'Keuken + berging' }])
+      return setRows([{ id: 'x', title: 'Keuken plaatsen', start_at: d.toISOString(), end_at: new Date(d.getTime() + 8 * 3600000).toISOString(), status: 'gepland', job_type: 'Nieuwbouw', slot: 'dag', address: 'Kerkstraat 1, 2440 Geel', contact_name: 'Jan Peeters', contact_phone: '0470 00 00 00', instructions: 'Onderkasten eerst, eiland op het einde. Sleutel ligt bij de buren (nr. 3).', sub_note: null, project_code: '209901', project_title: 'Keuken + berging' }])
     }
     supabase.rpc('portal_my_jobs').then(({ data }) => setRows((data as Job[]) ?? []))
   }, [preview])
@@ -83,7 +84,7 @@ function JobCard({ j, lang, preview, onChange, compact }: { j: Job; lang: Lang; 
     <article className={'portal-project job-card ' + j.status}>
       <div className="portal-project-head" onClick={() => compact && setOpen(!open)} style={compact ? { cursor: 'pointer' } : undefined}>
         <div>
-          <span className="portal-code">{day} · {time(s)}–{s.toDateString() === e.toDateString() ? time(e) : e.toLocaleDateString(loc, { day: 'numeric', month: 'short' }) + ' ' + time(e)}</span>
+          <span className="portal-code">{j.slot ? (s.toDateString() === e.toDateString() ? `${day} · ${t.jobs.slots[j.slot]}` : `${day} ${t.jobs.until} ${e.toLocaleDateString(loc, { weekday: 'long', day: 'numeric', month: 'long' })}`) : `${day} · ${time(s)}–${s.toDateString() === e.toDateString() ? time(e) : e.toLocaleDateString(loc, { day: 'numeric', month: 'short' }) + ' ' + time(e)}`}{j.job_type ? ` · ${t.jobs.types[j.job_type] ?? j.job_type}` : ''}</span>
           <h2>{j.title}</h2>
           {j.project_code && <p className="muted">{t.jobs.project} {j.project_code}{j.project_title ? ` · ${j.project_title}` : ''}</p>}
         </div>
@@ -92,7 +93,7 @@ function JobCard({ j, lang, preview, onChange, compact }: { j: Job; lang: Lang; 
       {open && (
         <>
           <dl className="job-facts">
-            {j.address && <div><dt>{t.jobs.where}</dt><dd>{j.address} · <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(j.address)}`} target="_blank" rel="noreferrer">{t.jobs.route}</a></dd></div>}
+            {j.address && <div><dt>{t.jobs.where}</dt><dd>{j.address}<br /><RouteLinks address={j.address} className="job-route" /></dd></div>}
             {(j.contact_name || j.contact_phone) && <div><dt>{t.jobs.contact}</dt><dd>{j.contact_name}{j.contact_phone && <> · <a href={`tel:${tel}`}>{j.contact_phone}</a></>}</dd></div>}
           </dl>
           {j.instructions && <div className="job-info"><strong>{t.jobs.info}</strong><p>{j.instructions}</p></div>}
