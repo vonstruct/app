@@ -1,12 +1,13 @@
 import { NavLink, Outlet } from 'react-router'
 import { modules } from '../modules/registry'
 import { supabase } from './supabase'
+import logo from '../assets/vonstruct-logo.webp'
 
 export function Layout() {
   return (
     <div className="shell">
       <header className="topbar">
-        <span className="brand">Vonstruct</span>
+        <img className="topbar-logo" src={logo} alt="Vonstruct" />
         <nav>
           {modules
             .filter((m) => m.inMenu !== false)
@@ -16,7 +17,7 @@ export function Layout() {
               </NavLink>
             ))}
         </nav>
-        <button className="link" onClick={() => supabase.auth.signOut()}>
+        <button className="link topbar-out" onClick={() => supabase.auth.signOut()}>
           Afmelden
         </button>
       </header>

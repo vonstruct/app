@@ -35,6 +35,8 @@ const COMING: Record<PortalRole, { title: string; text: string }[]> = {
   ],
 }
 
+const KIND: Record<PortalRole, string> = { klant: 'Klantenportaal', partner: 'Partnerportaal', onderaannemer: 'Portaal onderaannemers' }
+
 const INTRO: Record<PortalRole, string> = {
   klant: 'Hier volg je je project bij Vonstruct, van ontwerp tot plaatsing.',
   partner: 'Hier vind je de productieopdrachten van Vonstruct.',
@@ -52,12 +54,15 @@ export function Portal({ role, preview = false }: { role: PortalRole; preview?: 
   return (
     <div className={preview ? 'portal preview' : 'portal'}>
       <header className="portal-top">
-        <img className="portal-logo" src={logo} alt="Vonstruct" />
-        {!preview && (
-          <button className="portal-out" onClick={() => supabase.auth.signOut()}>
-            Afmelden
-          </button>
-        )}
+        <span className="portal-kind">{KIND[role]}</span>
+        <div className="portal-top-right">
+          {!preview && (
+            <button className="portal-out" onClick={() => supabase.auth.signOut()}>
+              Afmelden
+            </button>
+          )}
+          <img className="portal-logo" src={logo} alt="Vonstruct" />
+        </div>
       </header>
       <section className="portal-hero">
         <h1>{name ? `Welkom, ${name.split(' ')[0]}` : 'Welkom'}</h1>
