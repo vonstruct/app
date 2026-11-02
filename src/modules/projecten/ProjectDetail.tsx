@@ -8,6 +8,7 @@ import { fmtDate, fmtInt } from '../../core/format'
 import { Compare } from './Compare'
 import { ProjectCard, usePhases, type ProjectRow } from '../../core/projects'
 import { ClientPanel } from './ClientPanel'
+import { SurveyPanel } from './SurveyPanel'
 
 export type Version = {
   id: string
@@ -56,9 +57,10 @@ export function ProjectDetail() {
             {focus === 'fase' && <p className="notice">Kies rechtsboven in de kaart de fase waarin het project nu zit.</p>}
             <ProjectCard p={project} phases={ph.data} onSaved={pq.reload} />
           </div>
-          <ClientPanel project={project} focus={focus === 'fase' ? null : focus} onSaved={pq.reload} />
+          <ClientPanel project={project} focus={focus === 'fase' || focus === 'survey' ? null : focus} onSaved={pq.reload} />
         </div>
       )}
+      {project && <SurveyPanel code={code} focus={focus === 'survey'} />}
       {q.loading ? (
         <Loading />
       ) : (

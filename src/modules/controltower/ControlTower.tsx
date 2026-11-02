@@ -38,6 +38,8 @@ export function ControlTower() {
       case 'klant_email': return { to: `${proj}?focus=email`, label: 'E-mail invullen' }
       case 'partner_email': return { to: `/relaties?tab=partners&focus=${f.ref}:email`, label: 'E-mail invullen' }
       case 'stilstand': return { to: `${proj}?focus=fase`, label: 'Fase aanpassen' }
+      case 'survey_nieuw': return { to: `${proj}?focus=survey`, label: 'Vragenlijst bekijken' }
+      case 'survey_open': return { to: `${proj}?focus=survey`, label: 'Klant contacteren' }
       case 'leverancier': return { to: '/regels', label: 'Regels bekijken' }
       default: return { to: proj, label: 'Openen' }
     }

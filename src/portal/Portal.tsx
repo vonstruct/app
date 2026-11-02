@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../core/supabase'
 import logo from '../assets/vonstruct-logo.webp'
+import { Survey } from './Survey'
 
 export type PortalRole = 'klant' | 'partner' | 'onderaannemer'
 
-type Project = { project_code: string; title: string | null; phase: string | null; target_install_week: string | null; site_city: string | null }
+type Project = { project_code: string; title: string | null; phase: string | null; target_install_week: string | null; site_city: string | null; survey_status?: string }
 
 const PHASES: Record<string, string> = {
   lead: 'Aanvraag', intake: 'Kennismaking', survey: 'Vragenlijst', measuring: 'Opmeting', design: 'Ontwerp', quote: 'Offerte',
@@ -46,6 +47,7 @@ const INTRO: Record<PortalRole, string> = {
 /** Portaal voor klanten, de productiepartner en onderaannemers. `preview` = beheerder bekijkt het als voorbeeld. */
 export function Portal({ role, preview = false }: { role: PortalRole; preview?: boolean }) {
   const [name, setName] = useState<string | null>(null)
+  const [survey, setSurvey] = useState<string | null>(null)
   useEffect(() => {
     if (preview) return setName(null)
     supabase.rpc('my_display_name').then(({ data }) => setName(typeof data === 'string' ? data : null))
@@ -69,26 +71,34 @@ export function Portal({ role, preview = false }: { role: PortalRole; preview?: 
         <p>{INTRO[role]}</p>
       </section>
       <main className="portal-main">
-        {role === 'klant' ? <ClientProjects preview={preview} /> : <EmptyWork role={role} />}
-        <h2 className="portal-h">Binnenkort in je portaal</h2>
-        <div className="portal-grid">
-          {COMING[role].map((c) => (
-            <div key={c.title} className="portal-tile">
-              <h3>{c.title}</h3>
-              <p>{c.text}</p>
-            </div>
-          ))}
-        </div>
+        {survey ? (
+          <Survey code={survey} onClose={() => setSurvey(null)} />
+        ) : role === 'klant' ? (
+          <ClientProjects preview={preview} onSurvey={setSurvey} />
+        ) : (
+          <EmptyWork role={role} />
+        )}
+        {!survey && <h2 className="portal-h">Binnenkort in je portaal</h2>}
+        {!survey && (
+          <div className="portal-grid">
+            {COMING[role].map((c) => (
+              <div key={c.title} className="portal-tile">
+                <h3>{c.title}</h3>
+                <p>{c.text}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </main>
       <footer className="portal-foot">Vragen? Neem contact op met Olivier · info@vonstruct.com</footer>
     </div>
   )
 }
 
-function ClientProjects({ preview }: { preview: boolean }) {
+function ClientProjects({ preview, onSurvey }: { preview: boolean; onSurvey: (code: string) => void }) {
   const [rows, setRows] = useState<Project[] | null>(null)
   useEffect(() => {
-    if (preview) return setRows([{ project_code: '209901', title: 'Keuken en berging', phase: 'design', target_install_week: null, site_city: 'Geel' }])
+    if (preview) return setRows([{ project_code: '209901', title: 'Keuken en berging', phase: 'design', target_install_week: null, site_city: 'Geel', survey_status: 'submitted' }])
     supabase.rpc('portal_my_projects').then(({ data }) => setRows((data as Project[]) ?? []))
   }, [preview])
 
@@ -122,6 +132,19 @@ function ClientProjects({ preview }: { preview: boolean }) {
               ))}
             </ol>
             {p.target_install_week && <p className="muted">Geplande plaatsing: week {p.target_install_week}</p>}
+            {p.survey_status !== 'submitted' ? (
+              <div className="portal-todo">
+                <div>
+                  <strong>Vul je vragenlijst in</strong>
+                  <p className="muted">Ongeveer 10 minuten. Met foto's van de ruimte en je wensen kunnen we gericht voorbereiden.</p>
+                </div>
+                <button className="primary" disabled={preview} onClick={() => onSurvey(p.project_code)}>
+                  {p.survey_status === 'open' ? 'Verder invullen' : 'Starten'}
+                </button>
+              </div>
+            ) : (
+              <p className="portal-ok">✓ Vragenlijst ingediend · <button className="link" disabled={preview} onClick={() => onSurvey(p.project_code)}>bekijken</button></p>
+            )}
           </article>
         )
       })}
