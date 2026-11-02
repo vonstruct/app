@@ -20,6 +20,7 @@ type Ev = {
   organizer_is_me?: boolean
   attendees?: number
   project_code?: string | null
+  show_as?: string
 }
 type Proj = { project_code: string; title: string | null; client_name: string | null; intro_at: string | null; target_install_week: string | null; phase: string }
 
@@ -42,28 +43,43 @@ const mondayOfWeek = (s: string | null, ref: Date): Date | null => {
 const SRC: Record<Ev['source'], string> = { outlook: 'Outlook', bookings: 'Bookings', planning: 'Planning' }
 
 export function Agenda() {
-  const [week, setWeek] = useState(() => startOfWeek(new Date()))
+  const [view, setView] = useState<'week' | 'maand'>(() => { try { return localStorage.getItem('agenda.view') === 'maand' ? 'maand' : 'week' } catch { return 'week' } })
+  const [anchor, setAnchor] = useState(() => new Date())
   const [events, setEvents] = useState<Ev[] | null>(null)
+  const [upcoming, setUpcoming] = useState<Ev[] | null>(null)
   const [projects, setProjects] = useState<Proj[]>([])
   const [warn, setWarn] = useState<string[]>([])
   const [err, setErr] = useState<string | null>(null)
   const [sel, setSel] = useState<Ev | null>(null)
   const [creating, setCreating] = useState(false)
-  const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(week, i)), [week])
+  // zichtbare periode: week, of maand als volledige weken (ma–zo)
+  const { from, to, week } = useMemo(() => {
+    if (view === 'week') { const w = startOfWeek(anchor); return { from: w, to: addDays(w, 7), week: w } }
+    const first = new Date(anchor.getFullYear(), anchor.getMonth(), 1)
+    const last = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0)
+    const f = startOfWeek(first)
+    return { from: f, to: addDays(startOfWeek(last), 7), week: f }
+  }, [view, anchor])
+  const days = useMemo(() => Array.from({ length: Math.round((to.getTime() - from.getTime()) / DAY) }, (_, i) => addDays(from, i)), [from, to])
+  const setV = (v: 'week' | 'maand') => { setView(v); try { localStorage.setItem('agenda.view', v) } catch { /* */ } }
+  const step = (n: number) => setAnchor((a) => (view === 'week' ? addDays(a, 7 * n) : new Date(a.getFullYear(), a.getMonth() + n, 1)))
 
   const load = useCallback(async () => {
     setErr(null)
     setEvents(null)
-    const [ag, pr] = await Promise.all([
-      supabase.functions.invoke('agenda', { body: { action: 'list', from: week.toISOString(), to: addDays(week, 7).toISOString() } }),
+    const now = new Date()
+    const [ag, pr, up] = await Promise.all([
+      supabase.functions.invoke('agenda', { body: { action: 'list', from: from.toISOString(), to: to.toISOString() } }),
       supabase.from('app_projects').select('project_code,title,client_name,intro_at,target_install_week,phase'),
+      supabase.functions.invoke('agenda', { body: { action: 'list', from: now.toISOString(), to: addDays(now, 45).toISOString() } }),
     ])
+    setUpcoming(up.error ? [] : ((up.data as { events?: Ev[] })?.events ?? []).filter((e) => new Date(e.end) > now && e.show_as !== 'free'))
     setProjects((pr.data as Proj[]) ?? [])
     const e = ag.error ? (await (ag.error as { context?: Response }).context?.json?.().catch(() => null))?.error ?? ag.error.message : (ag.data as { error?: string })?.error
     if (e) { setErr(e); setEvents([]); return }
     setEvents((ag.data as { events: Ev[] }).events)
     setWarn((ag.data as { warnings: string[] }).warnings ?? [])
-  }, [week])
+  }, [from, to])
   useEffect(() => { load() }, [load])
 
   // planning uit de projecten: kennismakingen (als ze niet al uit Bookings komen) en plaatsingsweken
@@ -75,29 +91,36 @@ export function Agenda() {
       const name = p.client_name ?? p.project_code
       if (p.intro_at && !fromBookings.has(p.project_code)) {
         const s = new Date(p.intro_at)
-        if (s >= week && s < addDays(week, 7)) out.push({ id: 'p:i:' + p.project_code, source: 'planning', title: `Kennismaking ${name}`, start: p.intro_at, end: new Date(s.getTime() + 3600000).toISOString(), all_day: false, project_code: p.project_code })
+        if (s >= from && s < to) out.push({ id: 'p:i:' + p.project_code, source: 'planning', title: `Kennismaking ${name}`, start: p.intro_at, end: new Date(s.getTime() + 3600000).toISOString(), all_day: false, project_code: p.project_code })
       }
-      const mon = mondayOfWeek(p.target_install_week, week)
-      if (mon && sameDay(mon, week)) out.push({ id: 'p:w:' + p.project_code, source: 'planning', title: `Plaatsing ${name}`, start: week.toISOString(), end: addDays(week, 5).toISOString(), all_day: true, project_code: p.project_code, notes: p.title })
+      const mon = mondayOfWeek(p.target_install_week, anchor)
+      if (mon && mon >= from && mon < to) out.push({ id: 'p:w:' + p.project_code, source: 'planning', title: `Plaatsing ${name}`, start: mon.toISOString(), end: addDays(mon, 5).toISOString(), all_day: true, project_code: p.project_code, notes: p.title })
     }
     return out
-  }, [projects, events, week])
+  }, [projects, events, from, to, anchor])
 
   const all = [...(events ?? []), ...planning]
-  const weekItems = all.filter((e) => e.source === 'planning' && e.all_day)
+  const weekItems = view === 'week' ? all.filter((e) => e.source === 'planning' && e.all_day) : []
   const today = new Date()
   const { week: wn } = isoWeek(week)
-  const label = `${week.toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' })} – ${addDays(week, 6).toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', year: 'numeric' })}`
+  const label = view === 'week'
+    ? `Week ${wn} · ${week.toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' })} – ${addDays(week, 6).toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', year: 'numeric' })}`
+    : anchor.toLocaleDateString('nl-BE', { month: 'long', year: 'numeric' })
+  const itemsOn = (d: Date) => all.filter((e) => !(view === 'week' && e.source === 'planning' && e.all_day) && (e.all_day ? new Date(e.start) < addDays(d, 1) && new Date(e.end) > d : sameDay(new Date(e.start), d)))
 
   return (
     <div className="agenda">
       <div className="page-head">
         <h1>Agenda</h1>
         <div className="toolbar">
-          <button onClick={() => setWeek(addDays(week, -7))} aria-label="Vorige week">←</button>
-          <button onClick={() => setWeek(startOfWeek(new Date()))}>Vandaag</button>
-          <button onClick={() => setWeek(addDays(week, 7))} aria-label="Volgende week">→</button>
-          <strong className="agenda-range">Week {wn} · {label}</strong>
+          <div className="seg">
+            <button className={view === 'week' ? 'on' : ''} onClick={() => setV('week')}>Week</button>
+            <button className={view === 'maand' ? 'on' : ''} onClick={() => setV('maand')}>Maand</button>
+          </div>
+          <button onClick={() => step(-1)} aria-label="Vorige">←</button>
+          <button onClick={() => setAnchor(new Date())}>Vandaag</button>
+          <button onClick={() => step(1)} aria-label="Volgende">→</button>
+          <strong className="agenda-range">{label}</strong>
           <button className="primary" onClick={() => setCreating(true)}>+ Nieuwe afspraak</button>
         </div>
       </div>
@@ -108,27 +131,97 @@ export function Agenda() {
           {weekItems.map((e) => <button key={e.id} className="agenda-ev planning" onClick={() => setSel(e)}>{e.title}{e.notes ? ` · ${e.notes}` : ''}</button>)}
         </div>
       )}
-      <div className="agenda-grid">
-        {days.map((d) => {
-          const items = all.filter((e) => !(e.source === 'planning' && e.all_day) && (e.all_day ? new Date(e.start) < addDays(d, 1) && new Date(e.end) > d : sameDay(new Date(e.start), d)))
-          return (
-            <section key={d.toISOString()} className={'agenda-day' + (sameDay(d, today) ? ' today' : '') + (d.getDay() % 6 === 0 ? ' weekend' : '')}>
-              <h3>{d.toLocaleDateString('nl-BE', { weekday: 'short' })} <span>{d.getDate()}</span></h3>
-              {events === null ? <p className="muted small">Laden…</p> : items.length === 0 ? <p className="muted small agenda-empty">—</p> : items.map((e) => (
-                <button key={e.id} className={'agenda-ev ' + e.source} onClick={() => setSel(e)}>
-                  <span className="agenda-time">{e.all_day ? 'Hele dag' : `${hm(e.start)}–${hm(e.end)}`}</span>
-                  <span className="agenda-title">{e.title}</span>
-                  {e.location && <span className="agenda-loc">{e.location}</span>}
-                </button>
-              ))}
-            </section>
-          )
-        })}
+      <div className="agenda-layout">
+        <div>
+          {view === 'week' ? (
+            <div className="agenda-grid">
+              {days.map((d) => {
+                const items = itemsOn(d)
+                return (
+                  <section key={d.toISOString()} className={'agenda-day' + (sameDay(d, today) ? ' today' : '') + (d.getDay() % 6 === 0 ? ' weekend' : '')}>
+                    <h3>{d.toLocaleDateString('nl-BE', { weekday: 'short' })} <span>{d.getDate()}</span></h3>
+                    {events === null ? <p className="muted small">Laden…</p> : items.length === 0 ? <p className="muted small agenda-empty">—</p> : items.map((e) => (
+                      <button key={e.id} className={'agenda-ev ' + e.source} onClick={() => setSel(e)}>
+                        <span className="agenda-time">{e.all_day ? 'Hele dag' : `${hm(e.start)}–${hm(e.end)}`}</span>
+                        <span className="agenda-title">{e.title}</span>
+                        {e.location && <span className="agenda-loc">{e.location}</span>}
+                      </button>
+                    ))}
+                  </section>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="agenda-month">
+              {['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'].map((n) => <div key={n} className="agenda-mhead">{n}</div>)}
+              {days.map((d) => {
+                const items = itemsOn(d)
+                const out = d.getMonth() !== anchor.getMonth()
+                return (
+                  <section key={d.toISOString()} className={'agenda-mday' + (sameDay(d, today) ? ' today' : '') + (out ? ' out' : '') + (d.getDay() % 6 === 0 ? ' weekend' : '')}>
+                    <button className="agenda-mnum" title="Week tonen" onClick={() => { setAnchor(d); setV('week') }}>{d.getDate()}</button>
+                    {items.slice(0, 4).map((e) => (
+                      <button key={e.id} className={'agenda-mev ' + e.source} onClick={() => setSel(e)} title={e.title}>
+                        {!e.all_day && <span className="agenda-time">{hm(e.start)}</span>} {e.title}
+                      </button>
+                    ))}
+                    {items.length > 4 && <button className="link small" onClick={() => { setAnchor(d); setV('week') }}>+{items.length - 4} meer</button>}
+                  </section>
+                )
+              })}
+            </div>
+          )}
+        </div>
+        <Upcoming items={upcoming} onPick={setSel} />
       </div>
       <p className="muted small">Outlook-agenda van info@vonstruct.com, Bookings-afspraken van klanten (groen) en de planning uit je projecten (goud).</p>
       {sel && <Detail ev={sel} onClose={() => setSel(null)} onChanged={() => { setSel(null); load() }} />}
-      {creating && <NewEvent day={days.find((d) => sameDay(d, today)) ?? week} onClose={() => setCreating(false)} onCreated={() => { setCreating(false); load() }} />}
+      {creating && <NewEvent day={days.find((d) => sameDay(d, today)) ?? from} onClose={() => setCreating(false)} onCreated={() => { setCreating(false); load() }} />}
     </div>
+  )
+}
+
+/** Korte lijst van de volgende afspraken: wanneer, wie, wat, waar. */
+function Upcoming({ items, onPick }: { items: Ev[] | null; onPick: (e: Ev) => void }) {
+  const now = new Date()
+  const rel = (iso: string) => {
+    const d = new Date(iso)
+    const days = Math.round((new Date(d.toDateString()).getTime() - new Date(now.toDateString()).getTime()) / DAY)
+    if (days === 0) return 'Vandaag'
+    if (days === 1) return 'Morgen'
+    if (days < 7) return d.toLocaleDateString('nl-BE', { weekday: 'long' })
+    return d.toLocaleDateString('nl-BE', { weekday: 'short', day: 'numeric', month: 'short' })
+  }
+  const list = (items ?? []).filter((e) => !e.all_day).slice(0, 12)
+  return (
+    <aside className="panel agenda-next">
+      <h2>Volgende afspraken</h2>
+      {items === null ? <p className="muted small">Laden…</p> : list.length === 0 ? <p className="muted small">Geen afspraken in de komende 45 dagen.</p> : (
+        <ol>
+          {list.map((e) => {
+            const nowOn = new Date(e.start) <= now
+            const who = e.customer?.name
+            const what = e.source === 'bookings' ? (e.title.split(':')[0] || 'Afspraak') : e.title
+            return (
+              <li key={e.id} className={'agenda-next-item ' + e.source}>
+                <button onClick={() => onPick(e)}>
+                  <span className="agenda-next-when">{nowOn ? 'Nu bezig' : rel(e.start)} · {hm(e.start)}–{hm(e.end)}</span>
+                  <strong>{who ? `${who}` : what}</strong>
+                  {who && <span>{what}</span>}
+                  {e.location ? <span className="muted">📍 {e.location}</span> : e.online_url ? <span className="muted">💻 Online</span> : null}
+                </button>
+                <span className="agenda-next-links">
+                  {e.customer?.phone && <a href={`tel:${e.customer.phone}`}>📞 {e.customer.phone}</a>}
+                  {e.location && <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(e.location)}`} target="_blank" rel="noreferrer">Route</a>}
+                  {e.online_url && <a href={e.online_url} target="_blank" rel="noreferrer">Deelnemen</a>}
+                  {e.project_code && <Link to={`/projecten/${e.project_code}`}>Project {e.project_code}</Link>}
+                </span>
+              </li>
+            )
+          })}
+        </ol>
+      )}
+    </aside>
   )
 }
 
