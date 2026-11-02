@@ -13,10 +13,14 @@ type Role = 'beheerder' | PortalRole
 export function AuthGate({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null | undefined>(undefined)
   const [role, setRole] = useState<Role | null | undefined>(undefined)
+  const [recovery, setRecovery] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session))
-    const { data } = supabase.auth.onAuthStateChange((_e, s) => setSession(s))
+    const { data } = supabase.auth.onAuthStateChange((e, s) => {
+      if (e === 'PASSWORD_RECOVERY') setRecovery(true)
+      setSession(s)
+    })
     return () => data.subscription.unsubscribe()
   }, [])
 
@@ -27,6 +31,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   if (session === undefined) return <div className="center muted">Laden…</div>
   if (!session) return <Login />
+  if (recovery) return <NewPassword onDone={() => setRecovery(false)} />
   if (role === undefined) return <div className="center muted">Toegang controleren…</div>
   if (role === 'beheerder') return <>{children}</>
   if (role) return <Portal role={role} />
@@ -64,7 +69,6 @@ function Login() {
   )
   const [busy, setBusy] = useState(false)
   const [showPw, setShowPw] = useState(false)
-  const redirectTo = window.location.origin + window.location.pathname
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -74,11 +78,12 @@ function Login() {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) setMsg({ error: true, text: error.message === 'Invalid login credentials' ? 'E-mail of wachtwoord klopt niet.' : error.message })
     } else {
-      const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: redirectTo } })
+      // via Edge Function send-login-link: mail in huisstijl, enkel naar gekende adressen
+      const { error } = await supabase.functions.invoke('send-login-link', { body: { email, kind: 'magiclink' } })
       setMsg(
         error
-          ? { error: true, text: error.message.includes('Signups not allowed') ? 'Dit e-mailadres is niet bij ons gekend. Neem contact op met Vonstruct.' : error.message }
-          : { error: false, text: `We stuurden een inloglink naar ${email}. Open de mail op dit toestel.` },
+          ? { error: true, text: 'De inloglink kon niet verstuurd worden. Probeer het over een minuut opnieuw.' }
+          : { error: false, text: `Als ${email} bij ons gekend is, krijg je binnen een minuut een mail met een inloglink. Kijk ook bij ongewenste mail.` },
       )
     }
     setBusy(false)
@@ -86,8 +91,9 @@ function Login() {
 
   const reset = async () => {
     if (!email) return setMsg({ error: true, text: 'Vul eerst je e-mailadres in.' })
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo })
-    setMsg(error ? { error: true, text: error.message } : { error: false, text: 'Je krijgt een mail om je wachtwoord opnieuw in te stellen.' })
+    const { error } = await supabase.functions.invoke('send-login-link', { body: { email, kind: 'recovery' } })
+    setMsg(error ? { error: true, text: 'De mail kon niet verstuurd worden. Probeer het over een minuut opnieuw.' }
+      : { error: false, text: `Als ${email} bij ons gekend is, krijg je een mail om een nieuw wachtwoord te kiezen.` })
   }
 
   return (
@@ -174,6 +180,46 @@ function Login() {
           <p className="auth-switch muted">Nog geen toegang? Je ontvangt een uitnodiging van Vonstruct zodra je project start.</p>
         </form>
         <footer className="auth-foot muted">© {new Date().getFullYear()} Vonstruct</footer>
+      </main>
+    </div>
+  )
+}
+
+/** Na een link "nieuw wachtwoord": wachtwoord kiezen. */
+function NewPassword({ onDone }: { onDone: () => void }) {
+  const [pw, setPw] = useState('')
+  const [pw2, setPw2] = useState('')
+  const [msg, setMsg] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (pw.length < 8) return setMsg('Kies minstens 8 tekens.')
+    if (pw !== pw2) return setMsg('De twee wachtwoorden zijn niet gelijk.')
+    setBusy(true)
+    const { error } = await supabase.auth.updateUser({ password: pw })
+    setBusy(false)
+    if (error) return setMsg(error.message)
+    onDone()
+  }
+  return (
+    <div className="auth">
+      <aside className="auth-hero">
+        <div className="auth-hero-top">
+          <img className="auth-logo" src={logo} alt="Vonstruct" />
+          <span className="auth-tagline">Custom interiors</span>
+        </div>
+      </aside>
+      <main className="auth-main">
+        <form className="auth-form" onSubmit={save}>
+          <header>
+            <h2>Nieuw wachtwoord</h2>
+            <p className="muted">Kies een wachtwoord van minstens 8 tekens.</p>
+          </header>
+          <label className="auth-field"><span>Nieuw wachtwoord</span><input type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} autoFocus /></label>
+          <label className="auth-field"><span>Herhaal</span><input type="password" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} /></label>
+          {msg && <p className="auth-msg error">{msg}</p>}
+          <button type="submit" className="primary auth-submit" disabled={busy}>Bewaren</button>
+        </form>
       </main>
     </div>
   )
