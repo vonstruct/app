@@ -192,7 +192,7 @@ function ProposeForm({ j, lang, onDone, onCancel }: { j: Job; lang: Lang; onDone
       </div>
       <div className="form-grid" style={{ marginTop: 10 }}>
         <label>{t.jobs.date}<input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
-        {slot === 'dag' && <label>#<input type="number" min={1} max={30} value={days} onChange={(e) => setDays(Math.max(1, Number(e.target.value)))} /></label>}
+        {slot === 'dag' && <label>{t.jobs.days}<input type="number" min={1} max={30} value={days} onChange={(e) => setDays(Math.max(1, Number(e.target.value)))} /></label>}
         {!slot && <label>{t.jobs.from}<input type="time" value={from} onChange={(e) => setFrom(e.target.value)} /></label>}
         {!slot && <label>{t.jobs.to}<input type="time" value={to} onChange={(e) => setTo(e.target.value)} /></label>}
         <label className="wide">{t.jobs.reason}<textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} /></label>
