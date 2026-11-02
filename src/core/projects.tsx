@@ -37,27 +37,30 @@ export type ProjectRow = {
   n_missing_prices: number
   last_activity: string | null
   days_idle: number | null
+  stage: string | null
+  stage_label: string | null
+  stage_sort: number | null
+  stage_gate: string | null
 }
 
-export type Phase = { phase: string; sort: number; label: string; active: boolean; idle_days: number | null }
+export type Phase = { phase: string; sort: number; label: string; active: boolean; idle_days: number | null; stage: string | null; selectable: boolean; gate: string | null }
+
+/** De stage gates van de pijplijn (actieve, kiesbare fases). */
+export const gatesOf = (phases: Phase[]) => phases.filter((p) => p.selectable && p.active)
 
 export const useProjects = () =>
   useQuery<ProjectRow[]>(() => supabase.from('app_projects').select('*').order('last_activity', { ascending: false }), [])
 export const usePhases = () => useQuery<Phase[]>(() => supabase.from('project_phases').select('*').order('sort'), [])
 
-/** Hoofdstappen die we als voortgangsbalk tonen. */
-const STEPS = ['measuring', 'design', 'quote', 'signed', 'ordering', 'production', 'installation', 'handover']
-
 export function PhaseSteps({ phase, phases }: { phase: string; phases: Phase[] }) {
   const cur = phases.find((p) => p.phase === phase)
-  const steps = STEPS.map((s) => phases.find((p) => p.phase === s)).filter(Boolean) as Phase[]
-  // huidige stap = de laatste hoofdstap die niet later ligt dan de huidige fase
-  const nowStep = cur?.active ? [...steps].reverse().find((s) => s.sort <= cur.sort) : undefined
+  const stage = phases.find((p) => p.phase === (cur?.stage ?? phase))
+  const gates = gatesOf(phases)
   return (
-    <ol className="steps">
-      {steps.map((s) => (
-        <li key={s.phase} className={!nowStep ? '' : s.sort < nowStep.sort ? 'done' : s.phase === nowStep.phase ? 'now' : ''} title={s.label}>
-          <span>{s.label}</span>
+    <ol className="steps" style={{ gridTemplateColumns: `repeat(${gates.length}, 1fr)` }}>
+      {gates.map((g) => (
+        <li key={g.phase} className={!stage?.active ? '' : g.sort < stage.sort ? 'done' : g.phase === stage.phase ? 'now' : ''} title={g.gate ?? g.label}>
+          <span>{g.label}</span>
         </li>
       ))}
     </ol>
@@ -108,7 +111,7 @@ export function PhaseSelect({ p, phases, onSaved }: { p: ProjectRow; phases: Pha
         onSaved()
       }}
     >
-      {phases.map((ph) => (
+      {phases.filter((ph) => ph.selectable || ph.phase === p.phase).map((ph) => (
         <option key={ph.phase} value={ph.phase}>
           {ph.label}
         </option>

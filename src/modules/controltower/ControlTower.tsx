@@ -3,9 +3,9 @@ import { supabase } from '../../core/supabase'
 import { useQuery } from '../../core/useQuery'
 import { ErrorBox, Loading } from '../../core/ui'
 import { fmtEur, fmtInt } from '../../core/format'
-import { relDays, usePhases, useProjects, type ProjectRow } from '../../core/projects'
+import { gatesOf, relDays, usePhases, useProjects, type Phase, type ProjectRow } from '../../core/projects'
 
-type Flag = { prio: 1 | 2 | 3; kind: string; project_code: string | null; last_version: number | null; title: string; detail: string | null; since: string | null }
+type Flag = { prio: 1 | 2 | 3; kind: string; project_code: string | null; last_version: number | null; ref: string | null; title: string; detail: string | null; since: string | null }
 type Supplier = { supplier_name: string; n_articles: number; last_update: string; days_old: number }
 
 const PRIO = { 1: 'Nu doen', 2: 'Binnenkort', 3: 'Ter info' } as const
@@ -25,10 +25,22 @@ export function ControlTower() {
   const hour = new Date().getHours()
   const greet = hour < 12 ? 'Goedemorgen' : hour < 18 ? 'Goedemiddag' : 'Goedenavond'
 
-  const linkFor = (f: Flag) => {
-    if (!f.project_code) return f.kind === 'leverancier' ? '/regels' : '/portaal'
-    const base = `/projecten/${encodeURIComponent(f.project_code)}`
-    return f.last_version ? `${base}/v/${f.last_version}` : base
+  /** Waar je het punt oplost, en wat er op de knop staat. */
+  const actionFor = (f: Flag): { to: string; label: string } => {
+    const proj = f.project_code ? `/projecten/${encodeURIComponent(f.project_code)}` : '/projecten'
+    const ver = f.last_version ? `${proj}/v/${f.last_version}` : proj
+    switch (f.kind) {
+      case 'prijzen': return { to: `${ver}?tab=kosten&focus=prijzen`, label: 'Prijzen invullen' }
+      case 'kosten': return { to: `${ver}?tab=kosten`, label: 'Kosten bekijken' }
+      case 'optimalisatie': return { to: `${ver}?tab=platen`, label: 'Platen bekijken' }
+      case 'stuklijst_fout': return { to: `${ver}?tab=controle`, label: 'Fouten bekijken' }
+      case 'stuklijst_opm': return { to: `${ver}?tab=controle`, label: 'Opmerkingen bekijken' }
+      case 'klant_email': return { to: `${proj}?focus=email`, label: 'E-mail invullen' }
+      case 'partner_email': return { to: `/relaties?tab=partners&focus=${f.ref}:email`, label: 'E-mail invullen' }
+      case 'stilstand': return { to: `${proj}?focus=fase`, label: 'Fase aanpassen' }
+      case 'leverancier': return { to: '/regels', label: 'Regels bekijken' }
+      default: return { to: proj, label: 'Openen' }
+    }
   }
 
   return (
@@ -67,9 +79,11 @@ export function ControlTower() {
                         {PRIO[prio]} <span>{list.length}</span>
                       </h3>
                       <ul className="flags">
-                        {list.map((f, i) => (
+                        {list.map((f, i) => {
+                          const act = actionFor(f)
+                          return (
                           <li key={i}>
-                            <Link to={linkFor(f)} className="flag">
+                            <Link to={act.to} className="flag">
                               <span className={'dot p' + f.prio} />
                               <span className="flag-main">
                                 <strong>{f.title}</strong>
@@ -78,10 +92,14 @@ export function ControlTower() {
                                   {f.detail}
                                 </span>
                               </span>
-                              <span className="flag-when muted">{relDays(f.since)}</span>
+                              <span className="flag-side">
+                                <span className="flag-act">{act.label} →</span>
+                                <span className="flag-when muted">{relDays(f.since)}</span>
+                              </span>
                             </Link>
                           </li>
-                        ))}
+                          )
+                        })}
                       </ul>
                     </div>
                   )
@@ -124,7 +142,7 @@ export function ControlTower() {
           </div>
 
           <h2 className="ct-h">Pijplijn</h2>
-          <Pipeline projects={active} phases={(phases.data ?? []).filter((p) => p.active)} />
+          <Pipeline projects={active} gates={gatesOf(phases.data ?? [])} />
         </>
       )}
     </section>
@@ -140,15 +158,17 @@ function Kpi({ label, value, tone }: { label: string; value: string; tone?: 'ok'
   )
 }
 
-function Pipeline({ projects, phases }: { projects: ProjectRow[]; phases: { phase: string; label: string }[] }) {
+function Pipeline({ projects, gates }: { projects: ProjectRow[]; gates: Phase[] }) {
   return (
-    <div className="pipeline">
-      {phases.map((ph) => {
-        const list = projects.filter((p) => p.phase === ph.phase)
+    <div className="pipeline" style={{ gridTemplateColumns: `repeat(${gates.length}, minmax(170px, 1fr))` }}>
+      {gates.map((g, i) => {
+        const list = projects.filter((p) => (p.stage ?? p.phase) === g.phase)
         return (
-          <div key={ph.phase} className={'lane' + (list.length ? '' : ' empty')}>
+          <div key={g.phase} className={'lane' + (list.length ? '' : ' empty')}>
             <div className="lane-head">
-              <span>{ph.label}</span>
+              <span>
+                <em>{i + 1}</em> {g.label}
+              </span>
               <span className="lane-n">{list.length}</span>
             </div>
             {list.map((p) => (
@@ -158,6 +178,7 @@ function Pipeline({ projects, phases }: { projects: ProjectRow[]; phases: { phas
                 {p.cost_total != null && <span className="muted">{fmtEur(p.cost_total)}</span>}
               </Link>
             ))}
+            {g.gate && <p className="lane-gate">{g.gate}</p>}
           </div>
         )
       })}

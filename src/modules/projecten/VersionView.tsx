@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useParams, useSearchParams } from 'react-router'
 import { supabase } from '../../core/supabase'
 import { useQuery } from '../../core/useQuery'
 import { ErrorBox, Loading, Stat, Tabs } from '../../core/ui'
@@ -20,7 +19,9 @@ type DV = {
 
 export function VersionView() {
   const { code = '', version = '' } = useParams()
-  const [tab, setTab] = useState(versionTabs[0].id)
+  const [params, setParams] = useSearchParams()
+  const tab = versionTabs.some((t) => t.id === params.get('tab')) ? params.get('tab')! : versionTabs[0].id
+  const setTab = (id: string) => setParams({ tab: id }, { replace: true })
   const q = useQuery<DV>(
     () =>
       supabase

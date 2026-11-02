@@ -1,4 +1,5 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { supabase } from '../../../core/supabase'
 import { useQuery } from '../../../core/useQuery'
 import { ErrorBox, Loading } from '../../../core/ui'
@@ -50,6 +51,10 @@ export function Kosten({ dvId }: { dvId: string }) {
   const q = useQuery<Line[]>(() => supabase.from('cost_lines').select('*').eq('design_version_id', dvId).order('sort'), [dvId])
   const st = useQuery<Status>(() => supabase.from('design_versions').select('cost_status, cost_at').eq('id', dvId).single(), [dvId])
   const [msg, setMsg] = useState<string | null>(null)
+  const [params] = useSearchParams()
+  const focus = params.get('focus') === 'prijzen'
+  const box = useRef<HTMLDivElement>(null)
+  useEffect(() => { if (focus && q.data) box.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }, [focus, q.data])
   if (q.loading && !q.data) return <Loading />
   const lines = q.data ?? []
   const cats = COST_ORDER.filter((c) => lines.some((l) => l.category === c))
@@ -60,6 +65,24 @@ export function Kosten({ dvId }: { dvId: string }) {
       <ErrorBox error={q.error} />
       <p className="muted">Kostprijsberekening: {st.data?.cost_status ?? 'nog niet berekend'}. Klik op een eenheidsprijs bij beslag om ze aan te passen.</p>
       {msg && <p className="notice">{msg}</p>}
+      {lines.some((l) => l.note?.startsWith('prijs ontbreekt')) && (
+        <div ref={box} className={'todo-box' + (focus ? ' focus' : '')}>
+          <h2>Zonder prijs <span className="muted">{lines.filter((l) => l.note?.startsWith('prijs ontbreekt')).length}</span></h2>
+          <p className="muted">Klik op "prijs invullen" en typ de prijs per stuk. Ze geldt meteen ook voor alle volgende projecten.</p>
+          <table>
+            <thead><tr><th>Omschrijving</th><th>Leverancier</th><th>Artikel</th><th className="num">Aantal</th><th className="num">Prijs per stuk</th></tr></thead>
+            <tbody>
+              {lines.filter((l) => l.note?.startsWith('prijs ontbreekt')).map((l) => (
+                <tr key={l.id}>
+                  <td>{l.description}</td><td>{l.supplier}</td><td>{l.article_no}</td>
+                  <td className="num">{l.qty == null ? '' : `${fmtNum(l.qty, 2)}${l.unit ? ' ' + l.unit : ''}`}</td>
+                  <td className="num"><PriceCell line={l} onSaved={onSaved} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       {cats.map((c) => {
         const ls = lines.filter((l) => l.category === c)
         const subs = [...new Set(ls.map((l) => l.subgroup ?? ''))]

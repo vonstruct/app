@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useParams, useSearchParams } from 'react-router'
 import { supabase } from '../../core/supabase'
 import { useQuery } from '../../core/useQuery'
 import { DataTable } from '../../core/DataTable'
@@ -7,6 +7,7 @@ import { ErrorBox, Loading } from '../../core/ui'
 import { fmtDate, fmtInt } from '../../core/format'
 import { Compare } from './Compare'
 import { ProjectCard, usePhases, type ProjectRow } from '../../core/projects'
+import { ClientPanel } from './ClientPanel'
 
 export type Version = {
   id: string
@@ -33,6 +34,8 @@ export function ProjectDetail() {
   )
   const pq = useQuery<ProjectRow[]>(() => supabase.from('app_projects').select('*').eq('project_code', code), [code])
   const ph = usePhases()
+  const [params] = useSearchParams()
+  const focus = params.get('focus')
   const project = pq.data?.[0]
   const versions = q.data ?? []
   const [a, setA] = useState<number | null>(null)
@@ -48,8 +51,12 @@ export function ProjectDetail() {
       <h1>Project {code}</h1>
       <ErrorBox error={q.error ?? pq.error} />
       {project && ph.data && (
-        <div className="pcard-wide">
-          <ProjectCard p={project} phases={ph.data} onSaved={pq.reload} />
+        <div className="pdetail-top">
+          <div className={'pcard-wide' + (focus === 'fase' ? ' focus' : '')}>
+            {focus === 'fase' && <p className="notice">Kies rechtsboven in de kaart de fase waarin het project nu zit.</p>}
+            <ProjectCard p={project} phases={ph.data} onSaved={pq.reload} />
+          </div>
+          <ClientPanel project={project} focus={focus === 'fase' ? null : focus} onSaved={pq.reload} />
         </div>
       )}
       {q.loading ? (

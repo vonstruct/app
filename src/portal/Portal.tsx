@@ -11,7 +11,7 @@ const PHASES: Record<string, string> = {
   signed: 'Getekend', final_measure: 'Eindopmeting', ordering: 'Bestellingen', production: 'Productie', installation: 'Plaatsing',
   handover: 'Oplevering', aftercare: 'Nazorg', closed: 'Afgerond', on_hold: 'Gepauzeerd', declined: 'Niet doorgegaan',
 }
-const STEPS = ['design', 'quote', 'signed', 'production', 'installation', 'handover']
+const STEPS = ['design', 'quote', 'production', 'installation', 'closed']
 
 const COMING: Record<PortalRole, { title: string; text: string }[]> = {
   klant: [
@@ -103,7 +103,7 @@ function ClientProjects({ preview }: { preview: boolean }) {
   return (
     <div className="portal-projects">
       {rows.map((p) => {
-        const idx = STEPS.indexOf(p.phase ?? '')
+        const idx = p.phase === 'lead' ? -1 : STEPS.indexOf(p.phase ?? '')
         return (
           <article key={p.project_code} className="portal-project">
             <div className="portal-project-head">

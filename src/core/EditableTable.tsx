@@ -18,10 +18,13 @@ type Props = {
   orderBy?: string
   newRow?: Record<string, unknown>
   empty?: string
+  focus?: { id: string; key: string } // cel die meteen geselecteerd wordt (bv. vanuit de control tower)
+  canAdd?: boolean
+  canDelete?: boolean
 }
 
 /** Tabel die je bewerkt als in Excel: klik in een cel, wijzig, klaar. Elke wijziging wordt meteen bewaard. */
-export function EditableTable({ table, columns, orderBy = 'id', newRow = {}, empty = 'Nog niets ingevuld' }: Props) {
+export function EditableTable({ table, columns, orderBy = 'id', newRow = {}, empty = 'Nog niets ingevuld', focus, canAdd = true, canDelete = true }: Props) {
   const q = useQuery<Record<string, unknown>[]>(() => supabase.from(table).select('*').order(orderBy), [table])
   const [msg, setMsg] = useState<string | null>(null)
 
@@ -63,28 +66,28 @@ export function EditableTable({ table, columns, orderBy = 'id', newRow = {}, emp
             </tr>
           )}
           {rows.map((r) => (
-            <tr key={String(r.id)}>
+            <tr key={String(r.id)} className={focus && String(r.id) === focus.id ? 'focus-row' : undefined}>
               {columns.map((c) => (
                 <td key={c.key}>
-                  <Cell col={c} value={r[c.key]} onSave={(v) => save(r.id, c.key, v)} />
+                  <Cell col={c} value={r[c.key]} onSave={(v) => save(r.id, c.key, v)} autoFocus={!!focus && String(r.id) === focus.id && c.key === focus.key} />
                 </td>
               ))}
               <td>
-                <button className="link danger" title="Verwijderen" onClick={() => remove(r.id)}>✕</button>
+                {canDelete && <button className="link danger" title="Verwijderen" onClick={() => remove(r.id)}>✕</button>}
               </td>
             </tr>
           ))}
         </tbody>
       </table>
       <div className="toolbar pad">
-        <button onClick={add}>+ Regel toevoegen</button>
+        {canAdd && <button onClick={add}>+ Regel toevoegen</button>}
         {msg && <span className="muted">{msg}</span>}
       </div>
     </div>
   )
 }
 
-function Cell({ col, value, onSave }: { col: EditCol; value: unknown; onSave: (v: unknown) => void }) {
+function Cell({ col, value, onSave, autoFocus }: { col: EditCol; value: unknown; onSave: (v: unknown) => void; autoFocus?: boolean }) {
   const [v, setV] = useState(value == null ? '' : String(value))
   if (col.type === 'bool')
     return <input type="checkbox" checked={value === true} onChange={(e) => onSave(e.target.checked)} />
@@ -106,6 +109,8 @@ function Cell({ col, value, onSave }: { col: EditCol; value: unknown; onSave: (v
   return (
     <input
       className="cell"
+      autoFocus={autoFocus}
+      ref={autoFocus ? (el) => el?.scrollIntoView({ block: 'center' }) : undefined}
       inputMode={col.type === 'number' ? 'decimal' : undefined}
       value={col.type === 'number' ? v.replace('.', ',') : v}
       placeholder={col.placeholder}

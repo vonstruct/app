@@ -235,7 +235,7 @@ button.auth-alt:hover { border-color: var(--gold); }
 .portal-project p { margin: 0; }
 .portal-code { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 .portal-phase { background: color-mix(in srgb, var(--gold) 16%, transparent); color: #7a5d1c; border-radius: 99px; padding: 4px 12px; font-size: 13px; font-weight: 600; }
-.portal-steps { list-style: none; padding: 0; margin: 20px 0 12px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; counter-reset: s; }
+.portal-steps { list-style: none; padding: 0; margin: 20px 0 12px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; counter-reset: s; }
 .portal-steps li { font-size: 12px; color: var(--muted); padding-top: 10px; border-top: 3px solid var(--line); }
 .portal-steps li.done { border-top-color: var(--navy); color: var(--ink); }
 .portal-steps li.now { border-top-color: var(--gold); color: var(--ink); font-weight: 600; }
@@ -247,6 +247,7 @@ button.auth-alt:hover { border-color: var(--gold); }
 }
 @media (max-width: 640px) {
   .portal-steps { grid-template-columns: repeat(3, 1fr); row-gap: 14px; }
+  .pipeline { grid-template-columns: minmax(0, 1fr) !important; }
   .portal-logo { width: 120px; }
   .portal-kind { letter-spacing: .2em; font-size: 10px; }
   .portal-top-right { gap: 12px; }
@@ -319,9 +320,11 @@ button.auth-alt:hover { border-color: var(--gold); }
 .mini li:last-child { border-bottom: none; }
 .mini .right { text-align: right; min-width: 90px; }
 .ct-h { margin: 28px 0 10px; }
-.pipeline { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(150px, 1fr); gap: 8px; overflow-x: auto; padding-bottom: 6px; }
-.lane { background: color-mix(in srgb, var(--ink) 4%, transparent); border-radius: 10px; padding: 8px; min-height: 90px; display: grid; align-content: start; gap: 6px; }
-.lane.empty { opacity: .55; }
+.pipeline { display: grid; gap: 10px; overflow-x: auto; padding-bottom: 6px; }
+.lane { background: color-mix(in srgb, var(--ink) 4%, transparent); border-radius: 10px; padding: 10px; min-height: 120px; display: flex; flex-direction: column; gap: 6px; }
+.lane-head em { font-style: normal; display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: #16233a; color: #f3e3a0; font-size: 11px; margin-right: 4px; }
+.lane-gate { margin: auto 0 0; padding-top: 8px; font-size: 11.5px; color: var(--muted); border-top: 1px dashed var(--line); }
+.lane.empty .lane-head { opacity: .6; }
 .lane-head { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: var(--muted); padding: 2px 4px 4px; }
 .lane-n { background: var(--panel); border-radius: 99px; padding: 0 7px; }
 .lane-card { display: grid; gap: 1px; background: var(--panel); border: 1px solid var(--line); border-left: 3px solid #c9a24a; border-radius: 8px; padding: 8px 10px; color: var(--ink); font-size: 13px; }
@@ -333,3 +336,25 @@ button.auth-alt:hover { border-color: var(--gold); }
   .ct-grid { grid-template-columns: minmax(0, 1fr); }
   .pcards { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ---------- Direct naar de actie ---------- */
+.flag-side { display: grid; justify-items: end; gap: 2px; flex: none; }
+.flag-act { font-size: 12.5px; font-weight: 600; color: #16233a; background: color-mix(in srgb, #c9a24a 16%, transparent); padding: 3px 10px; border-radius: 99px; white-space: nowrap; }
+.flag:hover .flag-act { background: #c9a24a; color: #111; }
+.todo-box { background: var(--panel); border: 1px solid color-mix(in srgb, #c9a24a 50%, var(--line)); border-left: 4px solid #c9a24a; border-radius: 12px; padding: 4px 16px 12px; margin: 12px 0 20px; scroll-margin-top: 90px; }
+.todo-box h2 { margin-top: 12px; }
+.todo-box.focus { box-shadow: 0 0 0 4px color-mix(in srgb, #c9a24a 22%, transparent); }
+.pdetail-top { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 16px; align-items: start; margin: 12px 0 8px; }
+.pdetail-top .pcard-wide { margin: 0; max-width: none; }
+.pcard-wide.focus .pcard, .client-panel.focus { box-shadow: 0 0 0 4px color-mix(in srgb, #c9a24a 22%, transparent); border-color: #c9a24a; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+.form-grid label { font-size: 12.5px; }
+.form-grid label.wide { grid-column: 1 / -1; }
+.form-grid input { height: 36px; }
+.focus-input { border-color: #c9a24a !important; box-shadow: 0 0 0 3px color-mix(in srgb, #c9a24a 25%, transparent); }
+tr.focus-row td { background: color-mix(in srgb, #c9a24a 12%, transparent); }
+tr.focus-row .cell:focus { border-color: #c9a24a; }
+.small { font-size: 12.5px; margin: 8px 0 0; }
+.client-panel { scroll-margin-top: 90px; }
+@media (max-width: 900px) { .pdetail-top { grid-template-columns: minmax(0, 1fr); } }
+@media (prefers-color-scheme: dark) { .flag-act { color: #f3e3a0; } }
