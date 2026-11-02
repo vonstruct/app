@@ -126,7 +126,9 @@ export function PhaseSelect({ p, phases, onSaved }: { p: ProjectRow; phases: Pha
   )
 }
 
-export function ProjectCard({ p, phases, onSaved }: { p: ProjectRow; phases: Phase[]; onSaved: () => void }) {
+export type ProjectPlanning = { project_code: string; jobs_open: number; jobs_unconfirmed: number; jobs_changed: number; next_at: string | null; next_title: string | null }
+
+export function ProjectCard({ p, phases, onSaved, planning }: { p: ProjectRow; phases: Phase[]; onSaved: () => void; planning?: ProjectPlanning }) {
   const href = `/projecten/${encodeURIComponent(p.project_code)}`
   return (
     <article className={'pcard' + (p.phase_active === false ? ' inactive' : '')}>
@@ -146,6 +148,12 @@ export function ProjectCard({ p, phases, onSaved }: { p: ProjectRow; phases: Pha
         <PhaseSelect p={p} phases={phases} onSaved={onSaved} />
       </header>
       <PhaseSteps phase={p.phase} phases={phases} />
+      {planning && planning.next_at && (
+        <Link to={href} className={'pcard-plan' + (planning.jobs_unconfirmed ? ' warn' : '')}>
+          <span>📅 {new Date(planning.next_at).toLocaleDateString('nl-BE', { weekday: 'short', day: 'numeric', month: 'short' })} · {planning.next_title}</span>
+          {planning.jobs_unconfirmed > 0 && <span className="small">{planning.jobs_unconfirmed} te bevestigen{planning.jobs_changed ? ` · ${planning.jobs_changed} gewijzigd` : ''}</span>}
+        </Link>
+      )}
       <dl className="pcard-facts">
         <div>
           <dt>Raming materiaal</dt>

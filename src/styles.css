@@ -605,3 +605,27 @@ label.check input { width: auto; height: auto; }
 .confirm-box li span { min-width: 170px; }
 .confirm-box b.ok, .ok-t { color: var(--good); }
 .confirm-box b.wait, .wait-t { color: var(--warn); }
+/* planning in het project */
+.planning-panel { margin: 16px 0; }
+.planning-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.planning-head h2 { margin: 0; }
+.planning-tabs { margin: 10px 0; }
+.planning-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.planning-item { border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: 9px; background: var(--panel); }
+.planning-item.k-afspraak { border-left-color: #2c4a7c; }
+.planning-item.k-opdracht { border-left-color: #c4622b; }
+.planning-item.k-opdracht.st-bevestigd, .planning-item.k-opdracht.st-bezig { border-left-color: var(--good); }
+.planning-item.k-opdracht.st-klaar { opacity: .7; }
+.planning-item.k-mijlpaal { border-left-color: #c9a24a; }
+.planning-row { display: grid; grid-template-columns: 150px minmax(0, 1fr) auto; gap: 12px; width: 100%; text-align: left; background: none; border: none; padding: 9px 12px; color: var(--ink); text-decoration: none; cursor: pointer; font: inherit; }
+div.planning-row { cursor: default; }
+.planning-when { font-size: 13px; font-weight: 600; }
+.planning-main, .planning-side { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.planning-side { align-items: flex-end; text-align: right; }
+.planning-kind { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.planning-route { display: block; padding: 0 12px 8px 174px; font-size: 12.5px; }
+.planning-log { margin-top: 12px; }
+.pcard-plan { display: flex; flex-direction: column; gap: 2px; margin: 8px 0 0; padding: 6px 10px; border-radius: 8px; background: var(--bg); color: var(--ink); text-decoration: none; font-size: 13px; }
+.pcard-plan.warn { background: rgba(154,103,0,.1); }
+.pcard-plan .small { color: var(--warn); }
+@media (max-width: 700px) { .planning-row { grid-template-columns: 1fr; } .planning-side { align-items: flex-start; text-align: left; } .planning-route { padding-left: 12px; } }

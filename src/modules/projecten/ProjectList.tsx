@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { supabase } from '../../core/supabase'
 import { ErrorBox, Loading } from '../../core/ui'
-import { ProjectCard, usePhases, useProjects } from '../../core/projects'
+import { ProjectCard, usePhases, useProjects, type ProjectPlanning } from '../../core/projects'
 import { NewLead } from './NewLead'
 
 type Filter = 'lopend' | 'alle' | 'afgesloten'
@@ -11,6 +12,8 @@ export function ProjectList() {
   const [filter, setFilter] = useState<Filter>('lopend')
   const [search, setSearch] = useState('')
   const [adding, setAdding] = useState(false)
+  const [plan, setPlan] = useState<Record<string, ProjectPlanning>>({})
+  useEffect(() => { supabase.from('app_project_planning').select('*').then(({ data }) => setPlan(Object.fromEntries(((data ?? []) as ProjectPlanning[]).map((r) => [r.project_code, r])))) }, [])
   const all = q.data ?? []
   const needle = search.trim().toLowerCase()
   const rows = all
@@ -46,7 +49,7 @@ export function ProjectList() {
       ) : (
         <div className="pcards">
           {rows.map((p) => (
-            <ProjectCard key={p.project_id} p={p} phases={ph.data ?? []} onSaved={q.reload} />
+            <ProjectCard key={p.project_id} p={p} phases={ph.data ?? []} onSaved={q.reload} planning={plan[p.project_code]} />
           ))}
         </div>
       )}

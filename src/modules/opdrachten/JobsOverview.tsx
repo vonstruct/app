@@ -21,6 +21,7 @@ export function JobsOverview() {
   const [rows, setRows] = useState<Row[] | null>(null)
   const [filter, setFilter] = useState<Filter>('open')
   const [who, setWho] = useState('')
+  const [proj, setProj] = useState(() => params.get('project') ?? '')
   const [open, setOpen] = useState<Row | null>(null)
   const [creating, setCreating] = useState(false)
   const load = useCallback(async () => {
@@ -38,6 +39,7 @@ export function JobsOverview() {
   const now = Date.now()
   const list = (rows ?? []).filter((r) => {
     if (who && name(r) !== who) return false
+    if (proj && r.project_code !== proj) return false
     switch (filter) {
       case 'open': return !['klaar', 'geannuleerd'].includes(r.status) && new Date(r.end_at).getTime() > now - 86400000 * 7
       case 'tebevestigen': return r.status === 'gepland' && !r.for_me
@@ -69,6 +71,10 @@ export function JobsOverview() {
             return <button key={f.id} className={filter === f.id ? 'on' : ''} onClick={() => setFilter(f.id)}>{f.label}{n ? <span className="badge">{n}</span> : null}</button>
           })}
         </div>
+        <select value={proj} onChange={(e) => setProj(e.target.value)}>
+          <option value="">Alle projecten</option>
+          {[...new Set((rows ?? []).map((r) => r.project_code).filter(Boolean))].sort().map((c) => <option key={c!} value={c!}>{c}</option>)}
+        </select>
         <select value={who} onChange={(e) => setWho(e.target.value)}>
           <option value="">Iedereen</option>
           {people.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -83,8 +89,8 @@ export function JobsOverview() {
                 <span className="muted small">{r.slot ? SLOTS[r.slot].label : `${new Date(r.start_at).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })}–${new Date(r.end_at).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })}`}</span>
               </span>
               <span className="jobs-main">
-                <strong>{r.title}</strong>
-                <span className="muted small">{name(r)}{r.subcontractors?.trade ? ` · ${r.subcontractors.trade}` : ''}{r.project_code ? ` · project ${r.project_code}` : ''}{r.job_type ? ` · ${r.job_type}` : ''}</span>
+                <strong>{r.title}{r.project_code && <> · <Link to={`/projecten/${r.project_code}`} onClick={(e) => e.stopPropagation()}>project {r.project_code}</Link></>}</strong>
+                <span className="muted small">{name(r)}{r.subcontractors?.trade ? ` · ${r.subcontractors.trade}` : ''}{r.job_type ? ` · ${r.job_type}` : ''}</span>
                 {r.address && <span className="muted small">📍 {r.address} <span onClick={(e) => e.stopPropagation()}><RouteLinks address={r.address} /></span></span>}
                 {r.status === 'voorstel' && r.proposed_start && <span className="jobs-prop">⇄ Voorstel: {when(r.proposed_start, r.proposed_end!, r.proposed_slot)}{r.proposal_note ? ` – “${r.proposal_note}”` : ''}</span>}
                 {r.sub_note && <span className="jobs-note">💬 {r.sub_note}</span>}

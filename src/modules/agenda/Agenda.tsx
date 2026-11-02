@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { supabase } from '../../core/supabase'
 import { RouteLinks } from '../../core/address'
 import { JOB_STATUS, SLOTS, JobEditor, type Job, type JobDraft } from './JobEditor'
@@ -58,15 +58,17 @@ const mondayOfWeek = (s: string | null, ref: Date): Date | null => {
   return addDays(startOfWeek(new Date(year, 0, 4)), (Number(m[2]) - 1) * 7)
 }
 const SRC: Record<Ev['source'], string> = { outlook: 'Outlook', bookings: 'Bookings', planning: 'Planning', job: 'Opdracht' }
-const keyOf = (e: Ev) => e.bookings_id ?? e.outlook_id ?? e.id
-const codeIn = (s: string) => s.match(/\b(20\d{4})\b/)?.[1] ?? null
+export type AgendaEv = Ev
+export const keyOf = (e: Ev) => e.bookings_id ?? e.outlook_id ?? e.id
+export const codeIn = (s: string) => s.match(/\b(20\d{4})\b/)?.[1] ?? null
 const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
 
 type View = 'dag' | 'week' | 'maand'
 
 export function Agenda() {
-  const [view, setView] = useState<View>(() => { try { const v = localStorage.getItem('agenda.view'); return v === 'maand' || v === 'dag' ? v : 'week' } catch { return 'week' } })
-  const [anchor, setAnchor] = useState(() => new Date())
+  const [params, setParams] = useSearchParams()
+  const [view, setView] = useState<View>(() => { if (params.get('d')) return 'dag'; try { const v = localStorage.getItem('agenda.view'); return v === 'maand' || v === 'dag' ? v : 'week' } catch { return 'week' } })
+  const [anchor, setAnchor] = useState(() => { const d = params.get('d'); return d ? new Date(d + 'T12:00') : new Date() })
   const [events, setEvents] = useState<Ev[] | null>(null)
   const [upcoming, setUpcoming] = useState<Ev[] | null>(null)
   const [projects, setProjects] = useState<Proj[]>([])
@@ -151,6 +153,13 @@ export function Agenda() {
     setWarn((ag.data as { warnings: string[] }).warnings ?? [])
   }, [from, to])
   useEffect(() => { load() }, [load])
+  // vanuit een project: ?d=YYYY-MM-DD&e=<id> opent die afspraak
+  useEffect(() => {
+    const id = params.get('e')
+    if (!id || !events) return
+    const hit = [...events, ...jobs].find((x) => x.id === id || keyOf(x) === id)
+    if (hit) { setSel(hit); params.delete('e'); setParams(params, { replace: true }) }
+  }, [events, jobs]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Soort afspraak: eigen keuze > planning/Bookings > Outlook-categorie > genodigden > naam in de titel > mezelf. */
   const classify = useCallback((e: Ev): Cat => {
@@ -506,15 +515,15 @@ function Detail({ ev, cat, note, project, projects, onClose, onChanged, onJob }:
   )
 }
 
-function NewEvent({ day, projects, onClose, onCreated }: { day: Date; projects: Proj[]; onClose: () => void; onCreated: () => void }) {
+export function NewEvent({ day, projects, onClose, onCreated, project = '' }: { day: Date; projects: Proj[]; onClose: () => void; onCreated: () => void; project?: string }) {
   const d = new Date(day); d.setHours(9, 0, 0, 0)
-  const [title, setTitle] = useState('')
+  const [title, setTitle] = useState(project ? project + ' – ' : '')
   const [start, setStart] = useState(toLocalInput(d.toISOString()))
   const [dur, setDur] = useState(60)
   const [loc, setLoc] = useState('')
   const [info, setInfo] = useState('')
   const [c, setC] = useState<Cat | ''>('')
-  const [proj, setProj] = useState('')
+  const [proj, setProj] = useState(project)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const save = async () => {

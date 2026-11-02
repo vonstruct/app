@@ -10,6 +10,7 @@ import { ProjectCard, usePhases, type ProjectRow } from '../../core/projects'
 import { ClientPanel } from './ClientPanel'
 import { SurveyPanel } from './SurveyPanel'
 import { LeadActions } from './LeadActions'
+import { PlanningPanel } from './PlanningPanel'
 
 export type Version = {
   id: string
@@ -62,6 +63,7 @@ export function ProjectDetail() {
         </div>
       )}
       {project && <LeadActions p={project} onDone={pq.reload} />}
+      {project && <PlanningPanel project={project} />}
       {project && <SurveyPanel code={code} focus={focus === 'survey'} />}
       {q.loading ? (
         <Loading />
