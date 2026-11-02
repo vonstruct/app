@@ -47,7 +47,7 @@ export function InstallPrompt() {
 
   return (
     <div className="install-prompt" role="dialog" aria-label={t.title}>
-      <img src="./icon-192.png" alt="" />
+      <img src="./v-icon-192.png" alt="" />
       <div className="install-text">
         <strong>{t.title}</strong>
         {show === 'android' ? <span>{t.and}</span>
