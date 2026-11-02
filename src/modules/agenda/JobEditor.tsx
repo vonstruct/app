@@ -31,6 +31,7 @@ export type Job = {
   notify_client: boolean
   sub_note: string | null
   confirmed_at: string | null
+  outlook_event_id?: string | null
   client_confirmed_at?: string | null
   prev_start?: string | null
   prev_end?: string | null

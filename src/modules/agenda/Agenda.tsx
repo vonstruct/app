@@ -201,7 +201,8 @@ export function Agenda() {
     return out
   }, [projects, events, from, to, anchor])
 
-  const all = [...(events ?? []), ...planning, ...jobs].filter((e) => !hidden.includes(classify(e))).sort((a, b) => a.start.localeCompare(b.start))
+  const mirror = new Set([...jobs, ...jobsNext].map((x) => x.job?.outlook_event_id).filter(Boolean))
+  const all = [...(events ?? []).filter((e) => !(e.outlook_id && mirror.has(e.outlook_id))), ...planning, ...jobs].filter((e) => !hidden.includes(classify(e))).sort((a, b) => a.start.localeCompare(b.start))
   const itemsOn = (d: Date) => all.filter((e) => (e.all_day ? new Date(e.start) < addDays(d, 1) && new Date(e.end) > d : sameDay(new Date(e.start), d)))
   const today = new Date()
   const label = view === 'dag'
@@ -282,7 +283,7 @@ export function Agenda() {
             </div>
           )}
         </div>
-        <Upcoming items={upcoming ? [...upcoming, ...jobsNext].sort((a, b) => a.start.localeCompare(b.start)).filter((e) => !hidden.includes(classify(e))) : null} cls={cls} onPick={setSel} />
+        <Upcoming items={upcoming ? [...upcoming.filter((e) => !(e.outlook_id && mirror.has(e.outlook_id))), ...jobsNext].sort((a, b) => a.start.localeCompare(b.start)).filter((e) => !hidden.includes(classify(e))) : null} cls={cls} onPick={setSel} />
       </div>
       <p className="muted small">Outlook-agenda van info@vonstruct.com, Bookings-afspraken en de planning uit je projecten. De kleur volgt de soort: automatisch (genodigden, namen, projectcode of Outlook-categorie) of zelf gekozen bij de afspraak.</p>
       {sel?.source === 'job' && <JobEditor draft={sel.job!} onClose={() => setSel(null)} onSaved={loadJobs} />}

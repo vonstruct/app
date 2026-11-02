@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../core/supabase'
 import { tr, type Lang } from './i18n'
 import { RouteLinks } from '../core/address'
+import { downloadIcs } from '../core/ics'
 import { SLOTS, type Slot } from '../modules/agenda/JobEditor'
 
 export type PortalJob = Job
@@ -142,6 +143,7 @@ export function JobCard({ j, lang, preview, demo = false, onChange, compact }: {
               {j.confirmed_at && j.status === 'bevestigd' && <button disabled={preview} onClick={() => update('bezig', null)}>{t.jobs.start}</button>}
               {(j.status === 'bevestigd' || j.status === 'bezig') && <button className="primary" disabled={preview} onClick={() => update('klaar', note || null)}>{t.jobs.markDone}</button>}
               {['gepland', 'bevestigd', 'voorstel'].includes(j.status) && <button disabled={preview} onClick={() => setProp(true)}>⇄ {t.jobs.propose}</button>}
+              <button onClick={() => downloadIcs({ uid: `job-${j.id}-sub@vonstruct.com`, start: j.start_at, end: j.end_at, slot: j.slot, summary: `Vonstruct: ${j.title}${j.project_code ? ` (${j.project_code})` : ''}`, location: j.address, description: [j.instructions ?? '', 'https://app.vonstruct.com'].filter(Boolean).join('\n\n') })}>{t.jobs.addToCal}</button>
             </div>
           )}
           <label className="q">{t.jobs.note}

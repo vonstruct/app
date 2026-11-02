@@ -71,7 +71,8 @@ export function PlanningPanel({ project }: { project: ProjectRow }) {
       const who = j.for_me ? 'Vonstruct (jij)' : j.subcontractors ? `${j.subcontractors.name}${j.subcontractors.trade ? ` · ${j.subcontractors.trade}` : ''}` : j.partners?.name ?? '—'
       out.push({ key: 'j' + j.id, kind: 'opdracht', start: j.start_at, end: j.end_at, title: j.title, sub: who, location: j.address, slot: j.slot, job: j })
     }
-    for (const e of events ?? []) out.push({ key: 'e' + e.id, kind: 'afspraak', start: e.start, end: e.end, title: e.title, sub: e.customer?.name ?? (e.source === 'bookings' ? 'Bookings' : 'Outlook'), location: e.location, ev: e })
+    const mirror = new Set((jobs ?? []).map((j) => j.outlook_event_id).filter(Boolean))
+    for (const e of (events ?? []).filter((x) => !(x.outlook_id && mirror.has(x.outlook_id)))) out.push({ key: 'e' + e.id, kind: 'afspraak', start: e.start, end: e.end, title: e.title, sub: e.customer?.name ?? (e.source === 'bookings' ? 'Bookings' : 'Outlook'), location: e.location, ev: e })
     const hasIntro = (events ?? []).some((e) => e.source === 'bookings')
     if (project.intro_at && !hasIntro) out.push({ key: 'intro', kind: 'mijlpaal', start: project.intro_at, end: project.intro_at, title: 'Kennismaking' })
     if (project.target_install_week) out.push({ key: 'week', kind: 'mijlpaal', start: '', end: '', title: `Plaatsing gepland in week ${project.target_install_week}` })

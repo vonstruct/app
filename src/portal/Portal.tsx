@@ -3,6 +3,7 @@ import { supabase } from '../core/supabase'
 import logo from '../assets/vonstruct-logo.webp'
 import { Survey } from './Survey'
 import { Jobs, MomentForm, type ViewAs } from './Jobs'
+import { downloadIcs } from '../core/ics'
 import { LANGS, asLang, storeLang, storedLang, tr, type Lang } from './i18n'
 
 export type PortalRole = 'klant' | 'partner' | 'onderaannemer'
@@ -175,6 +176,7 @@ function Visits({ list, lang, onChange, preview = false }: { list: Visit[]; lang
                 <span className="toolbar">
                   {!v.client_confirmed_at && <button className="primary" disabled={preview} onClick={confirm}>✓ {t.jobs.confirm}</button>}
                   <button disabled={preview} onClick={() => setChanging(v.id)}>⇄ {t.jobs.propose}</button>
+                  <button onClick={() => downloadIcs({ uid: `job-${v.id}-client@vonstruct.com`, start: v.start_at, end: v.end_at, slot: v.slot, summary: `${v.who ?? 'Vonstruct'}: ${v.title}` })}>{t.jobs.addToCal}</button>
                 </span>
               )}
               {changing === v.id && <MomentForm j={v} lang={lang} onDone={() => { setChanging(null); onChange() }} onCancel={() => setChanging(null)} />}
