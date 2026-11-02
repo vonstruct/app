@@ -4,11 +4,12 @@ import { supabase } from '../../../core/supabase'
 import { useQuery } from '../../../core/useQuery'
 import { ErrorBox, Loading } from '../../../core/ui'
 import { fmtEur, fmtNum } from '../../../core/format'
+import { OwnArticleEditor } from '../../../core/OwnArticle'
 
 type Line = { id: string; category: string; subgroup: string | null; sort: number; description: string; supplier: string | null; article_no: string | null; qty: number | null; unit: string | null; unit_price: number | null; total: number; ordered_by: string | null; note: string | null }
 type Status = { cost_status: string | null; cost_at: string | null }
 
-export const COST_ORDER = ['Platen', 'Kanten', 'Lades', 'Werkbladen', 'Sanitair', 'Elektriciteit', 'Toestellen', 'Grepen', 'Verbinders & Beslagen', 'Varia', 'Productiekosten']
+export const COST_ORDER = ['Platen', 'Kanten', 'Lades', 'Werkbladen', 'Sanitair', 'Elektriciteit', 'Toestellen', 'Grepen', 'Verbinders & Beslagen', 'Varia', 'Zelf maken', 'Productiekosten']
 
 /** Regels waarvan je de prijs zelf kan invullen (beslag, rubrieken, losse Du Pont-onderdelen van lades). */
 const editable = (l: Line) =>
@@ -68,15 +69,19 @@ export function Kosten({ dvId }: { dvId: string }) {
       {lines.some((l) => l.note?.startsWith('prijs ontbreekt')) && (
         <div ref={box} className={'todo-box' + (focus ? ' focus' : '')}>
           <h2>Zonder prijs <span className="muted">{lines.filter((l) => l.note?.startsWith('prijs ontbreekt')).length}</span></h2>
-          <p className="muted">Klik op "prijs invullen" en typ de prijs per stuk. Ze geldt meteen ook voor alle volgende projecten.</p>
+          <p className="muted">
+            Kies per artikel de herkomst en vul de prijs per stuk in. <strong>Bestellen</strong> = bij een leverancier,{' '}
+            <strong>Zelf maken</strong> = komt in de rubriek "Zelf maken" en niet op bestellijsten, <strong>Negeren</strong> = telt nergens mee.
+            Het artikel wordt herkend op artikelnummer, of op naam als er geen nummer is, ook in volgende projecten.
+          </p>
           <table>
-            <thead><tr><th>Omschrijving</th><th>Leverancier</th><th>Artikel</th><th className="num">Aantal</th><th className="num">Prijs per stuk</th></tr></thead>
+            <thead><tr><th>Omschrijving</th><th>Leverancier</th><th>Artikel</th><th className="num">Aantal</th><th>Herkomst en prijs per stuk</th></tr></thead>
             <tbody>
               {lines.filter((l) => l.note?.startsWith('prijs ontbreekt')).map((l) => (
                 <tr key={l.id}>
                   <td>{l.description}</td><td>{l.supplier}</td><td>{l.article_no}</td>
                   <td className="num">{l.qty == null ? '' : `${fmtNum(l.qty, 2)}${l.unit ? ' ' + l.unit : ''}`}</td>
-                  <td className="num"><PriceCell line={l} onSaved={onSaved} /></td>
+                  <td><OwnArticleEditor articleNo={l.article_no} description={l.description} supplier={l.supplier} onSaved={onSaved} /></td>
                 </tr>
               ))}
             </tbody>
@@ -113,7 +118,7 @@ export function Kosten({ dvId }: { dvId: string }) {
                           <td className="num">{editable(l) ? <PriceCell line={l} onSaved={onSaved} /> : l.unit_price == null ? '' : fmtEur(l.unit_price)}</td>
                           <td className="num">{fmtEur(l.total)}</td>
                           <td>{l.ordered_by}</td>
-                          <td className={l.note?.startsWith('prijs ontbreekt') ? 'warn-text' : l.note === 'eigen prijs' ? 'ok-text' : 'muted'}>{l.note}</td>
+                          <td className={l.note?.startsWith('prijs ontbreekt') ? 'warn-text' : l.note === 'eigen prijs' || l.note === 'zelf maken' ? 'ok-text' : 'muted'}>{l.note}</td>
                         </tr>
                       ))}
                     </Fragment>

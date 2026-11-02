@@ -87,7 +87,7 @@ th { font-size: 12px; color: var(--muted); font-weight: 600; cursor: pointer; us
 .num { text-align: right; font-variant-numeric: tabular-nums; }
 tfoot td { font-weight: 600; border-bottom: none; }
 tbody tr:hover { background: var(--accent-soft); }
-.badge { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: 12px; }
+.badge { white-space: nowrap; display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: 12px; }
 .badge.bad { background: color-mix(in srgb, var(--bad) 15%, transparent); color: var(--bad); }
 .badge.warn { background: color-mix(in srgb, var(--warn) 15%, transparent); color: var(--warn); }
 
@@ -358,3 +358,8 @@ tr.focus-row .cell:focus { border-color: #c9a24a; }
 .client-panel { scroll-margin-top: 90px; }
 @media (max-width: 900px) { .pdetail-top { grid-template-columns: minmax(0, 1fr); } }
 @media (prefers-color-scheme: dark) { .flag-act { color: #f3e3a0; } }
+.own-editor { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.own-editor select { padding: 4px 6px; }
+.own-editor .price-input { width: 96px; }
+.own-editor button { padding: 4px 12px; }
+.badge.ok { background: color-mix(in srgb, var(--good) 15%, transparent); color: var(--good); }

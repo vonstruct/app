@@ -15,12 +15,13 @@ export const ruleTables: RuleTable[] = [
   {
     section: 'Prijzen',
     table: 'manual_prices',
-    title: 'Eigen prijzen',
+    title: 'Eigen artikels',
     explanation:
-      'Prijzen die je zelf invult, ook via het tabblad Kosten van een versie. Ze gaan voor op de prijslijsten van de leveranciers en gelden voor alle projecten. Herkenning op artikelnummer, of op naam als er geen artikelnummer is. Prijs = per stuk, zonder btw.',
+      'Artikels met een eigen prijs en herkomst, ook in te vullen via de tabbladen Kosten en Controle. Ze gaan voor op de prijslijsten en gelden voor alle projecten. Herkenning op artikelnummer, of op naam als er geen artikelnummer is (de naam moet dan exact zo in PaletteCAD staan). Herkomst: Bestellen = bij een leverancier; Zelf maken = eigen rubriek in de kosten, niet op bestellijsten; Negeren = telt nergens mee. Prijs = per stuk, zonder btw.',
     columns: [
       { key: 'description', label: 'Omschrijving' },
       { key: 'article_no', label: 'Artikelnummer' },
+      { key: 'origin', label: 'Herkomst', type: 'select', options: ['Bestellen', 'Zelf maken', 'Negeren'], width: 130 },
       { key: 'supplier', label: 'Leverancier' },
       { key: 'price', label: 'Prijs per stuk (€)', type: 'number', width: 130 },
       { key: 'note', label: 'Opmerking' },
