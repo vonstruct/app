@@ -41,6 +41,9 @@ export type ProjectRow = {
   stage_label: string | null
   stage_sort: number | null
   stage_gate: string | null
+  intro_at: string | null
+  lead_source: string | null
+  survey_status: string | null
 }
 
 export type Phase = { phase: string; sort: number; label: string; active: boolean; idle_days: number | null; stage: string | null; selectable: boolean; gate: string | null }
@@ -66,6 +69,9 @@ export function PhaseSteps({ phase, phases }: { phase: string; phases: Phase[] }
     </ol>
   )
 }
+
+export const fmtWhen = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleString('nl-BE', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''
 
 export const relDays = (iso: string | null) => {
   if (!iso) return ''
@@ -157,6 +163,18 @@ export function ProjectCard({ p, phases, onSaved }: { p: ProjectRow; phases: Pha
           <dt>Laatste activiteit</dt>
           <dd>{relDays(p.last_activity)}</dd>
         </div>
+        {p.intro_at && p.stage === 'lead' && (
+          <div>
+            <dt>Kennismaking</dt>
+            <dd>{fmtWhen(p.intro_at)}</dd>
+          </div>
+        )}
+        {p.stage === 'lead' && (
+          <div>
+            <dt>Vragenlijst</dt>
+            <dd>{p.survey_status === 'submitted' ? 'ingediend' : p.survey_status === 'open' ? 'bezig' : 'nog niet'}</dd>
+          </div>
+        )}
         {p.target_install_week && (
           <div>
             <dt>Plaatsing</dt>

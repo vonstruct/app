@@ -3,7 +3,7 @@ import { supabase } from '../../core/supabase'
 import { useQuery } from '../../core/useQuery'
 import { ErrorBox, Loading } from '../../core/ui'
 import { fmtEur, fmtInt } from '../../core/format'
-import { gatesOf, relDays, usePhases, useProjects, type Phase, type ProjectRow } from '../../core/projects'
+import { fmtWhen, gatesOf, relDays, usePhases, useProjects, type Phase, type ProjectRow } from '../../core/projects'
 
 type Flag = { prio: 1 | 2 | 3; kind: string; project_code: string | null; last_version: number | null; ref: string | null; title: string; detail: string | null; since: string | null }
 type Supplier = { supplier_name: string; n_articles: number; last_update: string; days_old: number }
@@ -110,6 +110,24 @@ export function ControlTower() {
             </div>
 
             <div className="ct-side">
+              <div className="panel">
+                <h2>Komende kennismakingen</h2>
+                {(() => {
+                  const up = ps.filter((p) => p.intro_at && p.intro_at > new Date(Date.now() - 3600e3).toISOString() && p.phase_active !== false)
+                    .sort((a, b) => (a.intro_at ?? '').localeCompare(b.intro_at ?? ''))
+                  return up.length === 0 ? <p className="muted">Geen geplande gesprekken.</p> : (
+                    <ul className="mini">
+                      {up.map((p) => (
+                        <li key={p.project_id}>
+                          <Link to={`/projecten/${encodeURIComponent(p.project_code)}`}>{p.client_name}</Link>
+                          <span className="muted">{p.project_code}</span>
+                          <span className="right">{fmtWhen(p.intro_at)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )
+                })()}
+              </div>
               <div className="panel">
                 <h2>Laatste uploads</h2>
                 {recent.length === 0 ? (
