@@ -3,7 +3,7 @@ import { supabase } from '../../core/supabase'
 import type { ProjectRow } from '../../core/projects'
 import { useQuery } from '../../core/useQuery'
 
-type Client = { id: string; first_name: string | null; last_name: string | null; company: string | null; email: string | null; phone: string | null; street: string | null; postal_code: string | null; city: string | null }
+type Client = { id: string; first_name: string | null; last_name: string | null; company: string | null; email: string | null; phone: string | null; street: string | null; postal_code: string | null; city: string | null; language: string | null }
 
 const FIELDS: { key: keyof Client; label: string; type?: string; placeholder?: string; wide?: boolean }[] = [
   { key: 'first_name', label: 'Voornaam' },
@@ -18,7 +18,7 @@ const FIELDS: { key: keyof Client; label: string; type?: string; placeholder?: s
 
 /** Klantgegevens bij een project; elk veld wordt bewaard zodra je het verlaat. */
 export function ClientPanel({ project, focus, onSaved }: { project: ProjectRow; focus: string | null; onSaved: () => void }) {
-  const q = useQuery<Client>(() => supabase.from('clients').select('id, first_name, last_name, company, email, phone, street, postal_code, city').eq('id', project.client_id).single(), [project.client_id])
+  const q = useQuery<Client>(() => supabase.from('clients').select('id, first_name, last_name, company, email, phone, street, postal_code, city, language').eq('id', project.client_id).single(), [project.client_id])
   const [msg, setMsg] = useState<string | null>(null)
   const box = useRef<HTMLDivElement>(null)
   useEffect(() => { if (focus && q.data) box.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }, [focus, q.data])
@@ -51,7 +51,16 @@ export function ClientPanel({ project, focus, onSaved }: { project: ProjectRow; 
             />
           </label>
         ))}
+        <label>
+          Taal van de klant
+          <select value={c.language ?? 'nl'} onChange={(e) => save('language', e.target.value)}>
+            <option value="nl">Nederlands</option>
+            <option value="en">Engels</option>
+            <option value="de">Duits</option>
+          </select>
+        </label>
       </div>
+      <p className="muted small">De taal bepaalt de mails, de berichten en het klantenportaal (de klant kan daar zelf ook wisselen).</p>
       {msg && <p className="muted small">{msg}</p>}
     </div>
   )

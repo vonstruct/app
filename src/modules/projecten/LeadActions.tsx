@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../core/supabase'
 import type { ProjectRow } from '../../core/projects'
 
-type Tpl = { key: string; label: string; body: string }
+type Tpl = { key: string; lang: string; label: string; body: string }
+const LANG_NAME: Record<string, string> = { nl: 'Nederlands', en: 'Engels', de: 'Duits' }
 const LINK = 'https://app.vonstruct.com'
 
 /** Belgisch gsm-nummer naar het formaat van wa.me (32…). */
@@ -30,7 +31,12 @@ export function LeadActions({ p, onDone }: { p: ProjectRow; onDone: () => void }
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
   const [show, setShow] = useState<string | null>(p.phase === 'intake' ? 'welkom' : null)
   const [busy, setBusy] = useState(false)
-  useEffect(() => { supabase.from('message_templates').select('key,label,body').then(({ data }) => setTpls((data as Tpl[]) ?? [])) }, [])
+  const [lang, setLang] = useState('nl')
+  useEffect(() => { supabase.from('message_templates').select('key,lang,label,body').then(({ data }) => setTpls((data as Tpl[]) ?? [])) }, [])
+  // taal van de klant (instelbaar bij Klant); bepaalt de mail en het bericht
+  useEffect(() => {
+    if (p.client_id) supabase.from('clients').select('language').eq('id', p.client_id).single().then(({ data }) => setLang((data as { language?: string } | null)?.language ?? 'nl'))
+  }, [p])
   if (!['lead', 'intake', 'survey'].includes(p.phase)) return null
 
   const go = async () => {
@@ -52,7 +58,7 @@ export function LeadActions({ p, onDone }: { p: ProjectRow; onDone: () => void }
     setShow('niet_doorgaan')
     onDone()
   }
-  const tpl = tpls.find((t) => t.key === show)
+  const tpl = tpls.find((t) => t.key === show && t.lang === lang) ?? tpls.find((t) => t.key === show && t.lang === 'nl')
   const text = tpl ? fill(tpl.body, p) : ''
   const wa = waNumber(p.client_phone)
 
@@ -61,7 +67,7 @@ export function LeadActions({ p, onDone }: { p: ProjectRow; onDone: () => void }
       <h2>Na de kennismaking</h2>
       {p.phase === 'lead' && (
         <>
-          <p className="muted">Gaat het project door? <strong>Go</strong> stuurt de klant een uitnodiging per mail om in te loggen op het klantenportaal en de vragenlijst in te vullen.</p>
+          <p className="muted">Gaat het project door? <strong>Go</strong> stuurt de klant een uitnodiging per mail (in het {LANG_NAME[lang] ?? lang}, te wijzigen bij Klant) om in te loggen op het klantenportaal en de vragenlijst in te vullen.</p>
           <div className="toolbar">
             <button className="primary" disabled={busy} onClick={go}>{busy ? 'Versturen…' : 'Go: klant uitnodigen'}</button>
             <button onClick={decline}>Niet doorgaan</button>
@@ -78,7 +84,7 @@ export function LeadActions({ p, onDone }: { p: ProjectRow; onDone: () => void }
       {msg && <p className={msg.kind === 'ok' ? 'notice' : 'auth-msg error'}>{msg.text}</p>}
       {tpl && (
         <div className="msg-box">
-          <div className="msg-head"><strong>{tpl.label}</strong><span className="muted small">Pas de tekst aan onder Regels → Berichten</span></div>
+          <div className="msg-head"><strong>{tpl.label} <span className="muted">· {LANG_NAME[tpl.lang] ?? tpl.lang}</span></strong><span className="muted small">Pas de tekst aan onder Regels → Berichten</span></div>
           <textarea readOnly rows={5} value={text} />
           <div className="toolbar">
             {wa ? (

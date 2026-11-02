@@ -1,17 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../core/supabase'
 import { Swatch } from './Swatch'
+import { tr, type Lang } from './i18n'
 
-type Q = { key: string; module: string; section: string; sort: number; label: string; help: string | null; type: string; options: unknown; required: boolean }
-type M = { module: string; label: string; sort: number; intro: string | null }
+type Tr = { label?: string; help?: string; section?: string; intro?: string; options?: (string | { label: string; info?: string })[] }
+type Q = { key: string; module: string; section: string; sort: number; label: string; help: string | null; type: string; options: unknown; required: boolean; i18n?: Record<string, Tr> | null }
+type M = { module: string; label: string; sort: number; intro: string | null; i18n?: Record<string, Tr> | null }
 type Data = { project_code: string; modules: M[]; questions: Q[]; answers: Record<string, unknown>; status: 'open' | 'submitted'; known: Record<string, string | null> }
 type Tile = { value: string; swatch: string; info?: string }
 
 const BUCKET = 'project-uploads'
 const asArr = (v: unknown) => (Array.isArray(v) ? (v as string[]) : [])
+/** Vertaling van een vraag of module (kolom i18n in Supabase); Nederlands als die ontbreekt. */
+const loc = (x: { i18n?: Record<string, Tr> | null }, lang: Lang): Tr => (lang === 'nl' ? {} : x.i18n?.[lang] ?? {})
 
 /** Vragenlijst voor de klant (ook door de beheerder te openen). Bewaart tussentijds; indienen zet het project op "Vragenlijst". */
-export function Survey({ code, onClose }: { code: string; onClose: () => void }) {
+export function Survey({ code, lang = 'nl', onClose }: { code: string; lang?: Lang; onClose: () => void }) {
+  const t = tr(lang)
   const [data, setData] = useState<Data | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [answers, setAnswers] = useState<Record<string, unknown>>({})
@@ -31,11 +36,11 @@ export function Survey({ code, onClose }: { code: string; onClose: () => void })
   }, [code])
 
   const save = useCallback(async (a: Record<string, unknown>, submit = false) => {
-    setSaved('Bewaren…')
+    setSaved(t.saving)
     const { error } = await supabase.rpc('portal_save_survey', { p_code: code, p_answers: a, p_submit: submit })
-    setSaved(error ? 'Niet bewaard: ' + error.message : 'Bewaard')
+    setSaved(error ? t.notSaved(error.message) : t.saved)
     return !error
-  }, [code])
+  }, [code, t])
 
   const set = (key: string, value: unknown) => {
     setAnswers((prev) => {
@@ -50,29 +55,29 @@ export function Survey({ code, onClose }: { code: string; onClose: () => void })
   const sections = useMemo(() => {
     if (!data) return []
     const chosen = asArr(answers.projecttype)
-    const out: { title: string; intro?: string | null; qs: Q[] }[] = []
+    const out: { title: string; name: string; intro?: string | null; qs: Q[] }[] = []
     for (const q of data.questions.filter((q) => q.module === 'algemeen')) {
       let s = out.find((x) => x.title === q.section)
-      if (!s) out.push((s = { title: q.section, qs: [] }))
+      if (!s) out.push((s = { title: q.section, name: loc(q, lang).section ?? q.section, qs: [] }))
       s.qs.push(q)
     }
     const general = out.splice(0)
     const mods = data.modules.filter((m) => m.module !== 'algemeen' && chosen.includes(m.label))
-    const modSections = mods.map((m) => ({ title: m.label, intro: m.intro, qs: data.questions.filter((q) => q.module === m.module) }))
+    const modSections = mods.map((m) => ({ title: m.label, name: loc(m, lang).label ?? m.label, intro: loc(m, lang).intro ?? m.intro, qs: data.questions.filter((q) => q.module === m.module) }))
     // projectspecifieke vragen na "Stijl en materiaal", vóór "Praktisch"
     const i = general.findIndex((s) => s.title === 'Praktisch')
     return i < 0 ? [...general, ...modSections] : [...general.slice(0, i), ...modSections, ...general.slice(i)]
-  }, [data, answers.projecttype])
+  }, [data, answers.projecttype, lang])
 
-  if (err) return <div className="portal-empty"><h2>De vragenlijst kon niet geladen worden</h2><p>{err}</p><button onClick={onClose}>Terug</button></div>
-  if (!data) return <p className="muted">Laden…</p>
+  if (err) return <div className="portal-empty"><h2>{t.surveyLoadErr}</h2><p>{err}</p><button onClick={onClose}>{t.back}</button></div>
+  if (!data) return <p className="muted">{t.loading}</p>
   const readOnly = data.status === 'submitted'
   if (done)
     return (
       <div className="survey-done">
-        <h2>Bedankt!</h2>
-        <p>We hebben je antwoorden en foto's goed ontvangen. Olivier bekijkt ze en neemt contact met je op.</p>
-        <button className="primary" onClick={onClose}>Terug naar je project</button>
+        <h2>{t.thanks}</h2>
+        <p>{t.thanksText}</p>
+        <button className="primary" onClick={onClose}>{t.backToProject}</button>
       </div>
     )
 
@@ -84,7 +89,7 @@ export function Survey({ code, onClose }: { code: string; onClose: () => void })
     return v === undefined || v === null || String(v).trim() === ''
   }
   const submit = async () => {
-    const miss = sections.flatMap((s) => s.qs.filter((q) => q.required && isEmpty(q)).map((q) => `${s.title}: ${q.label}`))
+    const miss = sections.flatMap((s) => s.qs.filter((q) => q.required && isEmpty(q)).map((q) => `${s.name}: ${loc(q, lang).label ?? q.label}`))
     setMissing(miss)
     if (miss.length) return
     window.clearTimeout(timer.current)
@@ -95,48 +100,53 @@ export function Survey({ code, onClose }: { code: string; onClose: () => void })
   return (
     <div className="survey">
       <div className="survey-head">
-        <button className="link" onClick={onClose}>← Terug</button>
-        <span className="muted small">{readOnly ? 'Ingediend – alleen lezen' : saved}</span>
+        <button className="link" onClick={onClose}>{t.backArrow}</button>
+        <span className="muted small">{readOnly ? t.readOnly : saved}</span>
       </div>
-      <h1>Vragenlijst</h1>
-      <p className="muted">Ongeveer 10 minuten. Je antwoorden worden automatisch bewaard, je kunt later verdergaan. <strong>Foto's en maten</strong> helpen ons het meest.</p>
+      <h1>{t.survey}</h1>
+      <p className="muted">{t.surveyIntro} <strong>{t.surveyIntroStrong}</strong> {t.surveyIntroEnd}</p>
       <ol className="survey-steps">
         {sections.map((s, i) => (
-          <li key={s.title} className={i === step ? 'now' : i < step ? 'done' : ''}><button onClick={() => setStep(i)}>{s.title}</button></li>
+          <li key={s.title} className={i === step ? 'now' : i < step ? 'done' : ''}><button onClick={() => setStep(i)}>{s.name}</button></li>
         ))}
       </ol>
       <section className="survey-section">
-        <h2>{sec.title}</h2>
+        <h2>{sec.name}</h2>
         {sec.intro && <p className="muted">{sec.intro}</p>}
         {sec.qs.map((q) => (
-          <Field key={q.key} q={q} code={code} value={answers[q.key]} answers={answers} readOnly={readOnly} onChange={(v) => set(q.key, v)} />
+          <Field key={q.key} q={q} lang={lang} code={code} value={answers[q.key]} answers={answers} readOnly={readOnly} onChange={(v) => set(q.key, v)} />
         ))}
       </section>
       {missing.length > 0 && (
-        <div className="auth-msg error">Nog in te vullen: <ul>{missing.map((m) => <li key={m}>{m}</li>)}</ul></div>
+        <div className="auth-msg error">{t.stillMissing} <ul>{missing.map((m) => <li key={m}>{m}</li>)}</ul></div>
       )}
       <div className="survey-nav">
-        {step > 0 ? <button onClick={() => setStep(step - 1)}>← Vorige</button> : <span />}
+        {step > 0 ? <button onClick={() => setStep(step - 1)}>{t.prev}</button> : <span />}
         {!last ? (
-          <button className="primary" onClick={() => { setStep(step + 1); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>Volgende →</button>
+          <button className="primary" onClick={() => { setStep(step + 1); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>{t.next}</button>
         ) : !readOnly ? (
-          <button className="primary" onClick={submit}>Vragenlijst indienen</button>
+          <button className="primary" onClick={submit}>{t.submit}</button>
         ) : null}
       </div>
     </div>
   )
 }
 
-function Field({ q, code, value, answers, readOnly, onChange }: { q: Q; code: string; value: unknown; answers: Record<string, unknown>; readOnly: boolean; onChange: (v: unknown) => void }) {
+function Field({ q, lang, code, value, answers, readOnly, onChange }: { q: Q; lang: Lang; code: string; value: unknown; answers: Record<string, unknown>; readOnly: boolean; onChange: (v: unknown) => void }) {
   // vervolgvragen enkel tonen als ze relevant zijn
   if (q.key === 'bron_wie' && answers.bron !== 'Aanbeveling van iemand') return null
   if (q.key === 'deadline_wat' && answers.deadline !== true) return null
   if (q.key === 'k_toestellen_info' && !answers.k_toestellen) return null
+  const t = tr(lang)
+  const L = loc(q, lang)
   const opts = (Array.isArray(q.options) ? q.options : []) as (string | Tile)[]
+  // getoonde tekst van een keuze (de bewaarde waarde blijft de Nederlandse)
+  const optText = (i: number, nlText: string) => { const o = L.options?.[i]; return typeof o === 'string' ? o : o?.label ?? nlText }
+  const help = L.help ?? q.help
   const label = (
     <div className="q-label">
-      <span>{q.label}{q.required && <span className="req"> *</span>}</span>
-      {q.help && <small>{q.help}</small>}
+      <span>{L.label ?? q.label}{q.required && <span className="req"> *</span>}</span>
+      {help && <small>{help}</small>}
     </div>
   )
   const dis = readOnly
@@ -149,7 +159,7 @@ function Field({ q, code, value, answers, readOnly, onChange }: { q: Q; code: st
       return (
         <div className="q">{label}
           <div className="chips-pick">
-            {[['Ja', true], ['Nee', false]].map(([t, v]) => (
+            {[[t.yes, true], [t.no, false]].map(([t, v]) => (
               <button key={String(t)} type="button" disabled={dis} className={value === v ? 'on' : ''} onClick={() => onChange(v)}>{t as string}</button>
             ))}
           </div>
@@ -159,7 +169,7 @@ function Field({ q, code, value, answers, readOnly, onChange }: { q: Q; code: st
       return (
         <div className="q">{label}
           <div className="chips-pick">
-            {(opts as string[]).map((o) => <button key={o} type="button" disabled={dis} className={value === o ? 'on' : ''} onClick={() => onChange(value === o ? null : o)}>{o}</button>)}
+            {(opts as string[]).map((o, i) => <button key={o} type="button" disabled={dis} className={value === o ? 'on' : ''} onClick={() => onChange(value === o ? null : o)}>{optText(i, o)}</button>)}
           </div>
         </div>
       )
@@ -168,9 +178,9 @@ function Field({ q, code, value, answers, readOnly, onChange }: { q: Q; code: st
       return (
         <div className="q">{label}
           <div className="chips-pick">
-            {(opts as string[]).map((o) => (
+            {(opts as string[]).map((o, i) => (
               <button key={o} type="button" disabled={dis} className={arr.includes(o) ? 'on' : ''}
-                onClick={() => onChange(arr.includes(o) ? arr.filter((x) => x !== o) : [...arr, o])}>{arr.includes(o) ? '✓ ' : ''}{o}</button>
+                onClick={() => onChange(arr.includes(o) ? arr.filter((x) => x !== o) : [...arr, o])}>{arr.includes(o) ? '✓ ' : ''}{optText(i, o)}</button>
             ))}
           </div>
         </div>
@@ -181,26 +191,30 @@ function Field({ q, code, value, answers, readOnly, onChange }: { q: Q; code: st
       return (
         <div className="q">{label}
           <div className="tiles">
-            {(opts as Tile[]).map((t) => (
-              <button key={t.value} type="button" disabled={dis} className={'tile' + (arr.includes(t.value) ? ' on' : '')}
-                onClick={() => onChange(arr.includes(t.value) ? arr.filter((x) => x !== t.value) : [...arr, t.value])}>
-                <span className="tile-img"><Swatch id={t.swatch} /></span>
-                <strong>{t.value}</strong>
-                {t.info && <small>{t.info}</small>}
+            {(opts as Tile[]).map((tile, i) => {
+              const o = L.options?.[i]
+              const info = (typeof o === 'object' && o?.info) || tile.info
+              return (
+              <button key={tile.value} type="button" disabled={dis} className={'tile' + (arr.includes(tile.value) ? ' on' : '')}
+                onClick={() => onChange(arr.includes(tile.value) ? arr.filter((x) => x !== tile.value) : [...arr, tile.value])}>
+                <span className="tile-img"><Swatch id={tile.swatch} /></span>
+                <strong>{optText(i, tile.value)}</strong>
+                {info && <small>{info}</small>}
               </button>
-            ))}
+              )
+            })}
           </div>
         </div>
       )
     }
     case 'upload':
-      return <Upload q={q} code={code} paths={asArr(value)} readOnly={dis} onChange={onChange} label={label} />
+      return <Upload q={q} t={t} code={code} paths={asArr(value)} readOnly={dis} onChange={onChange} label={label} />
     default:
       return <label className="q">{label}<input type={q.type === 'email' ? 'email' : q.type === 'tel' ? 'tel' : q.type === 'date' ? 'date' : 'text'} disabled={dis} value={String(value ?? '')} onChange={(e) => onChange(e.target.value)} /></label>
   }
 }
 
-function Upload({ q, code, paths, readOnly, onChange, label }: { q: Q; code: string; paths: string[]; readOnly: boolean; onChange: (v: unknown) => void; label: React.ReactNode }) {
+function Upload({ q, t, code, paths, readOnly, onChange, label }: { q: Q; t: ReturnType<typeof tr>; code: string; paths: string[]; readOnly: boolean; onChange: (v: unknown) => void; label: React.ReactNode }) {
   const [busy, setBusy] = useState(0)
   const [urls, setUrls] = useState<Record<string, string>>({})
   const [msg, setMsg] = useState<string | null>(null)
@@ -249,7 +263,7 @@ function Upload({ q, code, paths, readOnly, onChange, label }: { q: Q; code: str
         {!readOnly && (
           <label className="upl-add">
             <input type="file" multiple accept={accept} onChange={(e) => { add(e.target.files); e.target.value = '' }} />
-            {busy ? `Opladen… (${busy})` : '+ Bestanden toevoegen'}
+            {busy ? t.uploading(busy) : t.addFiles}
           </label>
         )}
       </div>

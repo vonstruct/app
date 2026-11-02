@@ -18,6 +18,7 @@ const SECTIONS: Section[] = [
       { key: 'street', label: 'Straat' },
       { key: 'postal_code', label: 'Postcode', width: 80 },
       { key: 'city', label: 'Gemeente' },
+      { key: 'language', label: 'Taal', type: 'select', options: ['nl', 'en', 'de'], width: 70 },
     ],
   },
   {

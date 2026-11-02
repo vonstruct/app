@@ -434,3 +434,11 @@ tr.focus-row .cell:focus { border-color: #c9a24a; }
 .btn-plain { border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; color: var(--ink); background: var(--panel); }
 .btn-plain:hover { text-decoration: none; border-color: #c9a24a; }
 textarea.cell { width: 100%; min-width: 300px; font: inherit; }
+
+/* taalkeuze NL / EN / DE */
+.lang-pick { display: inline-flex; gap: 2px; }
+.lang-pick button { background: none; border: 1px solid transparent; border-radius: 6px; padding: 3px 7px; font-size: 12px; letter-spacing: .08em; color: inherit; opacity: .55; cursor: pointer; }
+.lang-pick button:hover { opacity: .9; }
+.lang-pick button.on { opacity: 1; border-color: currentColor; }
+.portal-top .lang-pick { color: #f3e3a0; }
+.auth-lang { position: absolute; top: 18px; right: 20px; color: var(--muted, #6d6a64); }

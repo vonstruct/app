@@ -20,10 +20,11 @@ export const ruleTables: RuleTable[] = [
       'Teksten voor WhatsApp en mail. Tussen accolades wordt automatisch ingevuld: {voornaam}, {naam}, {projectcode}, {link} (de portaallink) en {email}.',
     columns: [
       { key: 'label', label: 'Bericht', width: 220 },
+      { key: 'lang', label: 'Taal', type: 'select', options: ['nl', 'en', 'de'], width: 70 },
       { key: 'body', label: 'Tekst', type: 'textarea' },
     ],
     orderBy: 'id',
-    newRow: { key: 'nieuw_' + Date.now(), label: 'Nieuw bericht', body: '' },
+    newRow: { key: 'nieuw_' + Date.now(), lang: 'nl', label: 'Nieuw bericht', body: '' },
   },
   {
     section: 'Prijzen',

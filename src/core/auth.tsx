@@ -2,7 +2,8 @@ import { useEffect, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './supabase'
 import logo from '../assets/vonstruct-logo.webp'
-import { Portal, type PortalRole } from '../portal/Portal'
+import { LangPicker, Portal, type PortalRole } from '../portal/Portal'
+import { storeLang, storedLang, tr, type Lang } from '../portal/i18n'
 
 type Role = 'beheerder' | PortalRole
 
@@ -35,6 +36,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (role === undefined) return <div className="center muted">Toegang controleren…</div>
   if (role === 'beheerder') return <>{children}</>
   if (role) return <Portal role={role} />
+  const t = tr(storedLang())
   return (
     <div className="auth">
       <aside className="auth-hero">
@@ -46,11 +48,11 @@ export function AuthGate({ children }: { children: ReactNode }) {
       <main className="auth-main">
         <div className="auth-form">
           <header>
-            <h2>Nog geen toegang</h2>
-            <p className="muted">{session.user.email} is nog niet aan een project gekoppeld. Neem contact op met Vonstruct.</p>
+            <h2>{t.noAccess}</h2>
+            <p className="muted">{t.noAccessText(session.user.email ?? '')}</p>
           </header>
           <button className="auth-alt" onClick={() => supabase.auth.signOut()}>
-            Afmelden
+            {t.signOut}
           </button>
         </div>
       </main>
@@ -59,13 +61,15 @@ export function AuthGate({ children }: { children: ReactNode }) {
 }
 
 function Login() {
+  const [lang, setLang] = useState<Lang>(storedLang)
+  const t = tr(lang)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   // Geen zelfregistratie: klanten, partners en medewerkers krijgen een uitnodiging per mail.
   const linkError = (() => { try { const h = sessionStorage.getItem('authLinkError'); sessionStorage.removeItem('authLinkError'); return h } catch { return null } })()
   const [mode, setMode] = useState<'pw' | 'link'>(linkError ? 'link' : 'pw')
   const [msg, setMsg] = useState<{ text: string; error: boolean } | null>(
-    linkError ? { error: true, text: 'Deze inloglink is al gebruikt of verlopen (een link werkt maar één keer). Vul je e-mailadres in, dan krijg je meteen een nieuwe.' } : null,
+    linkError ? { error: true, text: tr(storedLang()).linkUsed } : null,
   )
   const [busy, setBusy] = useState(false)
   const [showPw, setShowPw] = useState(false)
@@ -76,24 +80,19 @@ function Login() {
     setMsg(null)
     if (mode === 'pw') {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) setMsg({ error: true, text: error.message === 'Invalid login credentials' ? 'E-mail of wachtwoord klopt niet.' : error.message })
+      if (error) setMsg({ error: true, text: error.message === 'Invalid login credentials' ? t.wrongPw : error.message })
     } else {
       // via Edge Function send-login-link: mail in huisstijl, enkel naar gekende adressen
-      const { error } = await supabase.functions.invoke('send-login-link', { body: { email, kind: 'magiclink' } })
-      setMsg(
-        error
-          ? { error: true, text: 'De inloglink kon niet verstuurd worden. Probeer het over een minuut opnieuw.' }
-          : { error: false, text: `Als ${email} bij ons gekend is, krijg je binnen een minuut een mail met een inloglink. Kijk ook bij ongewenste mail.` },
-      )
+      const { error } = await supabase.functions.invoke('send-login-link', { body: { email, kind: 'magiclink', lang } })
+      setMsg(error ? { error: true, text: t.linkFail } : { error: false, text: t.linkSent(email) })
     }
     setBusy(false)
   }
 
   const reset = async () => {
-    if (!email) return setMsg({ error: true, text: 'Vul eerst je e-mailadres in.' })
-    const { error } = await supabase.functions.invoke('send-login-link', { body: { email, kind: 'recovery' } })
-    setMsg(error ? { error: true, text: 'De mail kon niet verstuurd worden. Probeer het over een minuut opnieuw.' }
-      : { error: false, text: `Als ${email} bij ons gekend is, krijg je een mail om een nieuw wachtwoord te kiezen.` })
+    if (!email) return setMsg({ error: true, text: t.emailFirst })
+    const { error } = await supabase.functions.invoke('send-login-link', { body: { email, kind: 'recovery', lang } })
+    setMsg(error ? { error: true, text: t.mailFail } : { error: false, text: t.resetSent(email) })
   }
 
   return (
@@ -124,29 +123,30 @@ function Login() {
           <span className="auth-tagline">Custom interiors</span>
         </div>
         <div className="auth-hero-text" aria-hidden="true">
-          <h1>Maatwerk, van eerste schets tot plaatsing.</h1>
-          <p>Je ontwerpen, afspraken en planning — altijd op één plek.</p>
+          <h1>{t.heroTitle}</h1>
+          <p>{t.heroText}</p>
         </div>
       </aside>
 
       <main className="auth-main">
+        <div className="auth-lang"><LangPicker lang={lang} label={t.language} onPick={(l) => { setLang(l); storeLang(l); setMsg(null) }} /></div>
         <form className="auth-form" onSubmit={submit}>
           <header>
-            <h2>Welkom</h2>
-            <p className="muted">{mode === 'pw' ? 'Meld je aan met je e-mailadres en wachtwoord.' : 'We mailen je een link om meteen in te loggen.'}</p>
+            <h2>{t.welcome}</h2>
+            <p className="muted">{mode === 'pw' ? t.loginPw : t.loginLink}</p>
           </header>
 
           <label className="auth-field">
-            <span>E-mail</span>
-            <input type="email" autoComplete="username" placeholder="naam@voorbeeld.be" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
+            <span>{t.email}</span>
+            <input type="email" autoComplete="username" placeholder={t.emailPh} value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
           </label>
 
           {mode === 'pw' && (
             <label className="auth-field">
               <span className="auth-field-head">
-                Wachtwoord
+                {t.password}
                 <button type="button" className="link" onClick={reset}>
-                  Vergeten?
+                  {t.forgot}
                 </button>
               </span>
               <span className="auth-pw">
@@ -158,8 +158,8 @@ function Login() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
-                <button type="button" className="auth-eye" onClick={() => setShowPw(!showPw)} aria-label={showPw ? 'Wachtwoord verbergen' : 'Wachtwoord tonen'}>
-                  {showPw ? 'Verberg' : 'Toon'}
+                <button type="button" className="auth-eye" onClick={() => setShowPw(!showPw)} aria-label={showPw ? t.hide : t.show}>
+                  {showPw ? t.hide : t.show}
                 </button>
               </span>
             </label>
@@ -168,16 +168,16 @@ function Login() {
           {msg && <p className={msg.error ? 'auth-msg error' : 'auth-msg'} role="status">{msg.text}</p>}
 
           <button type="submit" className="primary auth-submit" disabled={busy}>
-            {busy ? <span className="auth-spinner" aria-label="Bezig" /> : mode === 'pw' ? 'Aanmelden' : 'Stuur inloglink'}
+            {busy ? <span className="auth-spinner" aria-label="…" /> : mode === 'pw' ? t.signIn : t.sendLink}
           </button>
 
-          <div className="auth-or"><span>of</span></div>
+          <div className="auth-or"><span>{t.or}</span></div>
 
           <button type="button" className="auth-alt" onClick={() => { setMode(mode === 'pw' ? 'link' : 'pw'); setMsg(null) }}>
-            {mode === 'pw' ? 'Inloggen met een link per mail' : 'Inloggen met wachtwoord'}
+            {mode === 'pw' ? t.useLink : t.usePw}
           </button>
 
-          <p className="auth-switch muted">Nog geen toegang? Je ontvangt een uitnodiging van Vonstruct zodra je project start.</p>
+          <p className="auth-switch muted">{t.noAccessYet}</p>
         </form>
         <footer className="auth-foot muted">© {new Date().getFullYear()} Vonstruct</footer>
       </main>
@@ -187,14 +187,15 @@ function Login() {
 
 /** Na een link "nieuw wachtwoord": wachtwoord kiezen. */
 function NewPassword({ onDone }: { onDone: () => void }) {
+  const t = tr(storedLang())
   const [pw, setPw] = useState('')
   const [pw2, setPw2] = useState('')
   const [msg, setMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const save = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (pw.length < 8) return setMsg('Kies minstens 8 tekens.')
-    if (pw !== pw2) return setMsg('De twee wachtwoorden zijn niet gelijk.')
+    if (pw.length < 8) return setMsg(t.pwShort)
+    if (pw !== pw2) return setMsg(t.pwDiff)
     setBusy(true)
     const { error } = await supabase.auth.updateUser({ password: pw })
     setBusy(false)
@@ -212,13 +213,13 @@ function NewPassword({ onDone }: { onDone: () => void }) {
       <main className="auth-main">
         <form className="auth-form" onSubmit={save}>
           <header>
-            <h2>Nieuw wachtwoord</h2>
-            <p className="muted">Kies een wachtwoord van minstens 8 tekens.</p>
+            <h2>{t.newPw}</h2>
+            <p className="muted">{t.newPwIntro}</p>
           </header>
-          <label className="auth-field"><span>Nieuw wachtwoord</span><input type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} autoFocus /></label>
-          <label className="auth-field"><span>Herhaal</span><input type="password" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} /></label>
+          <label className="auth-field"><span>{t.newPw}</span><input type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} autoFocus /></label>
+          <label className="auth-field"><span>{t.repeat}</span><input type="password" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} /></label>
           {msg && <p className="auth-msg error">{msg}</p>}
-          <button type="submit" className="primary auth-submit" disabled={busy}>Bewaren</button>
+          <button type="submit" className="primary auth-submit" disabled={busy}>{t.save}</button>
         </form>
       </main>
     </div>
