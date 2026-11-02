@@ -5,13 +5,14 @@ import { RouteLinks } from '../../core/address'
 import { JOB_STATUS, JobEditor, SLOTS, when, type Job } from '../agenda/JobEditor'
 
 type Row = Job & { subcontractors: { name: string; trade: string | null } | null; partners: { name: string } | null }
-type Filter = 'open' | 'tebevestigen' | 'voorstel' | 'bevestigd' | 'klaar' | 'alles'
+type Filter = 'open' | 'tebevestigen' | 'voorstel' | 'bevestigd' | 'klaar' | 'geschrapt' | 'alles'
 const FILTERS: { id: Filter; label: string }[] = [
   { id: 'open', label: 'Lopend' },
   { id: 'tebevestigen', label: 'Te bevestigen' },
   { id: 'voorstel', label: 'Voorstel' },
   { id: 'bevestigd', label: 'Bevestigd' },
   { id: 'klaar', label: 'Klaar' },
+  { id: 'geschrapt', label: 'Geschrapt' },
   { id: 'alles', label: 'Alles' },
 ]
 
@@ -46,6 +47,7 @@ export function JobsOverview() {
       case 'voorstel': return r.status === 'voorstel'
       case 'bevestigd': return r.status === 'bevestigd' || r.status === 'bezig'
       case 'klaar': return r.status === 'klaar'
+      case 'geschrapt': return r.status === 'geannuleerd'
       default: return true
     }
   })

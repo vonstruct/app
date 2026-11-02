@@ -55,7 +55,7 @@ export const SLOTS: Record<Slot, { label: string; from: [number, number]; to: [n
 export const JOB_TYPES = ['Herstelling', 'Renovatie', 'Nieuwbouw', 'Ophaling', 'Bestellen', 'Productie'] as const
 const at = (d: Date, [h, m]: [number, number]) => { const x = new Date(d); x.setHours(h, m, 0, 0); return x }
 const dayInput = (iso: string) => toLocalInput(iso).slice(0, 10)
-export const JOB_STATUS: Record<Job['status'], string> = { gepland: 'Wacht op bevestiging', bevestigd: 'Bevestigd', voorstel: 'Ander moment voorgesteld', bezig: 'Bezig', klaar: 'Klaar', geannuleerd: 'Geannuleerd' }
+export const JOB_STATUS: Record<Job['status'], string> = { gepland: 'Wacht op bevestiging', bevestigd: 'Bevestigd', voorstel: 'Ander moment voorgesteld', bezig: 'Bezig', klaar: 'Klaar', geannuleerd: 'Geschrapt' }
 const BUCKET = 'job-files'
 const LINK = 'https://app.vonstruct.com'
 const toLocalInput = (iso: string) => { const d = new Date(iso); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16) }
@@ -198,6 +198,30 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
     }
     if (j.id) loadFiles(j.id)
   }
+  // schrappen: status geannuleerd → iedereen krijgt bericht en de afspraak verdwijnt uit alle agenda's
+  const cancelJob = async () => {
+    if (!j.id) return
+    if (!window.confirm('Opdracht schrappen? De onderaannemer (en de klant, als die in de loop zit) krijgt een bericht dat ze niet doorgaat, en ze verdwijnt uit alle agenda\'s.')) return
+    setBusy(true); setErr(null)
+    const { error } = await supabase.from('jobs').update({ status: 'geannuleerd', updated_at: new Date().toISOString() }).eq('id', j.id)
+    setBusy(false)
+    if (error) return setErr(error.message)
+    set({ status: 'geannuleerd' })
+    onSaved()
+  }
+  // definitief verwijderen (enkel na schrappen, zodat iedereen eerst verwittigd is)
+  const deleteJob = async () => {
+    if (!j.id) return
+    if (!window.confirm('Opdracht definitief verwijderen, met bestanden en geschiedenis? Dit kan niet ongedaan gemaakt worden.')) return
+    setBusy(true); setErr(null)
+    const paths = files.map((f) => f.path)
+    if (paths.length) await supabase.storage.from(BUCKET).remove(paths)
+    const { error } = await supabase.from('jobs').delete().eq('id', j.id)
+    setBusy(false)
+    if (error) return setErr(error.message)
+    onSaved()
+    onClose()
+  }
   const removeFile = async (path: string) => { await supabase.storage.from(BUCKET).remove([path]); if (j.id) loadFiles(j.id) }
   const invite = async () => {
     if (!assignee?.email) return setErr('Vul eerst het e-mailadres in bij Relaties.')
@@ -238,6 +262,7 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
                 <JobCard j={fromAdminRow({ ...(j as Job), projects: null } as unknown as Parameters<typeof fromAdminRow>[0])} lang="nl" preview onChange={() => {}} />
               </div>
             )}
+            {j.status === 'geannuleerd' && <p className="auth-msg error">Geschrapt: deze opdracht gaat niet door. Iedereen kreeg bericht en ze is uit de agenda's verwijderd. Je kunt ze nu definitief verwijderen.</p>}
             {!isNew && j.status !== 'geannuleerd' && (
               <div className="confirm-box">
                 <strong>Bevestigingen{j.status === 'bevestigd' || j.status === 'bezig' || j.status === 'klaar' ? ' – alles bevestigd ✓' : ''}</strong>
@@ -338,6 +363,8 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
             <div className="toolbar">
               <button className="primary" disabled={busy} onClick={save}>{busy ? 'Bewaren…' : isNew ? 'Opdracht aanmaken' : 'Bewaren'}</button>
               <button onClick={onClose}>Sluiten</button>
+              {!isNew && j.status !== 'geannuleerd' && <button className="danger-btn" disabled={busy} onClick={cancelJob}>Opdracht schrappen</button>}
+              {!isNew && j.status === 'geannuleerd' && <button className="danger-btn" disabled={busy} onClick={deleteJob}>🗑 Definitief verwijderen</button>}
               {j.project_code && <Link to={`/projecten/${j.project_code}`} onClick={onClose}>Project {j.project_code} →</Link>}
               <RouteLinks address={j.address} />
             </div>

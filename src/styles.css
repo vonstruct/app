@@ -630,3 +630,6 @@ div.planning-row { cursor: default; }
 .pcard-plan .small { color: var(--warn); }
 @media (max-width: 700px) { .planning-row { grid-template-columns: 1fr; } .planning-side { align-items: flex-start; text-align: left; } .planning-route { padding-left: 12px; } }
 .action-btn { display: block; text-align: center; text-decoration: none; padding: 12px; border-radius: 8px; }
+.action-cal { margin: 4px 0 14px; } .action-cal-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; } @media (max-width: 420px) { .action-cal-btns { grid-template-columns: 1fr; } }
+a.action-btn { display: block; text-align: center; text-decoration: none; padding: 11px 12px; border-radius: 8px; border: 1px solid #16233a; color: #16233a; font-weight: 600; background: #fff; }
+a.action-btn.primary { background: #16233a; color: #f3e3a0; border-color: #16233a; }
