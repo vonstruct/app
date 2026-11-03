@@ -27,7 +27,10 @@ const Steps = ({ endpoint, token }: { endpoint: string; token: string }) => (
       <li>Naam <b>Mijn briefing</b> → <code>mode</code> = <code>briefing</code> ("Hey Siri, mijn briefing")</li>
       <li>Naam <b>Wat moet ik doen</b> → <code>mode</code> = <code>todo</code></li>
       <li>Naam <b>Mijn dag</b> → <code>mode</code> = <code>dag</code></li>
+      <li>Naam <b>Mijn taken</b> → <code>mode</code> = <code>taken</code></li>
     </ul>
+    <h4>3. "Noteer taak" (taak inspreken)</h4>
+    <p className="small">Dupliceer <b>Vraag VON</b>, noem ze <b>Noteer taak</b> en zet <code>mode</code> = <code>taak</code> (het veld <code>question</code> met Gedicteerde tekst blijft). Zeg "Hey Siri, noteer taak" → "Jan bellen over het werkblad, tegen vrijdag".</p>
     <p className="small muted">Tip: maak eerst "Vraag VON", houd ze ingedrukt → <b>Dupliceer</b> en pas naam en velden aan.</p>
   </div>
 )
