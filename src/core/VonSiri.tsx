@@ -32,14 +32,28 @@ const Steps = ({ endpoint, token }: { endpoint: string; token: string }) => (
     <h4>3. "Noteer taak" (taak inspreken)</h4>
     <p className="small">Dupliceer <b>Vraag VON</b>, noem ze <b>Noteer taak</b> en zet <code>mode</code> = <code>taak</code> (het veld <code>question</code> met Gedicteerde tekst blijft). Zeg "Hey Siri, noteer taak" → "Jan bellen over het werkblad, tegen vrijdag".</p>
     <p className="small muted">Tip: maak eerst "Vraag VON", houd ze ingedrukt → <b>Dupliceer</b> en pas naam en velden aan.</p>
-    <h4>4. "Praat met VON" (blijft luisteren tot je stop zegt)</h4>
+    <h4>4. "Praat met VON" (blijft luisteren; stopt bij "stop" of ± 20 seconden stilte)</h4>
     <ol>
       <li>Dupliceer <b>Vraag VON</b> en noem ze <b>Praat met VON</b>.</li>
-      <li>Voeg bovenaan de actie <b>Herhaal</b> toe, zet ze op <b>30</b> keer en sleep de vier bestaande acties (Dicteer tekst, Haal inhoud op, Spreek tekst) <b>binnen</b> Herhaal.</li>
-      <li>Voeg direct na <b>Dicteer tekst</b> de actie <b>Als</b> toe: <b>Gedicteerde tekst</b> · <b>bevat</b> · <code>stop</code>. Zet binnen Als de actie <b>Stop deze opdracht</b>.</li>
-      <li>Bij <b>Spreek tekst</b>: laat <b>Wacht tot klaar</b> aan, zodat VON eerst uitspreekt en daarna weer luistert.</li>
-      <li>Zeg <b>"Hey Siri, praat met VON"</b>. Na elk antwoord luistert VON opnieuw: stel een vervolgvraag of zeg <b>"ja, doe maar"</b> om een voorstel goed te keuren. Zeg <b>"stop"</b> om te eindigen.</li>
+      <li>Bovenaan: actie <b>Getal</b> = <code>0</code>, daarna <b>Stel variabele in</b> → naam <code>Stilte</code>.</li>
+      <li>Daarna <b>Herhaal</b> (<b>50</b> keer). Binnen Herhaal komt alles hieronder.</li>
+      <li><b>Dicteer tekst</b> (Nederlands (België), stop met luisteren: <b>na pauze</b>).</li>
+      <li><b>Als</b> Gedicteerde tekst <b>bevat</b> <code>stop</code> → <b>Stop deze opdracht</b>. Einde Als.</li>
+      <li><b>Als</b> Gedicteerde tekst <b>heeft een waarde</b>:
+        <ul>
+          <li><b>Getal</b> <code>0</code> → <b>Stel variabele in</b> <code>Stilte</code> (teller terug op nul)</li>
+          <li><b>Haal inhoud op van URL</b> (zoals bij Vraag VON) en <b>Spreek tekst</b> met Inhoud van URL (<b>Wacht tot klaar</b> aan)</li>
+        </ul>
+      </li>
+      <li><b>Anders</b> (niets gezegd):
+        <ul>
+          <li><b>Bereken</b> <code>Stilte</code> <b>+</b> <code>1</code> → <b>Stel variabele in</b> <code>Stilte</code></li>
+          <li><b>Als</b> <code>Stilte</code> <b>is groter dan</b> <code>2</code> → <b>Spreek tekst</b> "Tot straks" en <b>Stop deze opdracht</b></li>
+        </ul>
+        Einde Als.</li>
+      <li>Zeg <b>"Hey Siri, praat met VON"</b>. VON luistert na elk antwoord opnieuw. Zeg je ± 20 seconden niets (3 keer na elkaar stilte), dan stopt het vanzelf; of zeg <b>"stop"</b>.</li>
     </ol>
+    <p className="small muted">Een exacte wachttijd instellen laat Apple niet toe: elke luisterbeurt wacht enkele seconden op stilte. Wil je langer wachten, zet het getal bij "groter dan" hoger (bv. 3 of 4).</p>
   </div>
 )
 
