@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../core/supabase'
 import { ErrorBox, Loading } from '../../core/ui'
-import { ProjectCard, usePhases, useProjects, type ProjectPlanning, type ProjectProgress } from '../../core/projects'
+import { gatesOf, ProjectCard, usePhases, useProjects, type ProjectPlanning, type ProjectProgress } from '../../core/projects'
 import { NewLead } from './NewLead'
 import { NewProject } from './NewProject'
+import { Pipeline } from './Pipeline'
 
 type Filter = 'lopend' | 'alle' | 'afgesloten'
 
@@ -48,6 +49,12 @@ export function ProjectList() {
         ))}
       </div>
       <ErrorBox error={q.error ?? ph.error} />
+      {!q.loading && !ph.loading && (
+        <details className="pipe-box">
+          <summary>Pijplijn per fase</summary>
+          <Pipeline projects={all.filter((p) => p.phase_active !== false)} gates={gatesOf(ph.data ?? [])} />
+        </details>
+      )}
       {q.loading || ph.loading ? (
         <Loading />
       ) : rows.length === 0 ? (

@@ -1,32 +1,25 @@
-import { EventFeed } from '../../core/EventFeed'
 import { Tasks } from '../../core/Tasks'
-import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useNavigate } from 'react-router'
 import { supabase } from '../../core/supabase'
 import { useQuery } from '../../core/useQuery'
 import { ErrorBox, Loading } from '../../core/ui'
-import { fmtEur, fmtInt } from '../../core/format'
-import { gatesOf, relDays, usePhases, useProjects, type Phase, type ProjectRow } from '../../core/projects'
+import { fmtEur } from '../../core/format'
+import { relDays, useProjects, type ProjectProgress, type ProjectRow } from '../../core/projects'
+import { ProposalCard } from '../von/VonPage'
 
+/**
+ * Vandaag (startpagina, sinds 3 nov 2026 v3): begroeting + één zin, één actielijst (Nu / Deze week / Ter info) met
+ * één knop per punt, "Later" (ct_snooze) en ongedaan maken; VON-voorstellen openen in de lijst zelf.
+ * Rechts: je dag, taken, lopende projecten, systemen in één regel. Bron: app_control_tower (+ mails, jobs, agenda).
+ */
 type Flag = { prio: 1 | 2 | 3; kind: string; project_code: string | null; last_version: number | null; ref: string | null; title: string; detail: string | null; since: string | null }
-type Supplier = { supplier_name: string; n_articles: number; last_update: string; days_old: number }
-type Mail = { email_id: string; status: string; updated_at: string }
 type DayItem = { id: string; start: string; end: string; title: string; sub?: string; to: string; kind: 'afspraak' | 'opdracht'; ok?: boolean; allDay?: boolean }
+type InMail = { id: string; at: string; from_name: string | null; from_email: string | null; party_name: string | null; party_kind: string | null; subject: string | null; summary: string | null; snippet: string | null; project_code: string | null; category: string | null }
 
-/** Thema's: elk aandachtspunt (kind) hoort bij één thema. Nieuw kind = één regel hier. */
-const THEMES = [
-  { id: 'von', label: 'VON-voorstellen', icon: '✨', kinds: ['von_voorstel'] },
-  { id: 'mails', label: 'Mails', icon: '✉️', kinds: ['mail_antwoord'] },
-  { id: 'klant', label: 'Aanvragen & klanten', icon: '👤', kinds: ['aanvraag_nieuw', 'survey_nieuw', 'survey_open', 'klant_email', 'stilstand'] },
-  { id: 'planning', label: 'Planning', icon: '📅', kinds: ['opdracht'] },
-  { id: 'ontwerp', label: 'Ontwerp & kosten', icon: '📐', kinds: ['prijzen', 'kosten', 'optimalisatie', 'stuklijst_fout', 'stuklijst_opm'] },
-  { id: 'systeem', label: 'Mails & systeem', icon: '⚙️', kinds: ['mail', 'backup', 'sleutel', 'leverancier', 'partner_email'] },
-] as const
-type ThemeId = (typeof THEMES)[number]['id']
-const themeOf = (kind: string): ThemeId => (THEMES.find((t) => (t.kinds as readonly string[]).includes(kind))?.id ?? 'systeem')
-const PRIO = { 1: 'Nu doen', 2: 'Binnenkort', 3: 'Ter info' } as const
+const SYSTEM_KINDS = ['mail', 'backup', 'sleutel', 'leverancier', 'partner_email']
 
-/** Waar je het punt oplost, en wat er op de knop staat. */
+/** Waar je het punt oplost, en wat er op de knop staat. Nieuwe soort = één case. */
 const actionFor = (f: Flag): { to: string; label: string } => {
   const proj = f.project_code ? `/projecten/${encodeURIComponent(f.project_code)}` : '/projecten'
   const ver = f.last_version ? `${proj}/v/${f.last_version}` : proj
@@ -45,165 +38,227 @@ const actionFor = (f: Flag): { to: string; label: string } => {
     case 'aanvraag_nieuw': return { to: proj, label: 'Aanvraag openen' }
     case 'opdracht': return { to: `/opdrachten?focus=${f.ref}`, label: 'Opdracht openen' }
     case 'mail': return { to: '/mails?tab=app', label: 'Mails bekijken' }
-    case 'mail_antwoord': return { to: `/mails?focus=${f.ref}`, label: 'Mail bekijken' }
-    case 'von_voorstel': return { to: '/von', label: 'Bekijken en goedkeuren' }
+    case 'mail_antwoord': return { to: `/mails?focus=${f.ref}`, label: 'Antwoorden' }
+    case 'von_voorstel': return { to: '/von', label: 'Bekijken' }
     case 'backup': return { to: 'https://github.com/vonstruct/platform/actions/workflows/backup-onedrive.yml', label: 'Back-up bekijken' }
     default: return { to: proj, label: 'Openen' }
   }
 }
 
+/** Kortere, leesbare titel zonder technische voorvoegsels. */
+const cleanTitle = (f: Flag) => f.title.replace(/^VON stelt voor:\s*/, '').replace(/^Wacht op antwoord:\s*/, '')
+const keyOf = (f: Flag) => `${f.kind}:${f.ref ?? f.project_code ?? f.title}`
+
+const ICON: Record<string, string> = {
+  von: 'M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18',
+  mail: 'M3 6.5A1.5 1.5 0 0 1 4.5 5h15A1.5 1.5 0 0 1 21 6.5v11a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5zM3.5 6l8.5 7 8.5-7',
+  euro: 'M17 6.5A6.5 6.5 0 1 0 17 17.5M4 10.5h9M4 13.5h9',
+  person: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 20c1.5-3.5 4.5-5 8-5s6.5 1.5 8 5',
+  cal: 'M4 6.5A1.5 1.5 0 0 1 5.5 5h13A1.5 1.5 0 0 1 20 6.5v12a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5zM4 10h16M8.5 3v4M15.5 3v4',
+  draw: 'M4 20h16M6 16l9.5-9.5a2 2 0 0 1 3 3L9 19H6z',
+  gear: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1',
+}
+const iconFor = (kind: string) =>
+  kind === 'von_voorstel' ? 'von' : kind === 'mail_antwoord' ? 'mail' : ['prijzen', 'kosten'].includes(kind) ? 'euro'
+  : ['aanvraag_nieuw', 'survey_nieuw', 'survey_open', 'klant_email', 'stilstand'].includes(kind) ? 'person'
+  : kind === 'opdracht' ? 'cal' : ['optimalisatie', 'stuklijst_fout', 'stuklijst_opm'].includes(kind) ? 'draw' : 'gear'
+const Ico = ({ name }: { name: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={ICON[name]} /></svg>
+)
+const initials = (s: string | null) => (s ?? '?').replace(/[^\p{L}\s]/gu, ' ').trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('') || '?'
 const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x }
 const hm = (iso: string) => new Date(iso).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })
+
+/** Korte melding onderaan met "Ongedaan maken". */
+function useToast() {
+  const [t, setT] = useState<{ text: string; undo?: () => void } | null>(null)
+  const timer = useRef<number | undefined>(undefined)
+  const show = useCallback((text: string, undo?: () => void) => {
+    setT({ text, undo }); window.clearTimeout(timer.current); timer.current = window.setTimeout(() => setT(null), 5000)
+  }, [])
+  const el = t && (
+    <div className="vd-toast" role="status"><span>{t.text}</span>{t.undo && <button onClick={() => { t.undo!(); setT(null) }}>Ongedaan maken</button>}</div>
+  )
+  return { show, el }
+}
 
 export function ControlTower() {
   const flags = useQuery<Flag[]>(() => supabase.from('app_control_tower').select('*').order('prio').order('since', { ascending: false }), [])
   const projects = useProjects()
-  const phases = usePhases()
-  const sup = useQuery<Supplier[]>(() => supabase.from('app_supplier_freshness').select('*').order('supplier_name'), [])
-  const mails = useQuery<Mail[]>(() => supabase.from('mail_events').select('email_id,status,updated_at').gt('updated_at', new Date(Date.now() - 7 * 86400000).toISOString()), [])
-  const [theme, setTheme] = useState<ThemeId | 'alles'>('alles')
-  const [prioOnly, setPrioOnly] = useState<1 | 2 | null>(null)
-  const loading = flags.loading || projects.loading || phases.loading
+  const [snoozed, setSnoozed] = useState<Set<string>>(new Set())
+  const [gone, setGone] = useState<Set<string>>(new Set())
+  const [open, setOpen] = useState<string | null>(null)
+  const toast = useToast()
+
+  const loadSnooze = useCallback(() => supabase.from('ct_snooze').select('key').gt('until', new Date().toISOString())
+    .then(({ data }) => setSnoozed(new Set((data ?? []).map((r: { key: string }) => r.key)))), [])
+  useEffect(() => { loadSnooze() }, [loadSnooze])
+
+  const all = (flags.data ?? []).filter((f) => !snoozed.has(keyOf(f)) && !gone.has(keyOf(f)))
+  const sys = all.filter((f) => SYSTEM_KINDS.includes(f.kind))
+  const work = all.filter((f) => !SYSTEM_KINDS.includes(f.kind))
+  const now = work.filter((f) => f.prio === 1), week = work.filter((f) => f.prio === 2), info = work.filter((f) => f.prio === 3)
+  // eerste open VON-voorstel staat meteen open
+  const firstVon = now.find((f) => f.kind === 'von_voorstel')
+  const openKey = open ?? (firstVon ? keyOf(firstVon) : null)
+
   const ps = projects.data ?? []
   const active = ps.filter((p) => p.phase_active !== false)
-  const fl = flags.data ?? []
   const hour = new Date().getHours()
   const greet = hour < 12 ? 'Goedemorgen' : hour < 18 ? 'Goedemiddag' : 'Goedenavond'
-  const n1 = fl.filter((f) => f.prio === 1).length, n2 = fl.filter((f) => f.prio === 2).length
-  const leads = fl.filter((f) => f.kind === 'aanvraag_nieuw').length
-  const toConfirm = fl.filter((f) => f.kind === 'opdracht').length
-  const shown = fl.filter((f) => (theme === 'alles' || themeOf(f.kind) === theme) && (!prioOnly || f.prio === prioOnly))
-  const mailProblems = (mails.data ?? []).filter((m) => ['bounced', 'complained', 'failed'].includes(m.status)).length
+
+  const later = async (f: Flag) => {
+    const until = new Date(); until.setDate(until.getDate() + 1); until.setHours(6, 0, 0, 0)
+    const key = keyOf(f)
+    await supabase.from('ct_snooze').upsert({ key, until: until.toISOString() })
+    setSnoozed((s) => new Set(s).add(key))
+    toast.show('Verborgen tot morgen', async () => {
+      await supabase.from('ct_snooze').delete().eq('key', key)
+      setSnoozed((s) => { const n = new Set(s); n.delete(key); return n })
+    })
+  }
+  const dismissMail = async (f: Flag) => {
+    const key = keyOf(f)
+    await supabase.from('mail_messages').update({ dismissed_at: new Date().toISOString() }).eq('id', f.ref!)
+    setGone((s) => new Set(s).add(key))
+    toast.show('Geen antwoord nodig', async () => {
+      await supabase.from('mail_messages').update({ dismissed_at: null }).eq('id', f.ref!)
+      setGone((s) => { const n = new Set(s); n.delete(key); return n })
+    })
+  }
+  const proposalDone = (f: Flag) => { setGone((s) => new Set(s).add(keyOf(f))); setOpen(null); toast.show('Voorstel afgehandeld'); flags.reload() }
+
+  // één zin van VON
+  const nVon = now.filter((f) => f.kind === 'von_voorstel').length + week.filter((f) => f.kind === 'von_voorstel').length
+  const nMail = work.filter((f) => f.kind === 'mail_antwoord').length
+  const parts: string[] = []
+  if (nVon) parts.push(`er ${nVon === 1 ? 'wacht 1 voorstel' : `wachten ${nVon} voorstellen`} van VON op je goedkeuring`)
+  if (nMail) parts.push(`${nMail} ${nMail === 1 ? 'mail wacht' : 'mails wachten'} op antwoord`)
+  const rest = now.length + week.length - nVon - nMail
+  if (rest) parts.push(`${rest} ${rest === 1 ? 'ander punt' : 'andere punten'} voor deze week`)
+  const sentence = parts.length ? parts.join(', ').replace(/^./, (c) => c.toUpperCase()) + '.' : 'Niets dringends. Een rustige dag.'
+
+  const Row = ({ f }: { f: Flag }) => {
+    const k = keyOf(f), act = actionFor(f), isVon = f.kind === 'von_voorstel' && !!f.ref, isOpen = isVon && openKey === k
+    return (
+      <div className={'vd-item' + (isOpen ? ' open' : '')}>
+        <div className="vd-row">
+          <span className={'vd-ico' + (isVon ? ' von' : '')}><Ico name={iconFor(f.kind)} /></span>
+          <span className="vd-what">
+            <span className="vd-t">{f.project_code && <Link to={`/projecten/${encodeURIComponent(f.project_code)}`} className="vd-code">{f.project_code}</Link>}{cleanTitle(f)}</span>
+            {!isOpen && f.detail && <span className="vd-s">{f.detail}</span>}
+          </span>
+          <span className="vd-acts">
+            {isVon ? (
+              <button className={isOpen ? 'vd-btn ghost' : 'vd-btn gold'} onClick={() => setOpen(isOpen ? '' : k)}>{isOpen ? 'Inklappen' : 'Bekijken'}</button>
+            ) : act.to.startsWith('http') ? (
+              <a href={act.to} target="_blank" rel="noreferrer" className="vd-btn">{act.label} ↗</a>
+            ) : (
+              <Link to={act.to} className={'vd-btn' + (f.prio === 1 ? ' gold' : '')}>{act.label}</Link>
+            )}
+            {f.kind === 'mail_antwoord' && f.ref && <button className="vd-btn ghost" onClick={() => dismissMail(f)} title="Geen antwoord nodig">Klaar</button>}
+            {!isVon && <button className="vd-btn ghost" onClick={() => later(f)} title="Verbergen tot morgen">Later</button>}
+            <span className="vd-age">{relDays(f.since)}</span>
+          </span>
+        </div>
+        {isOpen && <InlineProposal id={f.ref!} onDone={() => proposalDone(f)} />}
+      </div>
+    )
+  }
 
   return (
-    <section className="ct ct2">
-      <div className="page-head">
+    <section className="vd">
+      <header className="vd-hello">
         <div>
+          <div className="vd-date">{new Date().toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
           <h1>{greet}, Olivier</h1>
-          <p className="muted">
-            {new Date().toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' })}
-            {' · '}{n1 === 0 ? 'niets dringends' : `${n1} ${n1 === 1 ? 'punt' : 'punten'} om nu te doen`}
-          </p>
+          <p className="vd-von"><span className="vd-vdot">V</span><span>{sentence}</span></p>
         </div>
-      </div>
-      <ErrorBox error={flags.error ?? projects.error ?? phases.error ?? sup.error} />
-      {loading ? <Loading /> : (
-        <>
-          <div className="ct-tiles">
-            <Tile label="Nu doen" value={n1} tone={n1 ? 'bad' : 'ok'} on={prioOnly === 1} onClick={() => { setPrioOnly(prioOnly === 1 ? null : 1); setTheme('alles') }} />
-            <Tile label="Binnenkort" value={n2} tone={n2 ? 'warn' : 'ok'} on={prioOnly === 2} onClick={() => { setPrioOnly(prioOnly === 2 ? null : 2); setTheme('alles') }} />
-            <Tile label="Nieuwe aanvragen" value={leads} tone={leads ? 'new' : undefined} on={theme === 'klant' && !prioOnly} onClick={() => { setTheme(theme === 'klant' ? 'alles' : 'klant'); setPrioOnly(null) }} />
-            <Tile label="Opdrachten te bevestigen" value={toConfirm} tone={toConfirm ? 'warn' : undefined} on={theme === 'planning' && !prioOnly} onClick={() => { setTheme(theme === 'planning' ? 'alles' : 'planning'); setPrioOnly(null) }} />
-            <Tile label="Lopende projecten" value={active.length} to="/projecten" />
-          </div>
-
-          <div className="ct-grid">
-            <div className="panel ct-todo">
-              <div className="ct-todo-head">
-                <h2>Wat moet ik doen?</h2>
-                <div className="ct-chips">
-                  <button className={theme === 'alles' ? 'on' : ''} onClick={() => setTheme('alles')}>Alles <span>{fl.length}</span></button>
-                  {THEMES.map((t) => {
-                    const n = fl.filter((f) => themeOf(f.kind) === t.id).length
-                    return <button key={t.id} className={theme === t.id ? 'on' : ''} onClick={() => setTheme(t.id)} disabled={!n}>{t.icon} {t.label} {n ? <span>{n}</span> : null}</button>
-                  })}
-                </div>
-                {prioOnly && <p className="muted small">Enkel "{PRIO[prioOnly]}" · <button className="link" onClick={() => setPrioOnly(null)}>alles tonen</button></p>}
-              </div>
-              {shown.length === 0 ? (
-                <div className="ct-empty">✓ Niets te doen{theme !== 'alles' ? ' in dit thema' : ''}. Goed bezig!</div>
+        <div className="vd-pills">
+          <span className="vd-pill now"><i /> <b>{now.length}</b> nu doen</span>
+          <span className="vd-pill week"><i /> <b>{week.length}</b> deze week</span>
+          <Link to="/projecten" className="vd-pill good"><i /> <b>{active.length}</b> lopend{active.length === 1 ? ' project' : 'e projecten'}</Link>
+        </div>
+      </header>
+      <ErrorBox error={flags.error ?? projects.error} />
+      {flags.loading || projects.loading ? <Loading /> : (
+        <div className="vd-grid">
+          <div className="vd-col">
+            <section className="panel vd-panel">
+              <div className="vd-h"><h2>Te doen</h2></div>
+              {now.length + week.length === 0 ? (
+                <div className="vd-empty"><b>Niets meer te doen</b>Alles is afgehandeld. Nieuwe punten verschijnen hier vanzelf.</div>
               ) : (
-                ([1, 2, 3] as const).map((prio) => {
-                  const list = shown.filter((f) => f.prio === prio)
-                  if (!list.length) return null
-                  const body = (
-                    <ul className="ct-list">
-                      {list.map((f, i) => {
-                        const act = actionFor(f)
-                        const th = THEMES.find((t) => t.id === themeOf(f.kind))!
-                        return (
-                          <li key={i} className={'ct-item p' + f.prio}>
-                            <span className="ct-ico" title={th.label}>{th.icon}</span>
-                            <span className="ct-main">
-                              <strong>{f.title}</strong>
-                              <span className="muted small">
-                                {f.project_code && <Link to={`/projecten/${encodeURIComponent(f.project_code)}`} className="ct-proj">{f.project_code}</Link>}
-                                {f.detail}
-                              </span>
-                            </span>
-                            <span className="ct-side">
-                              {act.to.startsWith('http') ? <a href={act.to} target="_blank" rel="noreferrer" className="ct-btn">{act.label} ↗</a> : <Link to={act.to} className="ct-btn">{act.label} →</Link>}
-                              <span className="muted small">{relDays(f.since)}</span>
-                            </span>
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  )
-                  return prio === 3 ? (
-                    <details key={prio} className="ct-group">
-                      <summary><span className={'ct-prio p3'}>{PRIO[prio]}</span> <span className="muted small">{list.length} · klik om te tonen</span></summary>
-                      {body}
-                    </details>
-                  ) : (
-                    <div key={prio} className="ct-group">
-                      <h3><span className={'ct-prio p' + prio}>{PRIO[prio]}</span> <span className="muted small">{list.length}</span></h3>
-                      {body}
-                    </div>
-                  )
-                })
+                <>
+                  {now.length > 0 && <div className="vd-group"><div className="vd-glabel now"><i />Nu</div>{now.map((f) => <Row key={keyOf(f)} f={f} />)}</div>}
+                  {week.length > 0 && <div className="vd-group"><div className="vd-glabel week"><i />Deze week</div>{week.map((f) => <Row key={keyOf(f)} f={f} />)}</div>}
+                </>
               )}
-            </div>
-
-            <div className="ct-aside">
-              <Today projects={ps} />
-              <div className="panel">
-                <div className="ct-panel-head"><h2>Mails (7 dagen)</h2><Link to="/mails?tab=app" className="small">Alles →</Link></div>
-                {(mails.data ?? []).length === 0 ? (
-                  <p className="muted small">Nog geen gegevens van Resend. Zodra de koppeling actief is, zie je hier of je mails aankomen.</p>
-                ) : (
-                  <div className="ct-mailstats">
-                    <span><b>{(mails.data ?? []).length}</b> verstuurd</span>
-                    <span className="ok-t"><b>{(mails.data ?? []).filter((m) => m.status === 'delivered').length}</b> aangekomen</span>
-                    <span className={(mails.data ?? []).some((m) => m.status === 'delayed') ? 'wait-t' : 'muted'}><b>{(mails.data ?? []).filter((m) => m.status === 'delayed').length}</b> vertraagd</span>
-                    <span className={mailProblems ? 'bad-t' : 'muted'}><b>{mailProblems}</b> probleem</span>
-                  </div>
-                )}
-              </div>
-              <Tasks limit={8} />
-              <EventFeed />
-              <RecentUploads projects={ps} />
-              <details className="panel ct-sup">
-                <summary><h2>Leveranciersprijzen</h2><span className="muted small">{(sup.data ?? []).some((s) => s.days_old > 35) ? '⚠ verouderd' : 'actueel'}</span></summary>
-                <ul className="mini">
-                  {(sup.data ?? []).map((s) => (
-                    <li key={s.supplier_name}>
-                      <span>{s.supplier_name}</span>
-                      <span className="muted">{fmtInt(s.n_articles)} art.</span>
-                      <span className={'right ' + (s.days_old > 35 ? 'warn-text' : 'muted')}>{relDays(s.last_update)}</span>
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            </div>
+              {info.length > 0 && (
+                <details className="vd-info"><summary>Ter info · {info.length} {info.length === 1 ? 'punt' : 'punten'}</summary>{info.map((f) => <Row key={keyOf(f)} f={f} />)}</details>
+              )}
+            </section>
+            <NewMail />
           </div>
 
-          <h2 className="ct-h">Pijplijn</h2>
-          <Pipeline projects={active} gates={gatesOf(phases.data ?? [])} />
-        </>
+          <aside className="vd-col">
+            <YourDay projects={ps} />
+            <div className="vd-tasks"><Tasks limit={6} /></div>
+            <ActiveProjects projects={active} />
+            {sys.length === 0 ? (
+              <div className="panel vd-sys"><i className="ok" />Alle systemen in orde</div>
+            ) : (
+              <div className="panel vd-sys bad">
+                <i className="bad" />
+                <span>{sys.map((f) => { const a = actionFor(f); return a.to.startsWith('http')
+                  ? <a key={keyOf(f)} href={a.to} target="_blank" rel="noreferrer">{f.title}</a>
+                  : <Link key={keyOf(f)} to={a.to}>{f.title}</Link> })}</span>
+              </div>
+            )}
+          </aside>
+        </div>
       )}
+      {toast.el}
     </section>
   )
 }
 
-function Tile({ label, value, tone, on, onClick, to }: { label: string; value: number; tone?: 'ok' | 'warn' | 'bad' | 'new'; on?: boolean; onClick?: () => void; to?: string }) {
-  const inner = (<><div className="kpi-value">{fmtInt(value)}</div><div className="kpi-label">{label}</div></>)
-  const cls = 'kpi ct-tile' + (tone ? ' ' + tone : '') + (on ? ' on' : '')
-  return to ? <Link to={to} className={cls}>{inner}</Link> : <button className={cls} onClick={onClick}>{inner}</button>
+/** VON-voorstel in de lijst zelf: tekst lezen/aanpassen en goedkeuren. */
+function InlineProposal({ id, onDone }: { id: string; onDone: () => void }) {
+  const [p, setP] = useState<any>(null)
+  useEffect(() => { supabase.from('von_proposals').select('*').eq('id', id).maybeSingle().then(({ data }) => setP(data)) }, [id])
+  if (!p) return <div className="vd-draft muted small">Laden…</div>
+  return <div className="vd-draft"><ProposalCard p={p} onDone={() => { supabase.from('von_proposals').select('status').eq('id', id).single().then(({ data }) => { if (data?.status !== 'voorstel') onDone() }) }} /></div>
 }
 
-/** Vandaag en morgen: afspraken (Outlook/Bookings) en opdrachten. */
-function Today({ projects }: { projects: ProjectRow[] }) {
+/** Nieuwe mails van mensen (geen nieuwsbrieven), laatste 3 dagen. */
+function NewMail() {
+  const nav = useNavigate()
+  const q = useQuery<InMail[]>(() => supabase.from('app_mail_messages').select('id,at,from_name,from_email,party_name,party_kind,subject,summary,snippet,project_code,category')
+    .eq('direction', 'in').eq('is_bulk', false).gt('at', new Date(Date.now() - 3 * 864e5).toISOString()).order('at', { ascending: false }).limit(5), [])
+  const list = q.data ?? []
+  return (
+    <section className="panel vd-panel">
+      <div className="vd-h"><h2>Nieuw in je mailbox</h2><Link to="/mails" className="vd-more">Inbox</Link></div>
+      {q.loading ? <p className="muted small vd-pad">Laden…</p> : list.length === 0 ? <p className="muted small vd-pad">Geen nieuwe mails van de laatste dagen.</p> : list.map((m) => (
+        <button key={m.id} className="vd-mail" onClick={() => nav(`/mails?focus=${m.id}`)}>
+          <span className="vd-av">{initials(m.party_name ?? m.from_name ?? m.from_email)}</span>
+          <span className="vd-what">
+            <span className="vd-t">{m.from_name ?? m.from_email}{m.party_name && m.party_name !== m.from_name && <span className="vd-sub"> · {m.party_name}</span>}</span>
+            <span className="vd-s">{m.summary ?? m.subject ?? m.snippet}</span>
+          </span>
+          <span className="vd-side">
+            {m.project_code ? <span className="vd-badge k">{m.project_code}</span> : m.category ? <span className="vd-badge">{m.category}</span> : null}
+            <span className="vd-age">{relDays(m.at)}</span>
+          </span>
+        </button>
+      ))}
+    </section>
+  )
+}
+
+/** Je dag: afspraken (Outlook/Bookings) en opdrachten, vandaag en morgen, als tijdlijn. */
+function YourDay({ projects }: { projects: ProjectRow[] }) {
   const [items, setItems] = useState<DayItem[] | null>(null)
   useEffect(() => {
     const from = startOfDay(new Date()), to = new Date(from.getTime() + 2 * 86400000)
@@ -216,11 +271,10 @@ function Today({ projects }: { projects: ProjectRow[] }) {
       const mirror = new Set(jobs.map((j) => j.outlook_event_id).filter(Boolean))
       type E = { id: string; title: string; start: string; end: string; all_day: boolean; outlook_id?: string; location?: string | null; customer?: { name?: string } | null }
       const evs = ((ag.data as { events?: E[] })?.events ?? []).filter((e) => !(e.outlook_id && mirror.has(e.outlook_id)))
-      const out: DayItem[] = [
+      setItems([
         ...evs.map((e) => ({ id: e.id, start: e.start, end: e.end, title: e.title, sub: e.location ?? e.customer?.name ?? undefined, kind: 'afspraak' as const, allDay: e.all_day, to: `/agenda?d=${e.start.slice(0, 10)}&e=${encodeURIComponent(e.id)}` })),
-        ...jobs.map((j) => ({ id: 'j' + j.id, start: j.start_at, end: j.end_at, title: j.title, sub: j.for_me ? 'Vonstruct' : j.subcontractors?.name ?? j.partners?.name, kind: 'opdracht' as const, ok: j.status !== 'gepland', allDay: j.slot === 'dag', to: `/opdrachten?focus=${j.id}` })),
-      ]
-      setItems(out.sort((a, b) => a.start.localeCompare(b.start)))
+        ...jobs.map((j) => ({ id: 'j' + j.id, start: j.start_at, end: j.end_at, title: j.title, sub: (j.for_me ? 'Vonstruct' : j.subcontractors?.name ?? j.partners?.name ?? '') + (j.status === 'gepland' ? ' · nog niet bevestigd' : ' · ✓ bevestigd'), kind: 'opdracht' as const, ok: j.status !== 'gepland', allDay: j.slot === 'dag', to: `/opdrachten?focus=${j.id}` })),
+      ].sort((a, b) => a.start.localeCompare(b.start)))
     })
   }, [])
   const today = startOfDay(new Date())
@@ -230,75 +284,49 @@ function Today({ projects }: { projects: ProjectRow[] }) {
     return { label: n === 0 ? 'Vandaag' : 'Morgen', list: (items ?? []).filter((i) => new Date(i.start) < new Date(d.getTime() + 86400000) && new Date(i.end) > d) }
   })
   return (
-    <div className="panel ct-today">
-      <div className="ct-panel-head"><h2>Vandaag & morgen</h2><Link to="/agenda" className="small">Agenda →</Link></div>
-      {items === null ? <p className="muted small">Laden…</p> : groups.map((g) => (
-        <div key={g.label} className="ct-day">
-          <h3>{g.label}</h3>
-          {g.list.length === 0 ? <p className="muted small">Niets gepland.</p> : (
-            <ul>
-              {g.list.map((i) => (
-                <li key={i.id + g.label}>
-                  <Link to={i.to}>
-                    <span className="ct-time">{i.allDay ? 'dag' : hm(i.start)}</span>
-                    <span className="ct-what"><b>{i.title}</b>{i.sub && <span className="muted small"> · {i.sub}</span>}</span>
-                    {i.kind === 'opdracht' && <span className={i.ok ? 'ok-t' : 'wait-t'}>{i.ok ? '✓' : '?'}</span>}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      ))}
-      {intros.length > 0 && items !== null && !items.some((i) => i.title.toLowerCase().includes('kennismak')) && (
-        <p className="muted small">Kennismaking: {intros.map((p) => p.client_name).join(', ')}</p>
-      )}
-    </div>
-  )
-}
-
-function RecentUploads({ projects }: { projects: ProjectRow[] }) {
-  const recent = useMemo(() => [...projects].filter((p) => p.last_received).sort((a, b) => (b.last_received ?? '').localeCompare(a.last_received ?? '')).slice(0, 4), [projects])
-  return (
-    <div className="panel">
-      <h2>Laatste uploads</h2>
-      {recent.length === 0 ? <p className="muted small">Nog geen uploads.</p> : (
-        <ul className="mini">
-          {recent.map((p) => (
-            <li key={p.project_id}>
-              <Link to={`/projecten/${encodeURIComponent(p.project_code)}/v/${p.last_version}`}>{p.project_code} v{p.last_version}</Link>
-              <span className="muted">{p.client_name}</span>
-              <span className="muted right">{relDays(p.last_received)}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  )
-}
-
-function Pipeline({ projects, gates }: { projects: ProjectRow[]; gates: Phase[] }) {
-  return (
-    <div className="pipeline" style={{ gridTemplateColumns: `repeat(${gates.length}, minmax(170px, 1fr))` }}>
-      {gates.map((g, i) => {
-        const list = projects.filter((p) => (p.stage ?? p.phase) === g.phase)
-        return (
-          <div key={g.phase} className={'lane' + (list.length ? '' : ' empty')}>
-            <div className="lane-head">
-              <span><em>{i + 1}</em> {g.label}</span>
-              <span className="lane-n">{list.length}</span>
-            </div>
-            {list.map((p) => (
-              <Link key={p.project_id} to={`/projecten/${encodeURIComponent(p.project_code)}`} className="lane-card">
-                <strong>{p.project_code}{p.phase === 'lead' && <span className="pcard-new">nieuw</span>}</strong>
-                <span>{p.client_name}</span>
-                {p.cost_total != null && <span className="muted">{fmtEur(p.cost_total)}</span>}
+    <section className="panel vd-panel">
+      <div className="vd-h"><h2>Je dag</h2><Link to="/agenda" className="vd-more">Agenda</Link></div>
+      <div className="vd-tl">
+        {items === null ? <p className="muted small">Laden…</p> : groups.map((g) => (
+          <div key={g.label}>
+            <div className="vd-day">{g.label}</div>
+            {g.list.length === 0 ? <p className="muted small vd-none">Niets gepland.</p> : g.list.map((i) => (
+              <Link key={i.id + g.label} to={i.to} className="vd-ev">
+                <span className="vd-hm">{i.allDay ? 'dag' : hm(i.start)}</span>
+                <span className={'vd-bar ' + (i.kind === 'opdracht' ? (i.ok ? 'job' : 'q') : '')} />
+                <span className="vd-what"><span className="vd-t">{i.title}</span>{i.sub && <span className="vd-s">{i.sub}</span>}</span>
               </Link>
             ))}
-            {g.gate && <p className="lane-gate">{g.gate}</p>}
           </div>
+        ))}
+        {intros.length > 0 && items !== null && !items.some((i) => i.title.toLowerCase().includes('kennismak')) && (
+          <p className="muted small">Kennismaking: {intros.map((p) => p.client_name).join(', ')}</p>
+        )}
+      </div>
+    </section>
+  )
+}
+
+/** Lopende projecten: fase, voortgang in de fase, volgende stap. */
+function ActiveProjects({ projects }: { projects: ProjectRow[] }) {
+  const [prog, setProg] = useState<Record<string, ProjectProgress>>({})
+  useEffect(() => { supabase.from('app_project_progress').select('*').then(({ data }) => setProg(Object.fromEntries(((data ?? []) as ProjectProgress[]).map((r) => [r.project_code, r])))) }, [])
+  const list = useMemo(() => [...projects].sort((a, b) => (b.last_activity ?? '').localeCompare(a.last_activity ?? '')).slice(0, 5), [projects])
+  return (
+    <section className="panel vd-panel">
+      <div className="vd-h"><h2>Lopende projecten</h2><Link to="/projecten" className="vd-more">Alle</Link></div>
+      {list.length === 0 ? <p className="muted small vd-pad">Geen lopende projecten.</p> : list.map((p) => {
+        const g = prog[p.project_code] as (ProjectProgress & { stage_done?: number; stage_total?: number; next_item?: string }) | undefined
+        const pct = g?.stage_total ? Math.round(((g.stage_done ?? 0) / g.stage_total) * 100) : null
+        return (
+          <Link key={p.project_id} to={`/projecten/${encodeURIComponent(p.project_code)}`} className="vd-proj">
+            <span className="vd-ptop"><span className="vd-code">{p.project_code}</span><b>{p.client_name ?? p.title}</b><span className="vd-phase">{p.phase_label}</span></span>
+            <span className="vd-s">{[p.title, p.site_city, p.cost_total != null ? `raming ${fmtEur(p.cost_total)}` : null].filter(Boolean).join(' · ')}</span>
+            {pct != null && <span className="vd-prog" role="img" aria-label={`${g?.stage_done} van ${g?.stage_total} punten in deze fase`}><i style={{ width: `${pct}%` }} /></span>}
+            {g?.next_item && <span className="vd-s">Volgende stap: {g.next_item}</span>}
+          </Link>
         )
       })}
-    </div>
+    </section>
   )
 }

@@ -7,7 +7,7 @@ import { Tasks } from '../../core/Tasks'
 type Proposal = { id: string; created_at: string; kind: string; project_code: string | null; title: string; summary: string | null; payload: any; status: string; result: string | null; decided_at: string | null; source: string | null }
 const KIND: Record<string, string> = { mail: '✉ Mail', mail_reply: '↩ Antwoord', job_reminder: '🔔 Herinnering', job_move: '📅 Verzetten', project_note: '📝 Notitie' }
 
-function ProposalCard({ p, onDone }: { p: Proposal; onDone: () => void }) {
+export function ProposalCard({ p, onDone }: { p: Proposal; onDone: () => void }) {
   const [subject, setSubject] = useState<string>(p.payload?.subject ?? '')
   const [body, setBody] = useState<string>(p.payload?.body ?? p.payload?.text ?? p.payload?.note ?? '')
   const [busy, setBusy] = useState(false)
