@@ -10,4 +10,4 @@ import portaal from './portaal'
 import von from './von'
 
 /** Volgorde = volgorde in het menu. Een nieuwe module: map aanmaken + hier één regel toevoegen. */
-export const modules: AppModule[] = [controltower, inbox, planning, projecten, relaties, instellingen, von, regels, portaal]
+export const modules: AppModule[] = [controltower, von, inbox, planning, projecten, relaties, instellingen, regels, portaal]

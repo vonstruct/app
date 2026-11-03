@@ -62,8 +62,8 @@ async function enablePush(): Promise<string> {
   return 'Meldingen staan aan op dit toestel. Je krijgt zo een proefmelding.'
 }
 
-export function Von() {
-  const [open, setOpen] = useState(false)
+export function Von({ embedded = false }: { embedded?: boolean } = {}) {
+  const [open, setOpen] = useState(embedded)
   // openen vanuit de kopbalk (knop VON) of elders: window.dispatchEvent(new Event('von-open'))
   useEffect(() => { const o = () => setOpen(true); window.addEventListener('von-open', o); return () => window.removeEventListener('von-open', o) }, [])
   const [conv, setConv] = useState<string | null>(() => store.get(KEY_CONV))
@@ -196,24 +196,25 @@ export function Von() {
 
   return (
     <>
-      {!open && (
+      {!open && !embedded && (
         <button className="von-fab" onClick={() => setOpen(true)} aria-label="VON openen" title="VON">
           <img src="./v-icon-192.png" alt="" />
         </button>
       )}
       {open && (
-        <section className="von" aria-label="VON" onPointerDown={unlock} onKeyDown={unlock}>
+        <section className={embedded ? 'von von-embedded' : 'von'} aria-label="VON" onPointerDown={unlock} onKeyDown={unlock}>
           <header className="von-head">
             <img src="./v-icon-192.png" alt="" />
             <strong>VON</strong>
-            <span className="muted small">alleen lezen</span>
+            <span className="muted small">stelt voor · jij keurt goed</span>
             <span className="von-actions">
               <button className="link" onClick={async () => { const m = await enablePush(); setPushOn(pushSupported() && Notification.permission === 'granted'); setMsgs((x) => [...x, { role: 'assistant', text: m }]) }} title={pushOn ? 'Meldingen staan aan (klik voor een proefmelding)' : 'Meldingen aanzetten'}>{pushOn ? '🔔' : '🔕'}</button>
               <button className="link" onClick={toggleVoice} title={voice ? 'Voorlezen staat aan' : 'Voorlezen staat uit'}>{voice ? '🔊' : '🔇'}</button>
               <button className="link" onClick={() => { setSiri((x) => !x); setHistory(null) }} title="VON via Siri">📱</button>
               <button className="link" onClick={() => { setSiri(false); showHistory() }} title="Vorige gesprekken">🕘</button>
               <button className="link" onClick={newConv} title="Nieuw gesprek">＋</button>
-              <button className="link" onClick={() => { setOpen(false); hush(); stopListening() }} aria-label="Sluiten">✕</button>
+              {!embedded && <a className="link" href="#/von" title="Naar de VON-pagina" onClick={() => setOpen(false)}>⤢</a>}
+              {!embedded && <button className="link" onClick={() => { setOpen(false); hush(); stopListening() }} aria-label="Sluiten">✕</button>}
             </span>
           </header>
           {siri ? <div className="von-history"><VonSiri /></div> : history ? (

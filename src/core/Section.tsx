@@ -8,11 +8,7 @@ export const PLANNING: Tab[] = [
   { to: '/opdrachten', label: 'Opdrachten' },
   { to: '/taken', label: 'Taken' },
 ]
-export const INBOX: Tab[] = [
-  { to: '/inbox', label: 'Mails' },
-  { to: '/von', label: 'Voorstellen van VON' },
-  { to: '/von?tab=taken', label: 'Taken' },
-]
+export const INBOX: Tab[] = [{ to: '/inbox', label: 'Mails' }]
 export const SETTINGS: Tab[] = [
   { to: '/instellingen', label: 'Overzicht' },
   { to: '/regels', label: 'Rekenregels' },
@@ -35,9 +31,9 @@ export function Section({ title, intro, tabs, children }: { title: string; intro
         <h1>{title}</h1>
         {intro && <p className="muted">{intro}</p>}
       </div>
-      <nav className="section-tabs">
+      {tabs.length > 1 && <nav className="section-tabs">
         {tabs.map((t) => <Link key={t.to} to={t.to} className={isOn(t.to) ? 'on' : ''}>{t.label}</Link>)}
-      </nav>
+      </nav>}
       <div className="section-body">{children}</div>
     </section>
   )

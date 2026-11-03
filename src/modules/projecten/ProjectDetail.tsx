@@ -15,6 +15,7 @@ import { PlanningPanel } from './PlanningPanel'
 import { ChecklistPanel } from './ChecklistPanel'
 import { EventFeed } from '../../core/EventFeed'
 import { Tasks } from '../../core/Tasks'
+import { ProposalList } from '../von/VonPage'
 
 export type Version = {
   id: string
@@ -99,6 +100,7 @@ export function ProjectDetail() {
           </div>
           <ClientPanel project={project} focus={focus === 'fase' || focus === 'survey' ? null : focus} onSaved={pq.reload} />
         </div>
+        <ProjectProposals code={code} />
         <LeadActions p={project} onDone={pq.reload} />
         <ChecklistPanel code={code} currentStage={project.stage} />
         <Tasks project={code} title="Taken" />
@@ -129,5 +131,14 @@ export function ProjectDetail() {
       <ErrorBox error={q.error ?? pq.error} />
       {pq.loading ? <Loading /> : !project ? <p className="muted">Project {code} niet gevonden.</p> : <div className="pd-body">{body}</div>}
     </section>
+  )
+}
+
+/** Open VON-voorstellen voor dit project (enkel getoond als er zijn). */
+function ProjectProposals({ code }: { code: string }) {
+  return (
+    <div className="pd-von">
+      <ProposalList project={code} compact />
+    </div>
   )
 }
