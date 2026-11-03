@@ -1057,3 +1057,6 @@ button { border-radius: 8px; }
   .portal-contact { flex-basis: 100%; }
   .portal-project { padding: 18px 16px; }
 }
+.portal-contact-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.portal-contact-btn.wa { background: #25d366; border-color: #25d366; color: #06301a !important; font-weight: 600; }
+.portal-contact-btn.wa:hover { background: #2fe072; }

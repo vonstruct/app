@@ -10,6 +10,10 @@ export type PortalRole = 'klant' | 'partner' | 'onderaannemer'
 
 type Project = { project_code: string; title: string | null; phase: string | null; target_install_week: string | null; site_city: string | null; survey_status?: string }
 
+/** Contact Vonstruct (WhatsApp Business). */
+const CONTACT_PHONE = '+32 493 47 27 51'
+const CONTACT_WA = '32493472751'
+
 const STEPS = ['design', 'quote', 'production', 'installation', 'closed']
 
 /** Portaal voor klanten, de productiepartner en onderaannemers. `preview` = beheerder bekijkt het als voorbeeld. */
@@ -55,8 +59,11 @@ export function Portal({ role, preview = false, viewAs = null }: { role: PortalR
             <span className="portal-contact-av">OV</span>
             <span><b>Olivier Van Dyck</b><small>{t.contactRole}</small></span>
           </div>
-          <span className="portal-contact-mail">info@vonstruct.com</span>
-          <a className="portal-contact-btn" href="mailto:info@vonstruct.com">{t.mailMe}</a>
+          <span className="portal-contact-mail">info@vonstruct.com · {CONTACT_PHONE}</span>
+          <span className="portal-contact-btns">
+            <a className="portal-contact-btn wa" href={`https://wa.me/${CONTACT_WA}`} target="_blank" rel="noreferrer">WhatsApp</a>
+            <a className="portal-contact-btn" href="mailto:info@vonstruct.com">{t.mailMe}</a>
+          </span>
         </aside>
       </section>
       <main className="portal-main">
