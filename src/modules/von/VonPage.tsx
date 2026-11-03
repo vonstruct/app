@@ -27,7 +27,13 @@ const FIELD: Record<string, string> = {
   title: 'Titel', phase: 'Fase', target_install_week: 'Plaatsingsweek', site_street: 'Straat', site_postal_code: 'Postcode', site_city: 'Gemeente', intro_at: 'Kennismaking', lead_source: 'Bron',
   first_name: 'Voornaam', last_name: 'Naam', company: 'Bedrijf', email: 'E-mail', phone: 'Telefoon', street: 'Straat', postal_code: 'Postcode', city: 'Gemeente', country: 'Land', language: 'Taal', notes: 'Notitie',
   name: 'Naam', trade: 'Vak', services: 'Diensten', contact_person: 'Contactpersoon', active: 'Actief',
+  note: 'Omschrijving', supplier: 'Leverancier', reference: 'Bestelnummer', status: 'Status', expected_at: 'Verwacht op', ordered_at: 'Besteld op', delivered_at: 'Geleverd op',
+  needed_by: 'Nodig op', lead_days: 'Levertermijn (werkdagen)', amount: 'Bedrag', actual_amount: 'Werkelijk bedrag', due_date: 'Tegen', description: 'Uitleg', hours: 'Uren',
+  activity: 'Soort werk', work_date: 'Datum', unit_price: 'Prijs', qty: 'Aantal', discount_pct: 'Korting %', vat_rate: 'Btw %', invoice_number: 'Factuurnummer', invoice_date: 'Factuurdatum',
+  paid_at: 'Betaald op', paid_amount: 'Betaald bedrag', text: 'Tekst', label: 'Omschrijving', value: 'Waarde', category: 'Rubriek', price: 'Prijs', origin: 'Herkomst',
 }
+/** Velden die het systeem zelf invult: niet tonen in een voorstel. */
+const HIDE = new Set(['manual', 'ordered_by', 'project_code', 'quote_id', 'quote_line_id', 'design_version_id', 'id', 'created_at', 'updated_at', 'needed_by_manual', 'auto_vervallen'])
 const AGENT_NAME: Record<string, string> = { inbox: 'Inbox', planning: 'Planning', nakijker: 'Nakijker', von_watch: 'Meedenken', inkoop: 'Inkoop' }
 const show = (v: unknown) => v === null || v === undefined || v === '' ? '—' : typeof v === 'object' ? JSON.stringify(v) : String(v)
 const when = (iso?: string) => iso ? new Date(iso).toLocaleString('nl-BE', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'
@@ -98,12 +104,12 @@ export function ProposalCard({ p, onDone }: { p: Proposal; onDone: () => void })
 
       {hasDiff && (
         <table className="prop-diff">
-          <thead><tr><th>Veld</th><th>Nu</th><th>Wordt</th></tr></thead>
+          <thead><tr><th>Veld</th>{p.payload?.action !== 'insert' && <th>Nu</th>}<th>{p.payload?.action === 'insert' ? 'Waarde' : 'Wordt'}</th></tr></thead>
           <tbody>
-            {Object.keys(p.payload?.changes ?? {}).map((k) => (
+            {Object.keys(p.payload?.changes ?? {}).filter((k) => !HIDE.has(k)).map((k) => (
               <tr key={k}>
-                <td>{FIELD[k] ?? k}</td>
-                <td className="muted">{show(p.before?.[k])}</td>
+                <td>{FIELD[k] ?? k.replace(/_/g, ' ')}</td>
+                {p.payload?.action !== 'insert' && <td className={'muted prop-was' + (show(p.before?.[k]) === '—' ? ' none' : '')}>{show(p.before?.[k])}</td>}
                 <td>{open ? <input value={show(changes[k]) === '—' ? '' : String(changes[k])} onChange={(e) => setChanges({ ...changes, [k]: e.target.value })} /> : <b>{show(p.payload.changes[k])}</b>}</td>
               </tr>
             ))}

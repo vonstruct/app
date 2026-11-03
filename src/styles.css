@@ -873,7 +873,7 @@ a.vd-pill:hover { text-decoration: none; border-color: var(--muted); }
 .vd-row { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 11px 0; }
 .vd-ico { width: 34px; height: 34px; border-radius: 8px; background: var(--vd-soft); display: grid; place-items: center; color: var(--muted); }
 .vd-ico svg { width: 17px; height: 17px; }
-.vd-ico.von { background: var(--vd-gold-soft); color: var(--vd-gold-ink); }
+.vd-ico.is-von { background: var(--vd-gold-soft); color: var(--vd-gold-ink); }
 .vd-what { display: flex; flex-direction: column; min-width: 0; }
 .vd-t { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
 .vd-s { color: var(--muted); font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1482,4 +1482,12 @@ summary.vd-h::-webkit-details-marker { display: none; }
   .tb-search { min-width: 0; flex: 1 1 auto; max-width: none; margin-left: auto; }
   .tb-me { flex: none; }
   html, body { overflow-x: hidden; }
+}
+
+/* VON-voorstel: compacte tabel op de gsm */
+@media (max-width: 620px) {
+  .prop-diff thead { display: none; }
+  .prop-diff tr { display: grid; grid-template-columns: minmax(0, 1fr); padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .prop-diff td { border: 0; padding: 2px 0; } .prop-diff td:first-child { color: var(--muted); font-size: 12px; }
+  .prop-diff td.prop-was:empty, .prop-diff td.prop-was.none { display: none; } .prop-diff td.prop-was::before { content: 'nu: '; }
 }

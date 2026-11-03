@@ -150,7 +150,7 @@ export function ControlTower() {
     return (
       <div className={'vd-item' + (isOpen ? ' open' : '')}>
         <div className="vd-row">
-          <span className={'vd-ico' + (isVon ? ' von' : '')}><Ico name={iconFor(f.kind)} /></span>
+          <span className={'vd-ico' + (isVon ? ' is-von' : '')}><Ico name={iconFor(f.kind)} /></span>
           <span className="vd-what">
             <span className="vd-t">{f.project_code && <Link to={`/projecten/${encodeURIComponent(f.project_code)}`} className="vd-code">{f.project_code}</Link>}{cleanTitle(f)}</span>
             {!isOpen && f.detail && <span className="vd-s">{f.detail}</span>}
