@@ -3,6 +3,7 @@ import { supabase } from '../../core/supabase'
 import { ErrorBox, Loading } from '../../core/ui'
 import { ProjectCard, usePhases, useProjects, type ProjectPlanning, type ProjectProgress } from '../../core/projects'
 import { NewLead } from './NewLead'
+import { NewProject } from './NewProject'
 
 type Filter = 'lopend' | 'alle' | 'afgesloten'
 
@@ -12,6 +13,7 @@ export function ProjectList() {
   const [filter, setFilter] = useState<Filter>('lopend')
   const [search, setSearch] = useState('')
   const [adding, setAdding] = useState(false)
+  const [addingProject, setAddingProject] = useState(false)
   const [plan, setPlan] = useState<Record<string, ProjectPlanning>>({})
   const [prog, setProg] = useState<Record<string, ProjectProgress>>({})
   useEffect(() => { supabase.from('app_project_progress').select('*').then(({ data }) => setProg(Object.fromEntries(((data ?? []) as ProjectProgress[]).map((r) => [r.project_code, r])))) }, [])
@@ -26,6 +28,7 @@ export function ProjectList() {
   return (
     <section>
       {adding && <NewLead onClose={() => setAdding(false)} />}
+      {addingProject && <NewProject onClose={() => setAddingProject(false)} />}
       <div className="page-head">
         <div>
           <h1>Projecten</h1>
@@ -33,6 +36,7 @@ export function ProjectList() {
         </div>
         <div className="toolbar">
           <input className="search-input" placeholder="Zoek op code, klant, gemeente…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <button onClick={() => setAddingProject(true)}>+ Nieuw project</button>
           <button className="primary" onClick={() => setAdding(true)}>+ Nieuwe aanvraag</button>
         </div>
       </div>
