@@ -37,6 +37,30 @@ function Rich({ text }: { text: string }) {
 
 const speakable = (t: string) => t.replace(/\*\*/g, '').replace(/^\s*[-•*]\s+/gm, '').replace(/€\s?/g, ' euro ')
 
+const b64 = (s: string) => { const p = '='.repeat((4 - (s.length % 4)) % 4); const r = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(r, (c) => c.charCodeAt(0)) }
+const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
+
+/** Meldingen van VON aanzetten op dit toestel (Web Push). Op de iPhone enkel in de app op het beginscherm. */
+async function enablePush(): Promise<string> {
+  if (!pushSupported()) {
+    const ios = /iPhone|iPad|iPod/.test(navigator.userAgent)
+    return ios ? 'Op de iPhone werken meldingen alleen in de app op je beginscherm (Deel → Zet op beginscherm). Open VON daar en druk opnieuw op 🔔.' : 'Deze browser ondersteunt geen meldingen.'
+  }
+  const perm = await Notification.requestPermission()
+  if (perm !== 'granted') return 'Meldingen zijn niet toegestaan. Zet ze aan in de instellingen van je browser of gsm.'
+  const reg = await navigator.serviceWorker.register('./sw.js')
+  await navigator.serviceWorker.ready
+  const { data } = await supabase.functions.invoke('push', { body: { action: 'public_key' } })
+  const key = (data as { key?: string } | null)?.key
+  if (!key) return 'De sleutel voor meldingen kon niet opgehaald worden.'
+  const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64(key) }))
+  const device = /iPhone/.test(navigator.userAgent) ? 'iPhone' : /Android/.test(navigator.userAgent) ? 'Android' : /Mac/.test(navigator.userAgent) ? 'Mac' : /Windows/.test(navigator.userAgent) ? 'Windows-pc' : 'toestel'
+  const r = await supabase.functions.invoke('push', { body: { action: 'subscribe', subscription: sub.toJSON(), device } })
+  if (r.error) return 'Registreren mislukt.'
+  await supabase.functions.invoke('push', { body: { action: 'test' } })
+  return 'Meldingen staan aan op dit toestel. Je krijgt zo een proefmelding.'
+}
+
 export function Von() {
   const [open, setOpen] = useState(false)
   const [conv, setConv] = useState<string | null>(() => store.get(KEY_CONV))
@@ -47,6 +71,7 @@ export function Von() {
   const [listening, setListening] = useState(false)
   const [speaking, setSpeaking] = useState(false)
   const [history, setHistory] = useState<Conv[] | null>(null)
+  const [pushOn, setPushOn] = useState(() => pushSupported() && Notification.permission === 'granted')
   const listRef = useRef<HTMLDivElement>(null)
   const recRef = useRef<{ stop: () => void; abort?: () => void } | null>(null)
   const recTimer = useRef<number | undefined>(undefined)
@@ -162,6 +187,7 @@ export function Von() {
             <strong>VON</strong>
             <span className="muted small">alleen lezen</span>
             <span className="von-actions">
+              <button className="link" onClick={async () => { const m = await enablePush(); setPushOn(pushSupported() && Notification.permission === 'granted'); setMsgs((x) => [...x, { role: 'assistant', text: m }]) }} title={pushOn ? 'Meldingen staan aan (klik voor een proefmelding)' : 'Meldingen aanzetten'}>{pushOn ? '🔔' : '🔕'}</button>
               <button className="link" onClick={toggleVoice} title={voice ? 'Voorlezen staat aan' : 'Voorlezen staat uit'}>{voice ? '🔊' : '🔇'}</button>
               <button className="link" onClick={showHistory} title="Vorige gesprekken">🕘</button>
               <button className="link" onClick={newConv} title="Nieuw gesprek">＋</button>
