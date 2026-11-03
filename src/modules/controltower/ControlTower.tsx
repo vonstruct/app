@@ -16,7 +16,7 @@ const THEMES = [
   { id: 'klant', label: 'Aanvragen & klanten', icon: '👤', kinds: ['aanvraag_nieuw', 'survey_nieuw', 'survey_open', 'klant_email', 'stilstand'] },
   { id: 'planning', label: 'Planning', icon: '📅', kinds: ['opdracht'] },
   { id: 'ontwerp', label: 'Ontwerp & kosten', icon: '📐', kinds: ['prijzen', 'kosten', 'optimalisatie', 'stuklijst_fout', 'stuklijst_opm'] },
-  { id: 'systeem', label: 'Mails & systeem', icon: '⚙️', kinds: ['mail', 'backup', 'leverancier', 'partner_email'] },
+  { id: 'systeem', label: 'Mails & systeem', icon: '⚙️', kinds: ['mail', 'backup', 'sleutel', 'leverancier', 'partner_email'] },
 ] as const
 type ThemeId = (typeof THEMES)[number]['id']
 const themeOf = (kind: string): ThemeId => (THEMES.find((t) => (t.kinds as readonly string[]).includes(kind))?.id ?? 'systeem')
