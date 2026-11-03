@@ -39,6 +39,8 @@ export function ProposalCard({ p, onDone }: { p: Proposal; onDone: () => void })
   const [changes, setChanges] = useState<Record<string, any>>(p.payload?.changes ?? {})
   const [jobTitle, setJobTitle] = useState<string>(p.payload?.row?.title ?? p.payload?.title ?? '')
   const [jobInfo, setJobInfo] = useState<string>(p.payload?.row?.instructions ?? p.payload?.notes ?? '')
+  const [att, setAtt] = useState<string>((p.payload?.attendees ?? []).join(', '))
+  const [online, setOnline] = useState<boolean>(!!p.payload?.online)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const open = p.status === 'voorstel'
@@ -56,7 +58,8 @@ export function ProposalCard({ p, onDone }: { p: Proposal; onDone: () => void })
       case 'whatsapp': return { text: body }
       case 'project_update': case 'relation_update': case 'record': return { changes }
       case 'job_create': return { row: { ...p.payload.row, title: jobTitle, instructions: jobInfo || null } }
-      case 'event_create': case 'event_move': return { title: jobTitle, notes: jobInfo || null }
+      case 'event_create': return { title: jobTitle, notes: jobInfo || null, attendees: att.split(/[,;\s]+/).map((x) => x.trim()).filter((x) => x.includes('@')), online }
+      case 'event_move': return { title: jobTitle, notes: jobInfo || null }
       default: return {}
     }
   }
@@ -103,6 +106,15 @@ export function ProposalCard({ p, onDone }: { p: Proposal; onDone: () => void })
           <label>Titel{open ? <input value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} /> : <b>{jobTitle}</b>}</label>
           <span className="small"><b>Wanneer:</b> {when(p.payload?.row?.start_at ?? p.payload?.start)} → {when(p.payload?.row?.end_at ?? p.payload?.end)}{p.payload?.row?.slot ? ` (${p.payload.row.slot})` : ''}</span>
           {p.payload?.who && <span className="small"><b>Wie:</b> {p.payload.who}</span>}
+          {p.kind === 'event_create' && (open ? (
+            <>
+              <label>Uitnodiging naar (e-mailadressen, leeg = enkel in je eigen agenda)<input value={att} onChange={(e) => setAtt(e.target.value)} placeholder="bv. klant@voorbeeld.be" /></label>
+              <label className="check small"><input type="checkbox" checked={online} onChange={(e) => setOnline(e.target.checked)} /> Teams-link toevoegen</label>
+              {!att.includes('@') && <span className="small warn-text">Er gaat geen uitnodiging naar iemand: enkel een afspraak in je eigen agenda.</span>}
+            </>
+          ) : (
+            <span className="small"><b>Uitnodiging:</b> {(p.payload?.attendees ?? []).length ? (p.payload.attendees as string[]).join(', ') : 'geen (enkel eigen agenda)'}{p.payload?.online ? ' · met Teams-link' : ''}</span>
+          ))}
           {(p.payload?.row?.address || p.payload?.location) && <span className="small"><b>Waar:</b> {p.payload?.row?.address ?? p.payload?.location}</span>}
           <label>{p.kind === 'job_create' ? 'Wat moet er gebeuren' : 'Notitie'}{open ? <textarea rows={3} value={jobInfo} onChange={(e) => setJobInfo(e.target.value)} /> : <span className="small">{jobInfo || '—'}</span>}</label>
         </div>
