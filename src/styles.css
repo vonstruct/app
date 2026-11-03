@@ -761,3 +761,13 @@ a.action-btn.primary { background: #16233a; color: #f3e3a0; border-color: #16233
 .von-siri li { display: list-item; }
 .von-siri .mini li { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
 .siri-steps ul ul, .siri-steps ol ul { margin-top: 4px; }
+
+/* Taken en VON-voorstellen */
+.tasks-head { display: flex; align-items: baseline; justify-content: space-between; }
+.tasks-add { display: flex; gap: 6px; margin: 4px 0 10px; } .tasks-add input:first-child { flex: 1; min-width: 0; } .tasks-add input[type=date] { width: 140px; }
+.tasks-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.tasks-list li { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; } .tasks-list li.done .tasks-main > span:first-child { text-decoration: line-through; opacity: .6; }
+.tasks-main { display: flex; flex-direction: column; flex: 1; min-width: 0; } .tasks-del { opacity: .5; text-decoration: none; }
+.prop { margin: 12px 0; } .prop-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; } .prop-kind { font-size: 12.5px; padding: 2px 8px; border-radius: 10px; background: rgba(201,162,74,.18); }
+.prop-subject, .prop-body { width: 100%; box-sizing: border-box; margin: 6px 0; font: inherit; padding: 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: inherit; }
+.prop-actions { display: flex; gap: 8px; } .prop-uitgevoerd, .prop-geweigerd { opacity: .8; }

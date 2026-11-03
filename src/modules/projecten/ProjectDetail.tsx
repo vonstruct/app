@@ -12,6 +12,7 @@ import { SurveyPanel } from './SurveyPanel'
 import { LeadActions } from './LeadActions'
 import { PlanningPanel } from './PlanningPanel'
 import { EventFeed } from '../../core/EventFeed'
+import { Tasks } from '../../core/Tasks'
 
 export type Version = {
   id: string
@@ -66,6 +67,7 @@ export function ProjectDetail() {
       {project && <LeadActions p={project} onDone={pq.reload} />}
       {project && <PlanningPanel project={project} />}
       {project && <SurveyPanel code={code} focus={focus === 'survey'} />}
+      {project && <Tasks project={code} title="Taken" />}
       {project && <EventFeed project={code} title="Tijdlijn" limit={15} />}
       {q.loading ? (
         <Loading />
