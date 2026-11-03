@@ -1444,3 +1444,7 @@ summary.vd-h::-webkit-details-marker { display: none; }
 .nc-row button { padding: 2px 8px; } .nc-new { grid-template-columns: 1fr 2fr 1fr 1fr auto; }
 .nacalc .inline.num { width: 110px; }
 @media (max-width: 860px) { .nc-new { grid-template-columns: 1fr 1fr; } .nc-row { grid-template-columns: 70px 1fr auto auto; } }
+
+.doc-new { grid-template-columns: 180px auto 1fr auto; } .doc-row { display: grid; grid-template-columns: 140px 1fr auto auto auto auto; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.doc-title { border: none; background: transparent; font: inherit; font-weight: 600; } .doc-title:focus { background: var(--panel); outline: 1px solid var(--line); }
+@media (max-width: 860px) { .doc-new, .doc-row { grid-template-columns: 1fr 1fr; } }
