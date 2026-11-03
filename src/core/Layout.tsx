@@ -2,6 +2,7 @@ import { NavLink, Outlet } from 'react-router'
 import { modules } from '../modules/registry'
 import { supabase } from './supabase'
 import logo from '../assets/vonstruct-logo.webp'
+import { Von } from './Von'
 
 export function Layout() {
   return (
@@ -24,6 +25,7 @@ export function Layout() {
       <main>
         <Outlet />
       </main>
+      <Von />
     </div>
   )
 }
