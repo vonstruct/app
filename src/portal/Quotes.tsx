@@ -4,7 +4,7 @@ import { QuoteDoc, printQuote, quoteTotals, type Company, type QLine } from '../
 import type { Lang } from './i18n'
 
 /** Offertes in het klantenportaal: bekijken, afdrukken, online akkoord geven (naam typen) of weigeren. Via portal_my_quotes / portal_quote_decide. */
-type PQuote = { id: string; number: string; title: string | null; status: string; project_code: string; doc_date: string | null; valid_until: string | null; client_name: string | null; client_address: string | null; intro: string | null; closing: string | null; accepted_at: string | null; accepted_name: string | null; declined_at: string | null; lines: QLine[] | null; company: Company | null }
+type PQuote = { id: string; number: string; title: string | null; status: string; project_code: string; doc_date: string | null; valid_until: string | null; client_name: string | null; client_address: string | null; intro: string | null; closing: string | null; accepted_at: string | null; accepted_name: string | null; declined_at: string | null; lines: QLine[] | null; company: Company | null; btw6?: string | null; included?: string | null; excluded?: string | null; planning?: string | null; payment?: string | null; warranty?: string | null; show_groups?: boolean; project_title?: string | null; site?: string | null }
 
 const T = {
   nl: { title: 'Offertes', open: 'Bekijk offerte', back: '← Terug', print: 'Afdrukken / PDF', status: { verstuurd: 'Wacht op je akkoord', aanvaard: 'Aanvaard', geweigerd: 'Niet aanvaard', vervallen: 'Vervallen' } as Record<string, string>,
@@ -69,7 +69,7 @@ function QuoteView({ q, lang, onBack, onDone }: { q: PQuote; lang: Lang; onBack:
   return (
     <div className="pquote-view">
       <div className="pquote-bar"><button className="portal-link" onClick={onBack}>{t.back}</button><button onClick={printQuote}>{t.print}</button></div>
-      <div className="qpreview"><QuoteDoc q={q} lines={q.lines ?? []} company={q.company ?? {}} lang={lang} /></div>
+      <div className="qpreview"><QuoteDoc q={q} lines={q.lines ?? []} company={q.company ?? {}} lang={lang} btw6={q.btw6} /></div>
       {msg && <p className="pquote-msg">{msg}</p>}
       {!msg && q.status === 'aanvaard' && <p className="pquote-msg">{t.accepted(q.accepted_name ?? '', dd(q.accepted_at, lang))}</p>}
       {!msg && (q.status === 'vervallen' || expired) && <p className="pquote-msg">{t.expired}</p>}

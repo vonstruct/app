@@ -15,6 +15,7 @@ type Quote = {
   margin_pct: number | null; client_name: string | null; client_address: string | null; language: string | null; intro: string | null; closing: string | null
   sent_at: string | null; sent_to: string | null; accepted_at: string | null; accepted_name: string | null; declined_at: string | null; declined_reason: string | null
   total_excl: number; total_incl: number; cost: number | null; margin_eur: number; n_zero: number; created_at: string
+  included: string | null; excluded: string | null; planning: string | null; payment: string | null; warranty: string | null; show_groups: boolean; project_title: string | null; site: string | null
 }
 type Line = { id: string; quote_id: string; sort: number; title: string; description: string | null; qty: number; unit_price: number; discount_pct: number; vat_rate: number; kind: string | null; source: string | null; cost_basis: number | null }
 
@@ -26,6 +27,7 @@ const KINDS: [string, string, number | null][] = [['vrij', 'Vrije regel', null],
 export function QuotePanel({ project }: { project: string }) {
   const list = useQuery<Quote[]>(() => supabase.from('app_quotes').select('*').eq('project_code', project).order('created_at', { ascending: false }), [project])
   const company = useQuery<{ value: Company } | null>(() => supabase.from('rule_settings').select('value').eq('key', 'bedrijf').maybeSingle(), [])
+  const terms = useQuery<{ value: { btw6?: string } } | null>(() => supabase.from('rule_settings').select('value').eq('key', 'offerte_voorwaarden').maybeSingle(), [])
   const [sel, setSel] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const current = (list.data ?? []).find((q) => q.id === sel) ?? (list.data ?? [])[0] ?? null
@@ -52,12 +54,12 @@ export function QuotePanel({ project }: { project: string }) {
         {(!current || current.status !== 'concept') && <button className="primary" disabled={busy} onClick={() => generate()}>{busy ? 'Bezig…' : current ? 'Nieuwe offerte' : 'Offerte opbouwen uit de kosten'}</button>}
       </div>
       <ErrorBox error={list.error} />
-      {current && <QuoteEditor key={current.id} q={current} company={company.data?.value ?? {}} onChange={list.reload} onGenerate={generate} busy={busy} />}
+      {current && <QuoteEditor key={current.id} q={current} company={company.data?.value ?? {}} btw6={terms.data?.value?.btw6 ?? null} onChange={list.reload} onGenerate={generate} busy={busy} />}
     </div>
   )
 }
 
-function QuoteEditor({ q, company, onChange, onGenerate, busy }: { q: Quote; company: Company; onChange: () => void; onGenerate: (m?: number | null) => void; busy: boolean }) {
+function QuoteEditor({ q, company, btw6, onChange, onGenerate, busy }: { q: Quote; company: Company; btw6: string | null; onChange: () => void; onGenerate: (m?: number | null) => void; busy: boolean }) {
   const lines = useQuery<Line[]>(() => supabase.from('quote_lines').select('*').eq('quote_id', q.id).order('sort').order('created_at'), [q.id, q.total_excl])
   const [view, setView] = useState<'bewerken' | 'voorbeeld'>(q.status === 'concept' ? 'bewerken' : 'voorbeeld')
   const [margin, setMargin] = useState<string>(q.margin_pct != null ? String(q.margin_pct) : '')
@@ -172,8 +174,20 @@ function QuoteEditor({ q, company, onChange, onGenerate, busy }: { q: Quote; com
           {editable && (
             <div className="qedit-head">
               <label>Titel<input defaultValue={q.title ?? ''} onBlur={(e) => e.target.value !== (q.title ?? '') && saveQ({ title: e.target.value })} /></label>
-              <label>Inleiding (optioneel)<textarea rows={2} defaultValue={q.intro ?? ''} onBlur={(e) => e.target.value !== (q.intro ?? '') && saveQ({ intro: e.target.value || null })} /></label>
+              <label>Inleiding<textarea rows={4} defaultValue={q.intro ?? ''} onBlur={(e) => e.target.value !== (q.intro ?? '') && saveQ({ intro: e.target.value || null })} /></label>
             </div>
+          )}
+          {editable && (
+            <details className="qtexts">
+              <summary>Teksten op de offerte: inleiding, inbegrepen, planning, betaling, garantie</summary>
+              <div className="qedit-head">
+                {([['included', 'Inbegrepen (één per regel)'], ['excluded', 'Niet inbegrepen (één per regel)'], ['planning', 'Planning'], ['payment', 'Betaling'], ['warranty', 'Garantie'], ['closing', 'Slottekst (optioneel)']] as [keyof Quote, string][]).map(([k, label]) => (
+                  <label key={k}>{label}<textarea rows={3} defaultValue={(q[k] as string | null) ?? ''} onBlur={(e) => e.target.value !== ((q[k] as string | null) ?? '') && saveQ({ [k]: e.target.value || null } as Partial<Quote>)} /></label>
+                ))}
+                <label className="qcheck"><input type="checkbox" checked={q.show_groups} onChange={(e) => saveQ({ show_groups: e.target.checked })} /> Regels per rubriek met subtotalen</label>
+              </div>
+              <p className="muted small">Standaardteksten aanpassen: Rekenregels → Offerte. Leeg = blok niet tonen.</p>
+            </details>
           )}
           {ls.map((l, i) => (
             <div key={l.id} className={'qline' + (Number(l.unit_price) === 0 && Number(l.discount_pct) < 100 ? ' zero' : '')}>
@@ -199,7 +213,7 @@ function QuoteEditor({ q, company, onChange, onGenerate, busy }: { q: Quote; com
       {view === 'voorbeeld' && (
         <div className="qpreview">
           <div className="order-actions"><button onClick={printQuote}>Afdrukken / PDF</button></div>
-          <QuoteDoc q={{ ...q, client_name: q.client_name ?? preview?.name ?? '', client_address: q.client_address ?? preview?.address ?? '', doc_date: q.doc_date, valid_until: q.valid_until }} lines={ls} company={company} lang={(q.language as QLang) ?? 'nl'} />
+          <QuoteDoc q={{ ...q, client_name: q.client_name ?? preview?.name ?? '', client_address: q.client_address ?? preview?.address ?? '' }} lines={ls} company={company} lang={(q.language as QLang) ?? 'nl'} btw6={btw6} />
         </div>
       )}
 
