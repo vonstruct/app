@@ -1475,3 +1475,11 @@ summary.vd-h::-webkit-details-marker { display: none; }
 @media (min-width: 861px) { .update-bar { bottom: 24px; } }
 /* projecttabbladen op de gsm: alles zichtbaar (op meerdere regels) in plaats van verborgen achter scrollen */
 @media (max-width: 860px) { .pd-tabs { flex-wrap: wrap; overflow-x: visible; row-gap: 0; } .pd-tabs button { padding: 8px 10px; font-size: 13.5px; } }
+/* Kopbalk op de gsm (laatste woord): compacte zoekknop, geen "Vraag VON" (die zit als ronde knop boven de tabbalk) */
+@media (max-width: 860px) {
+  .topbar { gap: 10px; padding-left: 14px; padding-right: 14px; }
+  .tb-von { display: none !important; }
+  .tb-search { min-width: 0; flex: 1 1 auto; max-width: none; margin-left: auto; }
+  .tb-me { flex: none; }
+  html, body { overflow-x: hidden; }
+}

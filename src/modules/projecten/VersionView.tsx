@@ -31,7 +31,7 @@ export function VersionView() {
         .select('id, version, received_at, scene_title, n_cabinets, n_parts, n_errors, n_warnings, payload->project')
         .eq('project_code', code)
         .eq('version', Number(version))
-        .single()
+        .maybeSingle()
         .then((r) => ({ data: r.data ? ({ ...r.data, payload: { project: (r.data as { project?: Record<string, string> }).project } } as unknown as DV) : null, error: r.error })),
     [code, version],
   )
@@ -46,7 +46,12 @@ export function VersionView() {
         <Link to="/projecten">Projecten</Link> / <Link to={`/projecten/${encodeURIComponent(code)}`}>{code}</Link> / v{version}
       </p>
       <ErrorBox error={q.error} />
-      {q.loading || !dv ? (
+      {!q.loading && !q.error && !dv ? (
+        <div className="card">
+          <p>Versie {version} van {code} bestaat niet meer (oude versies worden opgeruimd).</p>
+          <Link to={`/projecten/${encodeURIComponent(code)}?tab=ontwerp`}>Naar de huidige versie van {code} →</Link>
+        </div>
+      ) : q.loading || !dv ? (
         <Loading />
       ) : (
         <>
