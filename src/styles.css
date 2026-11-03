@@ -975,3 +975,20 @@ a.vd-pill:hover { text-decoration: none; border-color: var(--muted); }
   .von-fab { bottom: calc(76px + env(safe-area-inset-bottom)); }
   .vd-toast { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
 }
+
+/* ---------- Projectpagina v3: vaste kop + tabbladen ---------- */
+.pd-head { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; margin: 4px 0 14px; }
+.pd-title h1 { font: 500 28px/1.2 "Jost", system-ui, sans-serif; margin: 0 0 2px; display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.pd-title p { margin: 0; }
+.pd-code { font: 500 14px "Jost", system-ui, sans-serif; letter-spacing: .06em; color: #7a5c1f; background: #f3ead6; padding: 3px 9px; border-radius: 6px; }
+.pd-quick { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+.pd-q { display: inline-block; border: 1px solid var(--line); background: var(--panel); color: var(--ink) !important; padding: 7px 13px; border-radius: 8px; font: 500 13.5px system-ui, sans-serif; cursor: pointer; }
+.pd-q:hover { border-color: var(--muted); text-decoration: none; }
+.pd-q.gold { background: #b38b3a; border-color: #b38b3a; color: #1a1406 !important; }
+.pd-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 18px; overflow-x: auto; }
+.pd-tabs button { border: 0; background: none; padding: 10px 14px; font: 500 14px system-ui, sans-serif; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; white-space: nowrap; }
+.pd-tabs button:hover { color: var(--ink); }
+.pd-tabs button.on { color: var(--ink); border-bottom-color: #b38b3a; }
+.pd-body > * + * { margin-top: 18px; }
+@media (prefers-color-scheme: dark) { .pd-code { color: #e6c67f; background: #2e2716; } }
+@media (max-width: 620px) { .pd-title h1 { font-size: 23px; } .pd-quick { margin-left: 0; } }
