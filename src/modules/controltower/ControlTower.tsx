@@ -16,7 +16,7 @@ const THEMES = [
   { id: 'klant', label: 'Aanvragen & klanten', icon: '👤', kinds: ['aanvraag_nieuw', 'survey_nieuw', 'survey_open', 'klant_email', 'stilstand'] },
   { id: 'planning', label: 'Planning', icon: '📅', kinds: ['opdracht'] },
   { id: 'ontwerp', label: 'Ontwerp & kosten', icon: '📐', kinds: ['prijzen', 'kosten', 'optimalisatie', 'stuklijst_fout', 'stuklijst_opm'] },
-  { id: 'systeem', label: 'Mails & systeem', icon: '⚙️', kinds: ['mail', 'leverancier', 'partner_email'] },
+  { id: 'systeem', label: 'Mails & systeem', icon: '⚙️', kinds: ['mail', 'backup', 'leverancier', 'partner_email'] },
 ] as const
 type ThemeId = (typeof THEMES)[number]['id']
 const themeOf = (kind: string): ThemeId => (THEMES.find((t) => (t.kinds as readonly string[]).includes(kind))?.id ?? 'systeem')
@@ -41,6 +41,7 @@ const actionFor = (f: Flag): { to: string; label: string } => {
     case 'aanvraag_nieuw': return { to: proj, label: 'Aanvraag openen' }
     case 'opdracht': return { to: `/opdrachten?focus=${f.ref}`, label: 'Opdracht openen' }
     case 'mail': return { to: '/mails', label: 'Mails bekijken' }
+    case 'backup': return { to: 'https://github.com/vonstruct/leveranciers-prijzen/actions/workflows/backup-onedrive.yml', label: 'Back-up bekijken' }
     default: return { to: proj, label: 'Openen' }
   }
 }
@@ -125,7 +126,7 @@ export function ControlTower() {
                               </span>
                             </span>
                             <span className="ct-side">
-                              <Link to={act.to} className="ct-btn">{act.label} →</Link>
+                              {act.to.startsWith('http') ? <a href={act.to} target="_blank" rel="noreferrer" className="ct-btn">{act.label} ↗</a> : <Link to={act.to} className="ct-btn">{act.label} →</Link>}
                               <span className="muted small">{relDays(f.since)}</span>
                             </span>
                           </li>
