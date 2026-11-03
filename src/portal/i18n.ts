@@ -66,6 +66,7 @@ const nl = {
   hello: (n: string) => `Welkom, ${n}`,
   coming: 'Binnenkort in je portaal',
   footer: 'Vragen? Neem contact op met Olivier · info@vonstruct.com',
+  contactTitle: 'Je contactpersoon', contactRole: 'Zaakvoerder · ontwerp en uitvoering', mailMe: 'Stuur een mail', nextStep: 'Volgende stap', nowLabel: 'nu',
   comingTiles: {
     klant: [
       ['Planning', 'In welke fase je project zit en wat de volgende stap is.'],
@@ -193,6 +194,7 @@ const en: Dict = {
   hello: (n: string) => `Welcome, ${n}`,
   coming: 'Coming soon to your portal',
   footer: 'Questions? Contact Olivier · info@vonstruct.com',
+  contactTitle: 'Your contact', contactRole: 'Owner · design and execution', mailMe: 'Send an email', nextStep: 'Next step', nowLabel: 'now',
   comingTiles: {
     klant: [
       ['Planning', 'Which phase your project is in and what the next step is.'],
@@ -318,6 +320,7 @@ const de: Dict = {
   hello: (n: string) => `Willkommen, ${n}`,
   coming: 'Demnächst in Ihrem Portal',
   footer: 'Fragen? Wenden Sie sich an Olivier · info@vonstruct.com',
+  contactTitle: 'Ihr Ansprechpartner', contactRole: 'Geschäftsführer · Entwurf und Ausführung', mailMe: 'E-Mail senden', nextStep: 'Nächster Schritt', nowLabel: 'jetzt',
   comingTiles: {
     klant: [
       ['Planung', 'In welcher Phase sich Ihr Projekt befindet und was der nächste Schritt ist.'],

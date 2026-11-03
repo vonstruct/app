@@ -45,8 +45,19 @@ export function Portal({ role, preview = false, viewAs = null }: { role: PortalR
         </div>
       </header>
       <section className="portal-hero">
-        <h1>{name ? t.hello(name.split(' ')[0]) : t.welcome}</h1>
-        <p>{t.intro[role]}</p>
+        <div className="portal-hero-text">
+          <h1>{name ? t.hello(name.split(' ')[0]) : t.welcome}</h1>
+          <p>{t.intro[role]}</p>
+        </div>
+        <aside className="portal-contact">
+          <span className="portal-contact-k">{t.contactTitle}</span>
+          <div className="portal-contact-row">
+            <span className="portal-contact-av">OV</span>
+            <span><b>Olivier Van Dyck</b><small>{t.contactRole}</small></span>
+          </div>
+          <span className="portal-contact-mail">info@vonstruct.com</span>
+          <a className="portal-contact-btn" href="mailto:info@vonstruct.com">{t.mailMe}</a>
+        </aside>
       </section>
       <main className="portal-main">
         {survey ? (
@@ -68,7 +79,7 @@ export function Portal({ role, preview = false, viewAs = null }: { role: PortalR
           </div>
         )}
       </main>
-      <footer className="portal-foot">{t.footer}</footer>
+      <footer className="portal-foot"><span className="portal-foot-mark">V</span>{t.footer}</footer>
     </div>
   )
 }
@@ -112,7 +123,8 @@ function ClientProjects({ preview, lang, onSurvey }: { preview: boolean; lang: L
             <ol className="portal-steps">
               {STEPS.map((s, i) => (
                 <li key={s} className={idx >= 0 && i < idx ? 'done' : i === idx ? 'now' : ''}>
-                  {t.phases[s]}
+                  <span className="ps-dot" aria-hidden="true">{idx >= 0 && i < idx ? '✓' : i + 1}</span>
+                  <span className="ps-label">{t.phases[s]}{i === idx && <em> · {t.nowLabel}</em>}</span>
                 </li>
               ))}
             </ol>
@@ -121,6 +133,7 @@ function ClientProjects({ preview, lang, onSurvey }: { preview: boolean; lang: L
             {p.survey_status !== 'submitted' ? (
               <div className="portal-todo">
                 <div>
+                  <span className="portal-todo-k">{t.nextStep}</span>
                   <strong>{t.fillSurvey}</strong>
                   <p className="muted">{t.fillSurveyText}</p>
                 </div>

@@ -1015,3 +1015,45 @@ button { border-radius: 8px; }
 @keyframes von-slide { from { transform: translateX(24px); opacity: 0; } }
 @media (max-width: 860px) { .tb-von { display: none; } }
 @media (prefers-reduced-motion: reduce) { .von { animation: none; } }
+
+/* ---------- Klantenportaal v3 ---------- */
+.portal { font-size: 15px; }
+.portal-top { border-bottom: 1px solid rgba(201,162,74,.35); }
+.portal-hero { display: flex; gap: 28px; align-items: flex-end; flex-wrap: wrap; justify-content: space-between; }
+.portal-hero-text { flex: 1 1 360px; min-width: 0; }
+.portal-hero h1 { font-family: "Jost", "Avenir Next", system-ui, sans-serif; font-weight: 400; }
+.portal-contact { flex: 0 1 300px; display: grid; gap: 8px; padding: 16px 18px; border: 1px solid rgba(201,162,74,.35); border-radius: 12px; background: rgba(255,255,255,.04); color: #f2f2f0; }
+.portal-contact-k { font: 500 11px "Jost", system-ui, sans-serif; letter-spacing: .18em; text-transform: uppercase; color: #c9a24a; }
+.portal-contact-row { display: flex; gap: 12px; align-items: center; }
+.portal-contact-row b { display: block; font-weight: 600; }
+.portal-contact-row small { display: block; color: rgba(242,242,240,.6); font-size: 12.5px; }
+.portal-contact-av { width: 40px; height: 40px; border-radius: 50%; background: #c9a24a; color: #0d1626; display: grid; place-items: center; font: 600 14px "Jost", system-ui, sans-serif; flex: none; }
+.portal-contact-mail { color: rgba(242,242,240,.75); font-size: 13.5px; user-select: all; }
+.portal-contact-btn { justify-self: start; padding: 7px 14px; border-radius: 8px; border: 1px solid #c9a24a; color: #f3e3a0 !important; font-size: 13.5px; font-weight: 500; }
+.portal-contact-btn:hover { background: rgba(201,162,74,.16); text-decoration: none; }
+.portal-project { padding: 24px 26px; box-shadow: 0 1px 0 rgba(0,0,0,.02), 0 10px 30px -18px rgba(13,22,38,.25); }
+.portal-project h2 { font-family: "Jost", "Avenir Next", system-ui, sans-serif; font-weight: 500; font-size: 22px; }
+.portal-steps { margin: 24px 0 16px; gap: 0; }
+.portal-steps li { border-top: 0; padding-top: 0; position: relative; display: grid; justify-items: center; gap: 6px; text-align: center; }
+.portal-steps li::before { content: ''; position: absolute; top: 13px; left: -50%; right: 50%; height: 2px; background: var(--line); z-index: 0; }
+.portal-steps li:first-child::before { display: none; }
+.portal-steps li.done::before, .portal-steps li.now::before { background: var(--navy); }
+.ps-dot { position: relative; z-index: 1; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font: 600 12px "Jost", system-ui, sans-serif; background: var(--panel); border: 2px solid var(--line); color: var(--muted); }
+.portal-steps li.done .ps-dot { background: var(--navy); border-color: var(--navy); color: #f3e3a0; }
+.portal-steps li.now .ps-dot { background: var(--gold); border-color: var(--gold); color: #1a1406; box-shadow: 0 0 0 5px color-mix(in srgb, var(--gold) 22%, transparent); }
+.ps-label { font-size: 12.5px; } .ps-label em { font-style: normal; color: #9a7425; }
+.portal-todo { border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent); background: color-mix(in srgb, var(--gold) 9%, var(--panel)); }
+.portal-todo-k { display: block; font: 500 11px "Jost", system-ui, sans-serif; letter-spacing: .16em; text-transform: uppercase; color: #9a7425; margin-bottom: 2px; }
+.portal .visits { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 14px; }
+.portal .visits ul { border-left: 2px solid color-mix(in srgb, var(--gold) 40%, transparent); padding-left: 14px; }
+.portal-h { font-family: "Jost", system-ui, sans-serif; font-weight: 500; }
+.portal-tile { border-style: dashed; background: transparent; }
+.portal-foot { display: flex; justify-content: center; align-items: center; gap: 10px; }
+.portal-foot-mark { width: 24px; height: 24px; border: 1px solid #c9a24a; color: #9a7425; display: grid; place-items: center; font: 500 12px "Jost", system-ui, sans-serif; }
+@media (prefers-color-scheme: dark) { .ps-label em, .portal-todo-k { color: #e6c67f; } .portal-steps li.done .ps-dot { background: #8a9bb8; border-color: #8a9bb8; color: #0d1626; } .portal-steps li.done::before, .portal-steps li.now::before { background: #8a9bb8; } }
+@media (max-width: 640px) {
+  .portal-steps { grid-template-columns: repeat(5, 1fr); row-gap: 0; }
+  .ps-label { font-size: 11px; }
+  .portal-contact { flex-basis: 100%; }
+  .portal-project { padding: 18px 16px; }
+}
