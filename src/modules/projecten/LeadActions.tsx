@@ -37,7 +37,9 @@ export function LeadActions({ p, onDone }: { p: ProjectRow; onDone: () => void }
   useEffect(() => {
     if (p.client_id) supabase.from('clients').select('language').eq('id', p.client_id).single().then(({ data }) => setLang((data as { language?: string } | null)?.language ?? 'nl'))
   }, [p])
-  if (!['lead', 'intake', 'survey'].includes(p.phase)) return null
+  if (['closed', 'declined', 'on_hold'].includes(p.phase)) return null
+  const early = ['lead', 'intake', 'survey'].includes(p.phase)
+  if (!early && p.survey_status === 'submitted' && !show) return null
 
   const go = async () => {
     if (!p.client_email) return setMsg({ kind: 'err', text: 'Vul eerst het e-mailadres van de klant in (hiernaast bij Klant).' })
@@ -64,7 +66,7 @@ export function LeadActions({ p, onDone }: { p: ProjectRow; onDone: () => void }
 
   return (
     <div className="panel lead-actions">
-      <h2>Na de kennismaking</h2>
+      <h2>{early ? 'Na de kennismaking' : 'Klantenportaal en vragenlijst'}</h2>
       {p.phase === 'lead' && (
         <>
           <p className="muted">Gaat het project door? <strong>Go</strong> stuurt de klant een uitnodiging per mail (in het {LANG_NAME[lang] ?? lang}, te wijzigen bij Klant) om in te loggen op het klantenportaal en de vragenlijst in te vullen.</p>
@@ -74,7 +76,16 @@ export function LeadActions({ p, onDone }: { p: ProjectRow; onDone: () => void }
           </div>
         </>
       )}
-      {p.phase !== 'lead' && (
+      {!early && (
+        <>
+          <p className="muted">Stuur de klant een uitnodiging per mail (in het {LANG_NAME[lang] ?? lang}) om in te loggen op het klantenportaal en de vragenlijst in te vullen. De fase van het project blijft zoals ze is.</p>
+          <div className="toolbar">
+            <button className="primary" disabled={busy} onClick={go}>{busy ? 'Versturen…' : 'Vragenlijst sturen'}</button>
+            <button className="link" onClick={() => setShow('vragenlijst_herinnering')}>Herinnering vragenlijst</button>
+          </div>
+        </>
+      )}
+      {early && p.phase !== 'lead' && (
         <div className="toolbar">
           <span className="chip ok">Klant uitgenodigd</span>
           <button className="link" disabled={busy} onClick={go}>Uitnodiging opnieuw sturen</button>
