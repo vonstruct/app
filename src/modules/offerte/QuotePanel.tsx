@@ -17,7 +17,7 @@ type Quote = {
   total_excl: number; total_incl: number; cost: number | null; margin_eur: number; n_zero: number; created_at: string
   included: string | null; excluded: string | null; planning: string | null; payment: string | null; warranty: string | null; show_groups: boolean; project_title: string | null; site: string | null
 }
-type Line = { id: string; quote_id: string; sort: number; title: string; description: string | null; qty: number; unit_price: number; discount_pct: number; vat_rate: number; kind: string | null; source: string | null; cost_basis: number | null; opt_kind: 'optie' | 'keuze' | null; opt_group: string | null; opt_default: boolean; selected: boolean | null }
+type Line = { id: string; quote_id: string; sort: number; title: string; description: string | null; qty: number; unit_price: number; discount_pct: number; vat_rate: number; kind: string | null; source: string | null; cost_basis: number | null; opt_kind: 'optie' | 'keuze' | null; opt_group: string | null; opt_default: boolean; selected: boolean | null; supplier: string | null; order_needed: boolean | null }
 type Sig = { id: string; signer_name: string; signer_email: string | null; signed_at: string; ip: string | null; user_agent: string | null; signature_png: string | null; doc_hash: string; vat6_confirmed: boolean | null; consent_text: string | null; confirmation_sent_at: string | null }
 
 const STATUS: Record<string, [string, string]> = {
@@ -208,6 +208,8 @@ function QuoteEditor({ q, company, btw6, onChange, onGenerate, busy }: { q: Quot
                   </select>
                   {l.opt_kind === 'keuze' && <input disabled={!editable} list={'grp-' + q.id} placeholder="groep, bv. Werkblad" defaultValue={l.opt_group ?? ''} onBlur={(e) => e.target.value !== (l.opt_group ?? '') && saveL(l.id, { opt_group: e.target.value || null })} />}
                   {l.opt_kind && <label className="qcheck"><input type="checkbox" disabled={!editable} checked={l.opt_default} onChange={(e) => saveL(l.id, { opt_default: e.target.checked })} /> {l.opt_kind === 'keuze' ? 'standaardkeuze' : 'standaard aangevinkt'}</label>}
+                  {!l.source && l.kind !== 'dienst' && <input disabled={!editable} placeholder="leverancier (voor de bestelling)" defaultValue={l.supplier ?? ''} onBlur={(e) => e.target.value !== (l.supplier ?? '') && saveL(l.id, { supplier: e.target.value || null })} />}
+                  {!l.source && <label className="qcheck" title="Na akkoord als bestelling klaarzetten"><input type="checkbox" disabled={!editable} checked={l.order_needed ?? ['toestel', 'sanitair', 'werkblad', 'vrij'].includes(l.kind ?? '')} onChange={(e) => saveL(l.id, { order_needed: e.target.checked })} /> bestellen</label>}
                   {l.selected != null && <span className={'jo-pill ' + (l.selected ? 'ok' : 'muted')}>{l.selected ? 'gekozen door klant' : 'niet gekozen'}</span>}
                 </div>
               </div>
