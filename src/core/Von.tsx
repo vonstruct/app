@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { supabase } from './supabase'
+import { VonSiri } from './VonSiri'
 
 /**
  * VON: persoonlijke assistent van de beheerder (fase 1: enkel lezen en antwoorden).
@@ -71,6 +72,7 @@ export function Von() {
   const [listening, setListening] = useState(false)
   const [speaking, setSpeaking] = useState(false)
   const [history, setHistory] = useState<Conv[] | null>(null)
+  const [siri, setSiri] = useState(false)
   const [pushOn, setPushOn] = useState(() => pushSupported() && Notification.permission === 'granted')
   const listRef = useRef<HTMLDivElement>(null)
   const recRef = useRef<{ stop: () => void; abort?: () => void } | null>(null)
@@ -206,12 +208,13 @@ export function Von() {
             <span className="von-actions">
               <button className="link" onClick={async () => { const m = await enablePush(); setPushOn(pushSupported() && Notification.permission === 'granted'); setMsgs((x) => [...x, { role: 'assistant', text: m }]) }} title={pushOn ? 'Meldingen staan aan (klik voor een proefmelding)' : 'Meldingen aanzetten'}>{pushOn ? '🔔' : '🔕'}</button>
               <button className="link" onClick={toggleVoice} title={voice ? 'Voorlezen staat aan' : 'Voorlezen staat uit'}>{voice ? '🔊' : '🔇'}</button>
-              <button className="link" onClick={showHistory} title="Vorige gesprekken">🕘</button>
+              <button className="link" onClick={() => { setSiri((x) => !x); setHistory(null) }} title="VON via Siri">📱</button>
+              <button className="link" onClick={() => { setSiri(false); showHistory() }} title="Vorige gesprekken">🕘</button>
               <button className="link" onClick={newConv} title="Nieuw gesprek">＋</button>
               <button className="link" onClick={() => { setOpen(false); hush(); stopListening() }} aria-label="Sluiten">✕</button>
             </span>
           </header>
-          {history ? (
+          {siri ? <div className="von-history"><VonSiri /></div> : history ? (
             <div className="von-history">
               <p className="muted small">Vorige gesprekken</p>
               {history.length === 0 && <p className="muted">Nog geen gesprekken.</p>}

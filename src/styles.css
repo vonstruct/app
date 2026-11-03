@@ -755,3 +755,6 @@ a.action-btn.primary { background: #16233a; color: #f3e3a0; border-color: #16233
 .ev-list li.imp1 .ev-main > span:first-child { font-weight: 600; }
 .ev-ico { width: 20px; text-align: center; flex: none; }
 .ev-main { display: flex; flex-direction: column; min-width: 0; }
+.von-siri p { margin: 0 0 10px; font-size: 14px; }
+.siri-steps { font-size: 13.5px; } .siri-steps h4 { margin: 12px 0 4px; } .siri-steps ol, .siri-steps ul { padding-left: 18px; margin: 4px 0; }
+.siri-steps li { margin: 3px 0; } .copy { display: inline-flex; gap: 6px; align-items: baseline; flex-wrap: wrap; } .copy code { word-break: break-all; font-size: 12px; }
