@@ -43,7 +43,7 @@ export function ProposalCard({ p, onDone }: { p: Proposal; onDone: () => void })
   const [msg, setMsg] = useState<string | null>(null)
   const open = p.status === 'voorstel'
   const isMail = p.kind === 'mail' || p.kind === 'mail_reply'
-  const hasDiff = p.kind === 'project_update' || p.kind === 'relation_update'
+  const hasDiff = p.kind === 'project_update' || p.kind === 'relation_update' || (p.kind === 'record' && p.payload?.action !== 'delete')
   const textKinds = ['mail', 'mail_reply', 'project_note', 'job_reminder', 'job_move', 'whatsapp']
 
   const edits = () => {
@@ -54,7 +54,7 @@ export function ProposalCard({ p, onDone }: { p: Proposal; onDone: () => void })
       case 'job_reminder': return { note: body || null }
       case 'job_move': return { note: body }
       case 'whatsapp': return { text: body }
-      case 'project_update': case 'relation_update': return { changes }
+      case 'project_update': case 'relation_update': case 'record': return { changes }
       case 'job_create': return { row: { ...p.payload.row, title: jobTitle, instructions: jobInfo || null } }
       case 'event_create': case 'event_move': return { title: jobTitle, notes: jobInfo || null }
       default: return {}
