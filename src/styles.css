@@ -1235,3 +1235,5 @@ summary.vd-h::-webkit-details-marker { display: none; }
 .agenda-mev.held { text-decoration: line-through; }
 .hold-banner { display: grid; gap: 6px; margin: 8px 0 12px; padding: 12px 14px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--bad) 40%, var(--line)); background: color-mix(in srgb, var(--bad) 8%, var(--panel)); }
 .hold-banner b { color: var(--bad); }
+.hold-invite { display: grid; gap: 6px; margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
+.hold-invite input:not([type=checkbox]) { width: 100%; margin-top: 3px; }

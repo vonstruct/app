@@ -448,6 +448,24 @@ function Detail({ ev, cat, note, project, projects, onClose, onChanged, onJob }:
     if (e) return setErr(e)
     onChanged(reload)
   }
+  const [inv, setInv] = useState<{ to: string; online: boolean } | null>(null)
+  const clearHold = async () => { await supabase.from('agenda_notes').update({ hold: false, hold_reason: null, hold_at: null, updated_at: new Date().toISOString() }).eq('event_key', keyOf(ev)) }
+  /** Toch doorgaan: staat er nog niemand op de afspraak, stel dan voor een uitnodiging (met Teams) te sturen. */
+  const goOn = async () => {
+    if (ev.source !== 'outlook' || (ev.attendees ?? 0) > 0) { setBusy(true); await clearHold(); setBusy(false); return onChanged(false) }
+    const { data } = await supabase.from('clients').select('first_name,last_name,company,email').not('email', 'is', null)
+    const t = ev.title.toLowerCase()
+    const c = ((data ?? []) as { first_name: string | null; last_name: string | null; company: string | null; email: string }[])
+      .find((x) => [[x.first_name, x.last_name].filter(Boolean).join(' '), x.last_name, x.company].some((n) => n && n.length > 3 && t.includes(n.toLowerCase())))
+    setInv({ to: c?.email ?? '', online: true })
+  }
+  const sendInvite = async () => {
+    if (!inv) return
+    setBusy(true); setErr(null)
+    const e = await call({ action: 'invite', outlook_id: ev.outlook_id, attendees: inv.to.split(/[,;\s]+/).filter((x) => x.includes('@')), online: inv.online })
+    if (e) { setBusy(false); return setErr(e) }
+    await clearHold(); setBusy(false); onChanged(true)
+  }
   const putOnHold = async () => {
     setBusy(true)
     await supabase.from('agenda_notes').upsert({ event_key: keyOf(ev), hold: true, hold_reason: 'Met de hand on hold gezet', hold_at: new Date().toISOString(), event_title: ev.title, event_start: ev.start, updated_at: new Date().toISOString() })
@@ -475,10 +493,22 @@ function Detail({ ev, cat, note, project, projects, onClose, onChanged, onJob }:
             <b>Gaat mogelijk niet door</b>
             <span>{note.hold_reason ?? 'De afspraak staat on hold.'}</span>
             <span className="toolbar">
-              <button disabled={busy} onClick={async () => { setBusy(true); await supabase.from('agenda_notes').update({ hold: false, hold_reason: null, hold_at: null, updated_at: new Date().toISOString() }).eq('event_key', keyOf(ev)); setBusy(false); onChanged(false) }}>Toch doorgaan</button>
+              <button disabled={busy} onClick={goOn}>Toch doorgaan</button>
               <button className="primary" onClick={() => setMode('cancel')}>Annuleren</button>
               <button onClick={() => setMode('edit')}>Verzetten</button>
             </span>
+            {inv && (
+              <div className="hold-invite">
+                <b>Uitnodiging sturen?</b>
+                <span className="small muted">Er staat nog niemand op deze afspraak. Outlook stuurt een echte uitnodiging.</span>
+                <label className="small">Naar<input value={inv.to} onChange={(e) => setInv({ ...inv, to: e.target.value })} placeholder="e-mailadres" /></label>
+                <label className="check small"><input type="checkbox" checked={inv.online} onChange={(e) => setInv({ ...inv, online: e.target.checked })} /> Teams-link toevoegen</label>
+                <span className="toolbar">
+                  <button className="primary" disabled={busy || !inv.to.includes('@')} onClick={sendInvite}>Ja, uitnodiging sturen</button>
+                  <button disabled={busy} onClick={async () => { setBusy(true); await clearHold(); setBusy(false); onChanged(false) }}>Nee, enkel doorgaan</button>
+                </span>
+              </div>
+            )}
           </div>
         )}
         <h2 className={note?.hold ? 'held-title' : undefined}>{ev.title}</h2>
