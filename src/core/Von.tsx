@@ -64,6 +64,8 @@ async function enablePush(): Promise<string> {
 
 export function Von() {
   const [open, setOpen] = useState(false)
+  // openen vanuit de kopbalk (knop VON) of elders: window.dispatchEvent(new Event('von-open'))
+  useEffect(() => { const o = () => setOpen(true); window.addEventListener('von-open', o); return () => window.removeEventListener('von-open', o) }, [])
   const [conv, setConv] = useState<string | null>(() => store.get(KEY_CONV))
   const [msgs, setMsgs] = useState<Msg[]>([])
   const [input, setInput] = useState('')

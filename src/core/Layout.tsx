@@ -54,6 +54,7 @@ export function Layout() {
           ))}
         </nav>
         <SearchButton />
+        <button className="tb-von" onClick={() => window.dispatchEvent(new Event('von-open'))} title="VON openen">VON</button>
         <div className="tb-me" ref={menuRef}>
           <button className="tb-avatar" onClick={() => setMenu((x) => !x)} aria-haspopup="menu" aria-expanded={menu} title="Menu">OV</button>
           {menu && (

@@ -4,9 +4,9 @@ import { Link, useLocation } from 'react-router'
 /** Een menu-onderdeel met tabs (Planning, Instellingen). Elke tab is een eigen adres, zodat links en terugknop werken. */
 export type Tab = { to: string; label: string }
 export const PLANNING: Tab[] = [
-  { to: '/agenda', label: '📅 Agenda' },
-  { to: '/opdrachten', label: '👷 Opdrachten' },
-  { to: '/taken', label: '✓ Taken' },
+  { to: '/agenda', label: 'Agenda' },
+  { to: '/opdrachten', label: 'Opdrachten' },
+  { to: '/taken', label: 'Taken' },
 ]
 export const INBOX: Tab[] = [
   { to: '/inbox', label: 'Mails' },
