@@ -17,7 +17,7 @@ type Flag = { prio: 1 | 2 | 3; kind: string; project_code: string | null; last_v
 type DayItem = { id: string; start: string; end: string; title: string; sub?: string; to: string; kind: 'afspraak' | 'opdracht'; ok?: boolean; allDay?: boolean }
 type InMail = { id: string; at: string; from_name: string | null; from_email: string | null; party_name: string | null; party_kind: string | null; subject: string | null; summary: string | null; snippet: string | null; project_code: string | null; category: string | null }
 
-const SYSTEM_KINDS = ['mail', 'backup', 'sleutel', 'leverancier', 'partner_email']
+const SYSTEM_KINDS = ['mail', 'backup', 'sleutel', 'leverancier', 'partner_email', 'systeem']
 
 /** Waar je het punt oplost, en wat er op de knop staat. Nieuwe soort = één case. */
 const actionFor = (f: Flag): { to: string; label: string } => {
