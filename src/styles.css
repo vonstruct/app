@@ -1276,3 +1276,6 @@ summary.vd-h::-webkit-details-marker { display: none; }
 .order-lines { width: 100%; font-size: 13px; border-collapse: collapse; } .order-lines td, .order-lines th { padding: 4px 6px; border-bottom: 1px solid var(--line); text-align: left; }
 .order-lines .num { text-align: right; } .small { font-size: 12.5px; }
 @media (max-width: 860px) { .order-head { grid-template-columns: 1fr auto; } .order-head .jo-pill { grid-column: 1 / -1; justify-self: start; } .order-amt { display: none; } }
+.order-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 4px 0 10px; }
+@media (max-width: 860px) { .order-lines .hide-sm { display: none; } .order-fields { grid-template-columns: 1fr 1fr; } .order-head .order-dates { text-align: left; grid-column: 1 / -1; } }
+.order-fields input { min-width: 0; width: 100%; box-sizing: border-box; } @media (max-width: 860px) { .order-fields { grid-template-columns: minmax(0,1fr) minmax(0,1fr); } }

@@ -105,6 +105,25 @@ export function Orders({ project }: { project?: string }) {
   )
 }
 
+const qtyTxt = (l: Line) => (l.qty != null ? Number(l.qty).toLocaleString('nl-BE', { maximumFractionDigits: 2 }) : '') + (l.unit ? ' ' + l.unit : '')
+function copyList(o: Order, lines: Line[]) {
+  const txt = [`Bestelling ${o.supplier} – project ${o.project_code}${o.reference ? ' – ' + o.reference : ''}`, '',
+    ...lines.map((l) => [qtyTxt(l), l.article_no ?? '', l.description ?? ''].join('\t'))].join('\n')
+  navigator.clipboard.writeText(txt).then(() => toast('Lijst gekopieerd'), () => toast('Kopiëren lukt niet', 'err'))
+}
+function printList(o: Order, lines: Line[]) {
+  const esc = (v: unknown) => String(v ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]!)
+  const w = window.open('', '_blank')
+  if (!w) return toast('Pop-up geblokkeerd', 'err')
+  w.document.write(`<!doctype html><meta charset="utf-8"><title>Bestelling ${esc(o.supplier)} ${esc(o.project_code)}</title>
+<style>body{font:13px Arial,sans-serif;margin:28px;color:#1d1d1b}h1{font-size:18px;margin:0 0 4px}table{border-collapse:collapse;width:100%;margin-top:14px}td,th{border-bottom:1px solid #ccc;padding:5px 6px;text-align:left}.n{text-align:right;white-space:nowrap}.m{color:#666}</style>
+<h1>Bestelling ${esc(o.supplier)}</h1><div class="m">Vonstruct · project ${esc(o.project_code)}${o.client_name ? ' · ' + esc(o.client_name) : ''}${o.reference ? ' · bestelnr ' + esc(o.reference) : ''} · nodig op ${esc(o.needed_by ?? '—')}</div>
+<table><tr><th class="n">Aantal</th><th>Art.nr</th><th>Omschrijving</th><th>Rubriek</th></tr>
+${lines.map((l) => `<tr><td class="n">${esc(qtyTxt(l))}</td><td>${esc(l.article_no)}</td><td>${esc(l.description)}</td><td class="m">${esc(l.category)}</td></tr>`).join('')}</table>
+<script>setTimeout(()=>print(),300)</script>`)
+  w.document.close()
+}
+
 function OrderDetail({ o, onSave, onStatus }: { o: Order; onSave: (p: Partial<Order>) => void; onStatus: (s: string) => void }) {
   const lines = useQuery<Line[]>(() => supabase.from('order_lines').select('id,category,description,article_no,qty,unit,total').eq('order_id', o.id).order('category'), [o.id])
   const field = (label: string, key: keyof Order, type = 'date') => (
@@ -113,7 +132,13 @@ function OrderDetail({ o, onSave, onStatus }: { o: Order; onSave: (p: Partial<Or
       <input type={type} defaultValue={(o[key] as string | number | null) ?? ''}
         onBlur={(e) => {
           const v = e.target.value === '' ? null : type === 'number' ? Number(e.target.value) : e.target.value
-          if (v !== (o[key] ?? null)) onSave({ [key]: v, ...(key === 'needed_by' ? { needed_by_manual: v != null } : {}) } as Partial<Order>)
+          if (v === (o[key] ?? null)) return
+          if (key === 'needed_by' && v == null) {
+            // leeg = weer automatisch uit de planning
+            supabase.rpc('project_needed_by', { p_code: o.project_code }).then(({ data }) => onSave({ needed_by: (data as string | null) ?? null, needed_by_manual: false }))
+            return
+          }
+          onSave({ [key]: v, ...(key === 'needed_by' ? { needed_by_manual: true } : {}) } as Partial<Order>)
         }} />
     </label>
   )
@@ -131,13 +156,18 @@ function OrderDetail({ o, onSave, onStatus }: { o: Order; onSave: (p: Partial<Or
         {field('Bestelnummer', 'reference', 'text')}
         {field('Notitie', 'note', 'text')}
       </div>
+      <div className="order-actions">
+        <button onClick={() => copyList(o, lines.data ?? [])}>Lijst kopiëren</button>
+        <button onClick={() => printList(o, lines.data ?? [])}>Afdrukken / PDF</button>
+        <span className="muted small">Bestellen doe je zelf bij de leverancier; zet daarna de status op "besteld".</span>
+      </div>
       {o.needed_by_manual && <p className="muted small">Datum "nodig op" met de hand gezet (leeg maken = weer automatisch uit de planning).</p>}
       {lines.loading ? <Loading /> : (
         <table className="order-lines">
-          <thead><tr><th>Rubriek</th><th>Artikel</th><th>Art.nr</th><th className="num">Aantal</th><th className="num">Totaal</th></tr></thead>
+          <thead><tr><th className="hide-sm">Rubriek</th><th>Artikel</th><th className="hide-sm">Art.nr</th><th className="num">Aantal</th><th className="num">Totaal</th></tr></thead>
           <tbody>
             {(lines.data ?? []).map((l) => (
-              <tr key={l.id}><td>{l.category}</td><td>{l.description}</td><td className="muted">{l.article_no}</td>
+              <tr key={l.id}><td className="hide-sm">{l.category}</td><td>{l.description}</td><td className="muted hide-sm">{l.article_no}</td>
                 <td className="num">{l.qty != null ? Number(l.qty).toLocaleString('nl-BE', { maximumFractionDigits: 2 }) : ''} {l.unit}</td><td className="num">{fmtEur(l.total)}</td></tr>
             ))}
           </tbody>
