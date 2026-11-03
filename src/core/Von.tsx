@@ -90,20 +90,32 @@ export function Von() {
   useEffect(() => { listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' }) }, [msgs, busy])
 
   const hush = () => { if ('speechSynthesis' in window) speechSynthesis.cancel(); setSpeaking(false) }
+  // iPhone/Safari: geluid mag pas na een tik van de gebruiker. Bij de eerste tik "ontgrendelen" we het voorlezen.
+  const unlocked = useRef(false)
+  const unlock = () => {
+    if (unlocked.current || !('speechSynthesis' in window)) return
+    const u = new SpeechSynthesisUtterance(' ')
+    u.volume = 0
+    speechSynthesis.speak(u)
+    unlocked.current = true
+  }
   const say = (t: string) => {
     if (!voice || !('speechSynthesis' in window)) return
     speechSynthesis.cancel()
+    speechSynthesis.resume()
     const v = speechSynthesis.getVoices().find((x) => x.lang?.startsWith('nl-BE')) ?? speechSynthesis.getVoices().find((x) => x.lang?.startsWith('nl'))
     // in korte zinnen: lange teksten lopen in sommige browsers vast en zijn dan niet te stoppen
     const parts = speakable(t).split(/(?<=[.!?:])\s+|\n+/).map((x) => x.trim()).filter(Boolean)
-    parts.forEach((part, i) => {
+    setSpeaking(parts.length > 0)
+    // kleine pauze na cancel(): anders slikt Chrome de nieuwe tekst soms in
+    setTimeout(() => parts.forEach((part, i) => {
       const u = new SpeechSynthesisUtterance(part)
-      u.lang = 'nl-BE'
+      u.lang = v?.lang ?? 'nl-BE'
       if (v) u.voice = v
+      u.volume = 1
       if (i === parts.length - 1) { u.onend = () => setSpeaking(false); u.onerror = () => setSpeaking(false) }
       speechSynthesis.speak(u)
-    })
-    setSpeaking(parts.length > 0)
+    }), 80)
   }
 
   const send = async (text: string) => {
@@ -171,7 +183,12 @@ export function Von() {
     setHistory((h) => h?.filter((c) => c.id !== id) ?? null)
     if (id === conv) newConv()
   }
-  const toggleVoice = () => { const v = !voice; setVoice(v); store.set(KEY_VOICE, v ? 'on' : 'off'); if (!v) hush() }
+  const toggleVoice = () => {
+    const v = !voice; setVoice(v); store.set(KEY_VOICE, v ? 'on' : 'off')
+    if (!v) { hush(); return }
+    unlock()
+    const u = new SpeechSynthesisUtterance('Voorlezen staat aan.'); u.lang = 'nl-BE'; speechSynthesis.cancel(); setTimeout(() => speechSynthesis.speak(u), 80)
+  }
 
   return (
     <>
@@ -181,7 +198,7 @@ export function Von() {
         </button>
       )}
       {open && (
-        <section className="von" aria-label="VON">
+        <section className="von" aria-label="VON" onPointerDown={unlock} onKeyDown={unlock}>
           <header className="von-head">
             <img src="./v-icon-192.png" alt="" />
             <strong>VON</strong>
