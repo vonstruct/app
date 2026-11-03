@@ -30,8 +30,9 @@ export function ProjectList() {
     <section>
       {adding && <NewLead onClose={() => setAdding(false)} />}
       {addingProject && <NewProject onClose={() => setAddingProject(false)} />}
-      <div className="page-head">
+      <div className="page-head vd-pagehead">
         <div>
+          <div className="vd-date">{new Date().toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
           <h1>Projecten</h1>
           <p className="muted">Een aanvraag maakt de klant en het project aan met een projectcode. Gebruik die code in PaletteCAD: elke upload wordt dan een nieuwe versie van dat project.</p>
         </div>
@@ -50,8 +51,8 @@ export function ProjectList() {
       </div>
       <ErrorBox error={q.error ?? ph.error} />
       {!q.loading && !ph.loading && (
-        <details className="pipe-box">
-          <summary>Pijplijn per fase</summary>
+        <details className="pipe-box panel vd-panel">
+          <summary className="vd-h"><h2>Pijplijn per fase</h2><span className="vd-more">openen</span></summary>
           <Pipeline projects={all.filter((p) => p.phase_active !== false)} gates={gatesOf(ph.data ?? [])} />
         </details>
       )}
@@ -60,11 +61,14 @@ export function ProjectList() {
       ) : rows.length === 0 ? (
         <p className="muted">Geen projecten.</p>
       ) : (
+        <section className="panel vd-panel pl-panel">
+          <div className="vd-h"><h2>{filter === 'lopend' ? 'Lopende projecten' : filter === 'alle' ? 'Alle projecten' : 'Afgesloten projecten'}</h2><span className="vd-more">{rows.length}</span></div>
         <div className="pcards">
           {rows.map((p) => (
             <ProjectCard key={p.project_id} p={p} phases={ph.data ?? []} onSaved={q.reload} planning={plan[p.project_code]} progress={prog[p.project_code]} />
           ))}
         </div>
+        </section>
       )}
     </section>
   )

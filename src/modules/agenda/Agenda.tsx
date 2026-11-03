@@ -352,8 +352,8 @@ function Upcoming({ items, cls, onPick }: { items: Ev[] | null; cls: (e: Ev) => 
   }
   const list = (items ?? []).filter((e) => !e.all_day || e.source === 'job').slice(0, 12)
   return (
-    <aside className="panel agenda-next">
-      <h2>Volgende afspraken</h2>
+    <aside className="panel vd-panel agenda-next">
+      <div className="vd-h"><h2>Volgende afspraken</h2></div>
       {items === null ? <p className="muted small">Laden…</p> : list.length === 0 ? <p className="muted small">Geen afspraken in de komende 45 dagen.</p> : (
         <ol>
           {list.map((e) => {

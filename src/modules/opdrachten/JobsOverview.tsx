@@ -100,8 +100,8 @@ export function JobsOverview() {
       {rows === null ? <p className="muted">Laden…</p> : list.length === 0 ? (
         <div className="jo-empty">{filter === 'regelen' ? '✓ Alles is geregeld: geen opdrachten die op bevestiging wachten.' : q ? 'Niets gevonden.' : 'Geen opdrachten in deze selectie.'}</div>
       ) : groups.map((g) => (
-        <div key={g.label} className="jo-day">
-          <h3 className={g.label === 'Vandaag' ? 'today' : ''}>{g.label}</h3>
+        <section key={g.label} className={'panel vd-panel jo-day' + (g.label === 'Vandaag' ? ' today' : '')}>
+          <div className="vd-h"><h2>{g.label}</h2><span className="vd-more">{g.rows.length}</span></div>
           {g.rows.map((r) => (
             <button key={r.id} className={'jo-row st-' + r.status + (needsAction(r) ? ' act' : '')} onClick={() => setOpen(r)}>
               <span className="jo-time">{timeLabel(r)}</span>
@@ -117,7 +117,7 @@ export function JobsOverview() {
               <span className="jo-status"><Status r={r} /></span>
             </button>
           ))}
-        </div>
+        </section>
       ))}
       {open && <JobEditor draft={open} onClose={close} onSaved={load} />}
       {creating && <JobEditor draft={{}} onClose={() => setCreating(false)} onSaved={load} />}

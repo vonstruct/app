@@ -31,6 +31,7 @@ export function Section({ title, intro, tabs, children }: { title: string; intro
   return (
     <section className="section">
       <div className="section-head">
+        <div className="vd-date">{new Date().toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
         <h1>{title}</h1>
         {intro && <p className="muted">{intro}</p>}
       </div>

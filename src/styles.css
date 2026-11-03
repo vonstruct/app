@@ -1097,3 +1097,33 @@ button { border-radius: 8px; }
 .rc-proj.done { background: color-mix(in srgb, var(--ink) 6%, transparent); color: var(--muted) !important; }
 .rc-proj:hover { text-decoration: none; filter: brightness(.97); }
 .vd-toast.err { background: #5a1c14; }
+
+/* ---------- Planning en Projecten in de stijl van Vandaag ---------- */
+:root { --vd-navy: #0e1729; --vd-navy-ink: #e9e6dd; --vd-gold: #b38b3a; --vd-gold-hi: #e6c67f; --vd-gold-soft: #f3ead6; --vd-gold-ink: #7a5c1f; --vd-soft: color-mix(in srgb, var(--ink) 5%, transparent); --vd-display: "Jost", "Avenir Next", "Segoe UI", sans-serif; }
+@media (prefers-color-scheme: dark) { :root { --vd-navy: #0a1120; --vd-gold: #d3ad5e; --vd-gold-soft: #2e2716; --vd-gold-ink: #e6c67f; } }
+.section-head, .vd-pagehead { padding-top: 10px; }
+.section-head h1, .vd-pagehead h1 { font: 500 32px/1.15 var(--vd-display); margin: 6px 0 8px; letter-spacing: -.01em; }
+.section-head .vd-date, .vd-pagehead .vd-date { font: 500 12px var(--vd-display); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.vd-panel { padding: 0; overflow: hidden; }
+summary.vd-h { cursor: pointer; list-style: none; }
+summary.vd-h::-webkit-details-marker { display: none; }
+.pipe-box { margin: 0 0 18px; } .pipe-box[open] .pipeline { padding: 14px 16px; }
+.pl-panel .pcards { padding: 14px 16px 16px; }
+.pl-panel .pcard { box-shadow: none; }
+/* opdrachten per dag */
+.jo-day { margin-top: 14px; }
+.jo-day .jo-row { border-radius: 0; border: 0; border-top: 1px solid var(--line); margin: 0; padding-left: 18px; padding-right: 18px; background: none; }
+.jo-day .vd-h + .jo-row { border-top: 0; }
+.jo-day .jo-row:hover { background: var(--vd-soft); }
+.jo-day.today { border-color: color-mix(in srgb, var(--vd-gold) 55%, var(--line)); }
+/* agenda */
+.agenda-next .vd-h { margin-bottom: 8px; }
+.agenda-next ol, .agenda-next > p { padding: 0 16px 14px; }
+.agenda-day { padding: 0 0 8px; overflow: hidden; border-radius: 12px; }
+.agenda-day h3 { background: var(--vd-navy); border-bottom: 2px solid var(--vd-gold); margin: 0 0 4px; padding: 7px 8px; }
+.agenda-day h3, .agenda-day h3 button { color: var(--vd-gold-hi) !important; font-family: var(--vd-display); font-weight: 500; letter-spacing: .12em; }
+.agenda-day h3 span { color: var(--vd-navy-ink) !important; }
+.agenda-day > :not(h3) { margin-left: 8px; margin-right: 8px; }
+.agenda-day.today h3, .agenda-day.is-today h3 { background: color-mix(in srgb, var(--vd-gold) 35%, var(--vd-navy)); }
+.agenda-dayview { padding: 0; overflow: hidden; }
+.agenda .page-head h1 { font: 500 22px var(--vd-display); }
