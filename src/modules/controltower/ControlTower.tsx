@@ -1,3 +1,4 @@
+import { EventFeed } from '../../core/EventFeed'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { supabase } from '../../core/supabase'
@@ -164,6 +165,7 @@ export function ControlTower() {
                   </div>
                 )}
               </div>
+              <EventFeed />
               <RecentUploads projects={ps} />
               <details className="panel ct-sup">
                 <summary><h2>Leveranciersprijzen</h2><span className="muted small">{(sup.data ?? []).some((s) => s.days_old > 35) ? '⚠ verouderd' : 'actueel'}</span></summary>

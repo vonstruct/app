@@ -748,3 +748,10 @@ a.action-btn.primary { background: #16233a; color: #f3e3a0; border-color: #16233
 @keyframes von-dot { 50% { opacity: .3; transform: translateY(-2px); } }
 @media (max-width: 600px) { .von { right: 0; bottom: 0; width: 100vw; height: 100dvh; border-radius: 0; } }
 .von-stop { margin: 0 10px; padding: 8px; border-radius: 10px; border: 1px solid #c9a24a; background: rgba(201,162,74,.15); font-weight: 600; cursor: pointer; }
+
+/* Gebeurtenissen */
+.ev-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.ev-list li { display: flex; gap: 8px; align-items: flex-start; font-size: 13.5px; }
+.ev-list li.imp1 .ev-main > span:first-child { font-weight: 600; }
+.ev-ico { width: 20px; text-align: center; flex: none; }
+.ev-main { display: flex; flex-direction: column; min-width: 0; }
