@@ -1491,3 +1491,4 @@ summary.vd-h::-webkit-details-marker { display: none; }
   .prop-diff td { border: 0; padding: 2px 0; } .prop-diff td:first-child { color: var(--muted); font-size: 12px; }
   .prop-diff td.prop-was:empty, .prop-diff td.prop-was.none { display: none; } .prop-diff td.prop-was::before { content: 'nu: '; }
 }
+@media (max-width: 860px) { .section-tabs { flex-wrap: wrap; overflow-x: visible; } .section-tabs a { padding: 8px 10px; font-size: 13.5px; } }
