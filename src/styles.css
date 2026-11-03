@@ -1464,3 +1464,9 @@ summary.vd-h::-webkit-details-marker { display: none; }
 .bro-mat small { display: block; color: #8a6d1d; font-size: 11.5px; } .bro-mat p { margin: 4px 0 0; font-size: 12.5px; }
 .bro-ph { background: #eee; min-height: 80px; }
 @media (max-width: 700px) { .bro-mats { grid-template-columns: 1fr; } .bro-grid, .bro-mats, .bro-gallery { margin-left: 18px; margin-right: 18px; } .bro-h { margin-left: 18px; margin-right: 18px; } .bro-cover-text { padding: 24px 18px; } }
+
+.cap-row { display: grid; grid-template-columns: 90px 1fr 80px 2fr; gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.cap-wk small { display: block; color: var(--muted); font-size: 12px; } .cap-bar { height: 10px; background: var(--bg); border-radius: 6px; overflow: hidden; }
+.cap-bar span { display: block; height: 100%; background: #2e7d4f; } .cap-bar span.full { background: #d9822b; } .cap-bar span.over { background: #b3261e; }
+.cap-num { text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; } .cap-what { display: flex; gap: 6px; flex-wrap: wrap; }
+@media (max-width: 860px) { .cap-row { grid-template-columns: 70px 1fr 60px; } .cap-what { grid-column: 1 / -1; } }
