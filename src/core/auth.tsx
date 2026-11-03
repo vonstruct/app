@@ -4,6 +4,7 @@ import { supabase } from './supabase'
 import logo from '../assets/vonstruct-logo.webp'
 import { LangPicker, Portal, type PortalRole } from '../portal/Portal'
 import { ActionResult } from '../portal/ActionResult'
+import { MfaGate } from './Mfa'
 import { storeLang, storedLang, tr, type Lang } from '../portal/i18n'
 
 type Role = 'beheerder' | PortalRole
@@ -37,7 +38,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (!session) return <Login />
   if (recovery) return <NewPassword onDone={() => setRecovery(false)} />
   if (role === undefined) return <div className="center muted">Toegang controleren…</div>
-  if (role === 'beheerder') return <>{children}</>
+  if (role === 'beheerder') return <MfaGate session={session}>{children}</MfaGate>
   if (role) return <Portal role={role} />
   const t = tr(storedLang())
   return (
