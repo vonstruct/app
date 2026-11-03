@@ -1260,3 +1260,19 @@ summary.vd-h::-webkit-details-marker { display: none; }
 .prop-review.warn { background: color-mix(in srgb, var(--warn) 10%, var(--panel)); border: 1px solid color-mix(in srgb, var(--warn) 35%, var(--line)); }
 .prop-review-ok { color: var(--good); margin: 4px 0; }
 @media (max-width: 620px) { .team-route { grid-template-columns: 1fr; } }
+
+/* Bestellingen (3 nov 2026) */
+.orders-bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.orders-bar .primary { margin-left: auto; }
+.order-row { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px; }
+.order-row.open { border-color: #c9a94a; }
+.order-head { display: grid; grid-template-columns: 130px 1fr auto 100px; gap: 12px; align-items: center; padding: 10px 14px; cursor: pointer; }
+.order-dates { text-align: right; } .order-amt { text-align: right; font-variant-numeric: tabular-nums; }
+.jo-pill.bad { color: #b3261e; background: rgba(179,38,30,.1); } .jo-pill.muted { color: var(--muted); }
+.order-detail { padding: 4px 14px 14px; border-top: 1px solid var(--line); }
+.order-detail .seg { margin: 10px 0; flex-wrap: wrap; }
+.order-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; margin-bottom: 10px; }
+.order-fields label { display: flex; flex-direction: column; font-size: 12.5px; color: var(--muted); gap: 3px; }
+.order-lines { width: 100%; font-size: 13px; border-collapse: collapse; } .order-lines td, .order-lines th { padding: 4px 6px; border-bottom: 1px solid var(--line); text-align: left; }
+.order-lines .num { text-align: right; } .small { font-size: 12.5px; }
+@media (max-width: 860px) { .order-head { grid-template-columns: 1fr auto; } .order-head .jo-pill { grid-column: 1 / -1; justify-self: start; } .order-amt { display: none; } }

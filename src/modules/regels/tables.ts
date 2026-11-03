@@ -106,6 +106,19 @@ export const ruleTables: RuleTable[] = [
   },
   {
     section: 'Bestellen',
+    table: 'suppliers',
+    title: 'Levertermijnen',
+    explanation: 'Levertermijn in werkdagen per leverancier. Leeg = de standaard uit de regel hierboven. Gebruikt om "bestellen vóór" te berekenen.',
+    columns: [
+      { key: 'name', label: 'Leverancier' },
+      { key: 'lead_time_days', label: 'Levertermijn (werkdagen)', type: 'number', width: 170 },
+      { key: 'active', label: 'Actief', type: 'bool', width: 70 },
+    ],
+    orderBy: 'name',
+    newRow: { name: 'Nieuwe leverancier', active: true },
+  },
+  {
+    section: 'Bestellen',
     table: 'supplier_fees',
     title: 'Leverancierskosten',
     explanation: 'Afrolkosten, verzendkosten en toeslagen per leverancier. "Onder" = alleen als de bestelling kleiner is dan dit bedrag.',

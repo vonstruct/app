@@ -6,6 +6,7 @@ export type Tab = { to: string; label: string }
 export const PLANNING: Tab[] = [
   { to: '/agenda', label: 'Agenda' },
   { to: '/opdrachten', label: 'Opdrachten' },
+  { to: '/bestellingen', label: 'Bestellingen' },
   { to: '/taken', label: 'Taken' },
 ]
 export const INBOX: Tab[] = [{ to: '/inbox', label: 'Mails' }]
