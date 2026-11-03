@@ -16,9 +16,9 @@ const store = { get: (k: string) => { try { return localStorage.getItem(k) } cat
 
 const TOOL_LABEL: Record<string, string> = {
   control_tower: 'control tower', projects: 'projecten', project_detail: 'project', jobs: 'opdrachten', agenda: 'agenda',
-  mails: 'mails', relations: 'relaties', system_status: 'systemen',
+  mails: 'verzonden mails', relations: 'relaties', system_status: 'systemen', inbox: 'mailbox', mail_thread: 'mailgesprek', recent_events: 'recent', list_tasks: 'taken', add_task: 'taak gemaakt', complete_task: 'taak afgevinkt', rules: 'rekenregels',
 }
-const SUGGEST = ['Wat moet ik vandaag doen?', 'Wat staat er deze week gepland?', 'Welke opdrachten zijn nog niet bevestigd?', 'Zijn er mails niet aangekomen?']
+const SUGGEST = ['Wat moet ik vandaag doen?', 'Welke mails wachten op een antwoord?', 'Wat staat er deze week gepland?', 'Welke opdrachten zijn nog niet bevestigd?']
 
 /** Eenvoudige opmaak: **vet**, opsommingen (- of •) en genummerde lijnen. */
 function Rich({ text }: { text: string }) {
@@ -45,7 +45,7 @@ const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in win
 async function enablePush(): Promise<string> {
   if (!pushSupported()) {
     const ios = /iPhone|iPad|iPod/.test(navigator.userAgent)
-    return ios ? 'Op de iPhone werken meldingen alleen in de app op je beginscherm (Deel → Zet op beginscherm). Open VON daar en druk opnieuw op 🔔.' : 'Deze browser ondersteunt geen meldingen.'
+    return ios ? 'Op de iPhone werken meldingen alleen in de app op je beginscherm (Deel → Zet op beginscherm). Open VON daar en zet meldingen aan via het menu (…).' : 'Deze browser ondersteunt geen meldingen.'
   }
   const perm = await Notification.requestPermission()
   if (perm !== 'granted') return 'Meldingen zijn niet toegestaan. Zet ze aan in de instellingen van je browser of gsm.'
@@ -194,6 +194,11 @@ export function Von({ embedded = false }: { embedded?: boolean } = {}) {
     const u = new SpeechSynthesisUtterance('Voorlezen staat aan.'); u.lang = 'nl-BE'; speechSynthesis.cancel(); setTimeout(() => speechSynthesis.speak(u), 80)
   }
 
+  const [more, setMore] = useState(false)
+  const hourNow = new Date().getHours()
+  const greet = hourNow < 12 ? 'Goedemorgen' : hourNow < 18 ? 'Goedemiddag' : 'Goedenavond'
+  const toolsText = (t: string[]) => [...new Set(t.map((x) => x.startsWith('propose_') ? 'voorstel gemaakt' : TOOL_LABEL[x] ?? x.replace(/_/g, ' ')))].join(' · ')
+
   return (
     <>
       {!open && !embedded && (
@@ -202,61 +207,97 @@ export function Von({ embedded = false }: { embedded?: boolean } = {}) {
         </button>
       )}
       {open && (
-        <section className={embedded ? 'von von-embedded' : 'von'} aria-label="VON" onPointerDown={unlock} onKeyDown={unlock}>
-          <header className="von-head">
-            <img src="./v-icon-192.png" alt="" />
-            <strong>VON</strong>
-            <span className="muted small">stelt voor · jij keurt goed</span>
-            <span className="von-actions">
-              <button className="link" onClick={async () => { const m = await enablePush(); setPushOn(pushSupported() && Notification.permission === 'granted'); setMsgs((x) => [...x, { role: 'assistant', text: m }]) }} title={pushOn ? 'Meldingen staan aan (klik voor een proefmelding)' : 'Meldingen aanzetten'}>{pushOn ? '🔔' : '🔕'}</button>
-              <button className="link" onClick={toggleVoice} title={voice ? 'Voorlezen staat aan' : 'Voorlezen staat uit'}>{voice ? '🔊' : '🔇'}</button>
-              <button className="link" onClick={() => { setSiri((x) => !x); setHistory(null) }} title="VON via Siri">📱</button>
-              <button className="link" onClick={() => { setSiri(false); showHistory() }} title="Vorige gesprekken">🕘</button>
-              <button className="link" onClick={newConv} title="Nieuw gesprek">＋</button>
-              {!embedded && <a className="link" href="#/von" title="Naar de VON-pagina" onClick={() => setOpen(false)}>⤢</a>}
-              {!embedded && <button className="link" onClick={() => { setOpen(false); hush(); stopListening() }} aria-label="Sluiten">✕</button>}
+        <section className={embedded ? 'von von2 von-embedded' : 'von von2'} aria-label="VON" onPointerDown={unlock} onKeyDown={unlock}>
+          <header className="v2-head">
+            <span className="v2-mark">V</span>
+            <span className="v2-title"><b>VON</b><small>{busy ? 'denkt na…' : listening ? 'luistert…' : speaking ? 'spreekt…' : 'stelt voor · jij keurt goed'}</small></span>
+            <span className="v2-tools">
+              <button className="v2-ib" onClick={() => { setSiri(false); history ? setHistory(null) : showHistory() }} title="Vorige gesprekken" aria-pressed={!!history}><Ico d={I.clock} /></button>
+              <button className="v2-ib" onClick={newConv} title="Nieuw gesprek"><Ico d={I.plus} /></button>
+              <span className="v2-more">
+                <button className="v2-ib" onClick={() => setMore((x) => !x)} title="Meer" aria-expanded={more}><Ico d={I.dots} /></button>
+                {more && (
+                  <span className="v2-menu" onMouseLeave={() => setMore(false)}>
+                    <button onClick={() => { toggleVoice(); setMore(false) }}><Ico d={voice ? I.speaker : I.mute} />{voice ? 'Voorlezen staat aan' : 'Voorlezen staat uit'}</button>
+                    <button onClick={async () => { setMore(false); const m = await enablePush(); setPushOn(pushSupported() && Notification.permission === 'granted'); setMsgs((x) => [...x, { role: 'assistant', text: m }]) }}><Ico d={I.bell} />{pushOn ? 'Meldingen staan aan (proefmelding)' : 'Meldingen aanzetten'}</button>
+                    <button onClick={() => { setMore(false); setHistory(null); setSiri((x) => !x) }}><Ico d={I.phone} />VON via Siri</button>
+                  </span>
+                )}
+              </span>
+              {!embedded && <a className="v2-ib" href="#/von" title="Open de VON-pagina" onClick={() => setOpen(false)}><Ico d={I.expand} /></a>}
+              {!embedded && <button className="v2-ib" onClick={() => { setOpen(false); hush(); stopListening() }} aria-label="Sluiten" title="Sluiten"><Ico d={I.close} /></button>}
             </span>
           </header>
+
           {siri ? <div className="von-history"><VonSiri /></div> : history ? (
-            <div className="von-history">
-              <p className="muted small">Vorige gesprekken</p>
+            <div className="von-history v2-history">
+              <div className="v2-label">Vorige gesprekken</div>
               {history.length === 0 && <p className="muted">Nog geen gesprekken.</p>}
               <ul>
                 {history.map((c) => (
                   <li key={c.id}>
-                    <button className="link" onClick={() => pick(c.id)}>{c.title ?? 'Gesprek'}</button>
-                    <span className="muted small"> {new Date(c.updated_at).toLocaleString('nl-BE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
-                    <button className="link von-del" onClick={() => remove(c.id)} title="Wissen">🗑</button>
+                    <button className="v2-hist" onClick={() => pick(c.id)}>
+                      <span>{c.title ?? 'Gesprek'}</span>
+                      <small>{new Date(c.updated_at).toLocaleString('nl-BE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</small>
+                    </button>
+                    <button className="v2-ib small" onClick={() => remove(c.id)} title="Gesprek wissen"><Ico d={I.trash} /></button>
                   </li>
                 ))}
               </ul>
             </div>
           ) : (
-            <div className="von-list" ref={listRef}>
+            <div className="von-list v2-list" ref={listRef}>
               {msgs.length === 0 && (
-                <div className="von-empty">
-                  <p>Hallo Olivier. Waarmee kan ik helpen?</p>
-                  <div className="von-suggest">{SUGGEST.map((s) => <button key={s} onClick={() => send(s)}>{s}</button>)}</div>
+                <div className="v2-empty">
+                  <h2>{greet}, Olivier</h2>
+                  <p>Vraag iets, of tik op de microfoon en spreek.</p>
+                  <div className="v2-suggest">{SUGGEST.map((q) => <button key={q} onClick={() => send(q)}><span>{q}</span><Ico d={I.arrow} /></button>)}</div>
                 </div>
               )}
               {msgs.map((m, i) => (
-                <div key={i} className={'von-msg ' + m.role + (m.error ? ' err' : '')}>
-                  {m.role === 'assistant' ? <Rich text={m.text} /> : <p>{m.text}</p>}
-                  {m.tools && m.tools.length > 0 && <span className="von-meta">bekeken: {[...new Set(m.tools)].map((t) => TOOL_LABEL[t] ?? t).join(', ')}{m.cost != null ? ` · ${(m.cost * 100).toFixed(1)} ct` : ''}</span>}
+                <div key={i} className={'v2-msg ' + m.role + (m.error ? ' err' : '')}>
+                  {m.role === 'assistant' && <span className="v2-who">VON</span>}
+                  <div className="v2-text">{m.role === 'assistant' ? <Rich text={m.text} /> : <p>{m.text}</p>}</div>
+                  {m.tools && m.tools.length > 0 && <span className="v2-meta">{toolsText(m.tools)}{m.cost != null ? ` · ${(m.cost * 100).toFixed(1)} ct` : ''}</span>}
                 </div>
               ))}
-              {busy && <div className="von-msg assistant"><span className="von-dots"><i /><i /><i /></span></div>}
+              {busy && <div className="v2-msg assistant"><span className="v2-who">VON</span><span className="von-dots"><i /><i /><i /></span></div>}
             </div>
           )}
-          {speaking && <button className="von-stop" onClick={hush}>⏹ Stop voorlezen</button>}
-          <form className="von-input" onSubmit={(e) => { e.preventDefault(); send(input) }}>
-            {Rec && <button type="button" className={'von-mic' + (listening ? ' on' : '')} onClick={listen} title={listening ? 'Stop' : 'Spreek'}>🎙</button>}
-            <textarea rows={1} value={input} placeholder={listening ? 'Ik luister…' : 'Vraag iets aan VON…'} onChange={(e) => { setInput(e.target.value); if (speaking) hush() }}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input) } }} />
-            <button type="submit" className="primary" disabled={busy || !input.trim()}>➤</button>
+
+          {speaking && <div className="v2-speaking"><span className="v2-wave small" aria-hidden="true"><i /><i /><i /><i /><i /></span>VON spreekt<button onClick={hush}>Stoppen</button></div>}
+          <form className="v2-input" onSubmit={(e) => { e.preventDefault(); send(input) }}>
+            {listening ? (
+              <div className="v2-listen"><span className="v2-wave" aria-hidden="true"><i /><i /><i /><i /><i /><i /><i /></span><span>Ik luister…</span></div>
+            ) : (
+              <div className="v2-field">
+                <textarea rows={1} value={input} placeholder="Vraag VON…" onChange={(e) => { setInput(e.target.value); if (speaking) hush() }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input) } }} />
+                <button type="submit" className="v2-send" disabled={busy || !input.trim()} aria-label="Versturen"><Ico d={I.up} /></button>
+              </div>
+            )}
+            {Rec && <button type="button" className={'v2-mic' + (listening ? ' on' : '')} onClick={listen} aria-label={listening ? 'Stop met luisteren' : 'Spreek'} title={listening ? 'Stop' : 'Spreek'}><Ico d={listening ? I.stop : I.mic} /></button>}
           </form>
         </section>
       )}
     </>
   )
 }
+
+const I = {
+  clock: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',
+  plus: 'M12 5v14M5 12h14',
+  dots: 'M4 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0M10.5 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0M17 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0',
+  expand: 'M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7',
+  close: 'M6 6l12 12M18 6 6 18',
+  speaker: 'M4 9.5v5h3.5L12 18V6L7.5 9.5zM16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11',
+  mute: 'M4 9.5v5h3.5L12 18V6L7.5 9.5zM16.5 9.5l5 5M21.5 9.5l-5 5',
+  bell: 'M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0',
+  phone: 'M8 3h8a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM11 18h2',
+  trash: 'M5 7h14M10 7V5h4v2M7 7l1 13h8l1-13',
+  arrow: 'M5 12h14M13 6l6 6-6 6',
+  up: 'M12 19V5M6 11l6-6 6 6',
+  mic: 'M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3zM5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21',
+  stop: 'M7 7h10v10H7z',
+}
+const Ico = ({ d }: { d: string }) => <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg>
