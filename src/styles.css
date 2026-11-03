@@ -1280,3 +1280,81 @@ summary.vd-h::-webkit-details-marker { display: none; }
 @media (max-width: 860px) { .order-lines .hide-sm { display: none; } .order-fields { grid-template-columns: 1fr 1fr; } .order-head .order-dates { text-align: left; grid-column: 1 / -1; } }
 .order-fields input { min-width: 0; width: 100%; box-sizing: border-box; } @media (max-width: 860px) { .order-fields { grid-template-columns: minmax(0,1fr) minmax(0,1fr); } }
 .order-fields select { min-width: 0; width: 100%; }
+
+/* Offerte-document (3 nov 2026), zelfde opbouw als OFF00 */
+.qdoc { background: #fff; color: #1d1d1b; max-width: 820px; margin: 0 auto; box-shadow: 0 2px 18px rgba(0,0,0,.08); font: 13px/1.5 Arial, Helvetica, sans-serif; }
+.qdoc-head { background: #000; color: #fff; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 32px 44px 26px; }
+.qdoc-logo { height: 56px; display: block; margin-bottom: 26px; }
+.qdoc-head h1 { font: 700 21px Arial, sans-serif; margin: 0; letter-spacing: .02em; color: #fff; }
+.qdoc-co { display: grid; grid-template-columns: auto auto; gap: 4px 12px; margin: 4px 0 0; font-size: 12px; text-align: right; }
+.qdoc-co-name { grid-column: 1 / -1; font-size: 16px; margin-bottom: 8px; }
+.qdoc-co dt { color: #ddd; } .qdoc-co dd { margin: 0; }
+.qdoc-meta { display: flex; justify-content: space-between; gap: 24px; padding: 34px 44px 10px; flex-wrap: wrap; }
+.qdoc-meta dl { display: grid; grid-template-columns: 150px auto; gap: 10px 20px; margin: 0; color: #555; font-size: 14px; }
+.qdoc-meta dd { margin: 0; color: #333; }
+.qdoc-to { display: flex; flex-direction: column; min-width: 220px; font-size: 13px; }
+.qdoc-to small { font-size: 12px; }
+.qdoc-title { font: 600 15px Arial, sans-serif; margin: 18px 44px 0; color: #111; }
+.qdoc-text { margin: 10px 44px; white-space: pre-line; }
+.qdoc-lines { width: calc(100% - 88px); margin: 22px 44px 0; border-collapse: collapse; }
+.qdoc-lines th { font-weight: 400; font-size: 13.5px; letter-spacing: .03em; text-align: left; padding: 10px 8px; border-bottom: 2px solid #111; }
+.qdoc-lines td { padding: 9px 8px; border-bottom: 1px solid #eee; vertical-align: top; font-size: 12.5px; }
+.qdoc-lines tr:last-child td { border-bottom: 2px solid #111; }
+.qdoc-lines .n { text-align: right; white-space: nowrap; }
+.qdoc-ld { white-space: pre-line; margin-top: 8px; line-height: 1.6; }
+.qdoc-tot { margin: 22px 44px 0 auto; border-collapse: collapse; min-width: 320px; }
+.qdoc-tot td { padding: 6px 8px; color: #777; font-size: 16px; text-align: right; }
+.qdoc-tot td:first-child { padding-right: 60px; }
+.qdoc-tot .qdoc-grand td { color: #000; font-weight: 700; }
+.qdoc-foot { background: #000; color: #fff; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px 24px; padding: 22px 44px; margin-top: 40px; font-size: 13px; }
+@media (max-width: 700px) {
+  .qdoc-head, .qdoc-meta, .qdoc-foot { padding-left: 18px; padding-right: 18px; }
+  .qdoc-head { flex-direction: column; } .qdoc-co { text-align: left; }
+  .qdoc-lines { width: calc(100% - 20px); margin: 16px 10px 0; } .qdoc-lines th:nth-child(3), .qdoc-lines td:nth-child(3), .qdoc-lines th:nth-child(4), .qdoc-lines td:nth-child(4) { display: none; }
+  .qdoc-title, .qdoc-text { margin-left: 18px; margin-right: 18px; } .qdoc-tot { margin-right: 10px; min-width: 0; } .qdoc-tot td:first-child { padding-right: 20px; }
+  .qdoc-meta dl { grid-template-columns: 120px auto; }
+}
+@media print {
+  body.printing-quote * { visibility: hidden; }
+  body.printing-quote .qdoc, body.printing-quote .qdoc * { visibility: visible; }
+  body.printing-quote .qdoc { position: absolute; left: 0; top: 0; width: 100%; max-width: none; box-shadow: none; }
+  .qdoc-head, .qdoc-foot { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .qdoc-lines tr { break-inside: avoid; }
+}
+@page { size: A4; margin: 0; }
+/* Offerte bewerken */
+.quote-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.quote-intern { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.quote-intern > span { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; display: flex; flex-direction: column; min-width: 130px; }
+.quote-intern small { color: var(--muted); font-size: 12px; } .quote-intern b { font-variant-numeric: tabular-nums; }
+.quote-margin > span { display: flex; gap: 6px; } .quote-margin input { width: 70px; }
+.quote-warn { background: rgba(217,130,43,.12); color: #8a4a0e; border-radius: 8px; padding: 8px 12px; }
+.qedit-head { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.qedit-head label, .qline-nums label { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 3px; }
+.qedit-head input, .qedit-head textarea { width: 100%; box-sizing: border-box; }
+.qline { display: grid; grid-template-columns: 1fr auto; gap: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+.qline.zero { border-color: #d9822b; }
+.qline-main { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.qline-title { font-weight: 600; } .qline-main textarea { width: 100%; box-sizing: border-box; font: inherit; font-size: 13px; resize: vertical; }
+.qline-nums { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+.qline-nums input, .qline-nums select { width: 86px; }
+.qline-amt { min-width: 100px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; padding-bottom: 6px; }
+.qline-act { display: flex; gap: 4px; } .qline-act button { padding: 4px 9px; }
+.qpreview { background: #ecebe6; border-radius: 12px; padding: 18px; overflow-x: auto; }
+.quote-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; align-items: flex-end; }
+.quote-send { display: flex; gap: 8px; flex: 1; align-items: flex-end; } .quote-send textarea { flex: 1; font: inherit; }
+@media (max-width: 860px) { .qline { grid-template-columns: 1fr; } .qedit-head { grid-template-columns: 1fr; } .quote-send { flex-direction: column; align-items: stretch; } }
+/* Offertes in het portaal */
+.pquotes { display: grid; gap: 10px; margin-bottom: 18px; }
+.pquote { display: grid; grid-template-columns: auto auto 1fr auto auto; gap: 12px; align-items: center; text-align: left; background: #fff; border: 1px solid #e4e1d8; border-radius: 12px; padding: 14px 16px; cursor: pointer; }
+.pquote.verstuurd { border-color: #c9a24a; box-shadow: 0 0 0 1px #c9a24a33; }
+.pquote-st { font-size: 12px; padding: 3px 9px; border-radius: 12px; background: #f3efe3; color: #6d5a1f; }
+.pquote.aanvaard .pquote-st { background: #e6f2ea; color: #2e7d4f; }
+.pquote-tot { font-weight: 600; font-variant-numeric: tabular-nums; }
+.pquote-bar { display: flex; justify-content: space-between; margin-bottom: 12px; }
+.pquote-sign { background: #fff; border: 1px solid #c9a24a; border-radius: 12px; padding: 18px; margin-top: 16px; display: flex; flex-direction: column; gap: 10px; max-width: 820px; }
+.pquote-sign h3 { margin: 0; font-family: Jost, sans-serif; } .pquote-sign input, .pquote-sign textarea { font: inherit; padding: 10px; border: 1px solid #ddd; border-radius: 8px; }
+.pquote-sign .primary { align-self: flex-start; }
+.pquote-msg { background: #e6f2ea; color: #1f5e3a; border-radius: 10px; padding: 12px 16px; max-width: 820px; }
+@media (max-width: 700px) { .pquote { grid-template-columns: 1fr auto; } .pquote > span:nth-child(3) { grid-column: 1 / -1; } .qpreview { padding: 0; background: none; } }
+.qdoc-tot td { border: none !important; background: none !important; }

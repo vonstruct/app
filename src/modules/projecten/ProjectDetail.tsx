@@ -1,3 +1,4 @@
+import { QuotePanel } from '../offerte/QuotePanel'
 import { Orders } from '../bestellingen/Orders'
 import { useState, type ReactNode } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
@@ -55,11 +56,12 @@ export function ProjectDetail() {
   const vb = versions.find((v) => v.version === (b ?? versions[0]?.version))
 
   const wa = (project?.client_phone ?? '').replace(/[^\d+]/g, '').replace(/^\+/, '').replace(/^00/, '').replace(/^0/, '32')
-  const TABS: [string, string][] = [['overzicht', 'Overzicht'], ['planning', 'Planning'], ['mails', 'Mails'], ['ontwerp', `Ontwerp & kosten${versions.length ? ` (${versions.length})` : ''}`], ['bestellingen', 'Bestellingen'], ['vragenlijst', 'Vragenlijst'], ['tijdlijn', 'Tijdlijn']]
+  const TABS: [string, string][] = [['overzicht', 'Overzicht'], ['planning', 'Planning'], ['mails', 'Mails'], ['ontwerp', `Ontwerp & kosten${versions.length ? ` (${versions.length})` : ''}`], ['offerte', 'Offerte'], ['bestellingen', 'Bestellingen'], ['vragenlijst', 'Vragenlijst'], ['tijdlijn', 'Tijdlijn']]
   let body: ReactNode = null
   if (project && ph.data) {
     if (tab === 'planning') body = <PlanningPanel project={project} />
     else if (tab === 'mails') body = <MailList project={code} title="Mails" limit={60} />
+    else if (tab === 'offerte') body = <QuotePanel project={code} />
     else if (tab === 'bestellingen') body = <Orders project={code} />
     else if (tab === 'vragenlijst') body = <SurveyPanel code={code} focus={focus === 'survey'} />
     else if (tab === 'tijdlijn') body = <EventFeed project={code} title="Tijdlijn" limit={40} />

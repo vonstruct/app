@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../core/supabase'
 import logo from '../assets/vonstruct-logo.webp'
 import { Survey } from './Survey'
+import { Quotes } from './Quotes'
 import { Jobs, MomentForm, type ViewAs } from './Jobs'
 import { downloadIcs } from '../core/ics'
 import { LANGS, asLang, storeLang, storedLang, tr, type Lang } from './i18n'
@@ -20,6 +21,8 @@ const STEPS = ['design', 'quote', 'production', 'installation', 'closed']
 export function Portal({ role, preview = false, viewAs = null }: { role: PortalRole; preview?: boolean; viewAs?: ViewAs | null }) {
   const [name, setName] = useState<string | null>(null)
   const [survey, setSurvey] = useState<string | null>(null)
+  // link uit de offertemail: ?offerte=<id> opent meteen die offerte
+  const [initialQuote] = useState<string | null>(() => new URLSearchParams(window.location.search).get('offerte'))
   const [lang, setLang] = useState<Lang>(storedLang)
   const t = tr(lang)
   useEffect(() => {
@@ -70,7 +73,10 @@ export function Portal({ role, preview = false, viewAs = null }: { role: PortalR
         {survey ? (
           <Survey code={survey} lang={lang} onClose={() => setSurvey(null)} />
         ) : role === 'klant' ? (
-          <ClientProjects preview={preview} lang={lang} onSurvey={setSurvey} />
+          <>
+            <Quotes lang={lang} preview={preview} initial={initialQuote} />
+            <ClientProjects preview={preview} lang={lang} onSurvey={setSurvey} />
+          </>
         ) : (
           <Jobs lang={lang} preview={preview} viewAs={viewAs} empty={<EmptyWork role={role} lang={lang} />} />
         )}
