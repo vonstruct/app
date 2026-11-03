@@ -15,7 +15,7 @@ type Order = {
   id: string; project_code: string; supplier: string; ordered_by: string | null; categories: string[] | null
   status: string; needed_by: string | null; needed_by_manual: boolean; lead_days: number | null; lead_days_eff: number
   order_by: string | null; ordered_at: string | null; expected_at: string | null; delivered_at: string | null
-  reference: string | null; amount: number | null; n_lines: number; note: string | null; urgency: string
+  reference: string | null; amount: number | null; n_lines: number; note: string | null; urgency: string; manual?: boolean
   client_name: string | null; project_title: string | null
 }
 type Line = { id: string; category: string | null; description: string | null; article_no: string | null; qty: number | null; unit: string | null; total: number | null }
@@ -33,6 +33,7 @@ export function Orders({ project }: { project?: string }) {
   const [filter, setFilter] = useState<'open' | 'alles'>('open')
   const [open, setOpen] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [adding, setAdding] = useState(false)
   const q = useQuery<Order[]>(() => {
     let r = supabase.from('app_orders').select('*')
     if (project) r = r.eq('project_code', project)
@@ -73,9 +74,11 @@ export function Orders({ project }: { project?: string }) {
           <button className={filter === 'alles' ? 'on' : ''} onClick={() => setFilter('alles')}>Alles</button>
         </div>
         <span className="muted">{rows.length} bestellingen · {fmtEur(total)}</span>
+        {project && <button onClick={() => setAdding((a) => !a)}>+ Eigen bestelling</button>}
         {project && <button className="primary" disabled={busy} onClick={generate}>{busy ? 'Bezig…' : q.data?.length ? 'Bijwerken uit de kosten' : 'Bestellijst maken uit de kosten'}</button>}
       </div>
       <ErrorBox error={q.error} />
+      {adding && project && <NewOrder project={project} onDone={() => { setAdding(false); q.reload() }} />}
       {!rows.length && <p className="muted">{project ? 'Nog geen bestellingen. Maak de lijst uit de kosten van de laatste ontwerpversie.' : 'Niets te bestellen.'}</p>}
       {rows.map((o) => {
         const [lbl, cls] = URG[o.urgency] ?? [o.urgency, '']
@@ -88,7 +91,7 @@ export function Orders({ project }: { project?: string }) {
                 <strong>{o.supplier}</strong>{o.ordered_by && o.ordered_by !== 'Zelf' && <span className="muted"> via {o.ordered_by}</span>}
                 <div className="muted small">
                   {!project && <><Link to={`/projecten/${o.project_code}?tab=bestellingen`} onClick={(e) => e.stopPropagation()}>{o.project_code}</Link>{o.client_name ? ' · ' + o.client_name : ''} · </>}
-                  {(o.categories ?? []).join(', ')} · {o.n_lines} artikels
+                  {o.manual ? (o.note || 'eigen bestelling') + (o.reference ? ' · ' + o.reference : '') : <>{(o.categories ?? []).join(', ')} · {o.n_lines} artikels</>}
                 </div>
               </div>
               <div className="order-dates small">
@@ -103,6 +106,43 @@ export function Orders({ project }: { project?: string }) {
       })}
     </div>
   )
+}
+
+/** Bestelling die niet uit de kosten komt (toestellen, sanitair, elektro …): `orders.manual = true`. */
+function NewOrder({ project, onDone }: { project: string; onDone: () => void }) {
+  const [f, setF] = useState({ supplier: '', reference: '', status: 'besteld', ordered_at: today(), expected_at: '', amount: '', note: '' })
+  const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value })
+  const save = async () => {
+    if (!f.supplier.trim()) return toast('Leverancier ontbreekt', 'err')
+    const { data: need } = await supabase.rpc('project_needed_by', { p_code: project })
+    const { error } = await supabase.from('orders').insert({
+      project_code: project, supplier: f.supplier.trim(), ordered_by: 'Zelf', manual: true, status: f.status,
+      reference: f.reference || null, ordered_at: f.status === 'te bestellen' ? null : f.ordered_at || null, expected_at: f.expected_at || null,
+      amount: f.amount ? Number(f.amount.replace(',', '.')) : null, note: f.note || null, needed_by: need ?? null, n_lines: 0,
+    })
+    if (error) toast(error.message.includes('duplicate') ? 'Er bestaat al een bestelling bij deze leverancier voor dit project' : error.message, 'err')
+    else { toast('Bestelling toegevoegd'); onDone() }
+  }
+  return (
+    <div className="order-row open"><div className="order-detail">
+      <p className="muted small">Een bestelling die niet uit de kosten komt, bv. toestellen of sanitair.</p>
+      <div className="order-fields">
+        <label>Leverancier<input value={f.supplier} onChange={set('supplier')} list="order-suppliers" /></label>
+        <label>Status<select value={f.status} onChange={set('status')}>{STATUSES.slice(0, 4).map((s) => <option key={s}>{s}</option>)}</select></label>
+        <label>Bestelnummer<input value={f.reference} onChange={set('reference')} /></label>
+        <label>Besteld op<input type="date" value={f.ordered_at} onChange={set('ordered_at')} /></label>
+        <label>Verwacht op<input type="date" value={f.expected_at} onChange={set('expected_at')} /></label>
+        <label>Bedrag (€)<input value={f.amount} onChange={set('amount')} inputMode="decimal" /></label>
+        <label>Wat<input value={f.note} onChange={set('note')} placeholder="bv. oven en kookplaat" /></label>
+      </div>
+      <SupplierList />
+      <button className="primary" onClick={save}>Toevoegen</button>
+    </div></div>
+  )
+}
+function SupplierList() {
+  const q = useQuery<{ name: string }[]>(() => supabase.from('suppliers').select('name').order('name'), [])
+  return <datalist id="order-suppliers">{(q.data ?? []).map((s) => <option key={s.name} value={s.name} />)}</datalist>
 }
 
 const qtyTxt = (l: Line) => (l.qty != null ? Number(l.qty).toLocaleString('nl-BE', { maximumFractionDigits: 2 }) : '') + (l.unit ? ' ' + l.unit : '')
