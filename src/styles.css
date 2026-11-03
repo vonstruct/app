@@ -1216,3 +1216,14 @@ summary.vd-h::-webkit-details-marker { display: none; }
 .v2-speaking button { margin-left: auto; border: 0; background: var(--panel); border-radius: 14px; padding: 4px 12px; font: inherit; font-size: 13px; cursor: pointer; }
 .von2 .von-dots i { background: var(--vd-gold); }
 @media (prefers-reduced-motion: reduce) { .v2-wave i, .v2-mic.on { animation: none; } }
+
+/* Kopbalk rechts: zoeken, Vraag VON, initialen netjes op één lijn */
+.topbar { gap: 10px; }
+.topbar .topbar-nav { margin-right: auto; }
+.tb-search { margin-left: 0; height: 36px; min-width: 260px; padding: 0 8px 0 12px; border-radius: 10px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); font-size: 13.5px; }
+.tb-search kbd { font-size: 10.5px; padding: 2px 6px; border-radius: 5px; border-color: rgba(255,255,255,.16); background: rgba(255,255,255,.04); color: rgba(242,242,240,.55); }
+.tb-von { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px 0 6px; border-radius: 10px; border: 1px solid rgba(201,162,74,.5); background: rgba(201,162,74,.08); color: #f3e3a0; font: 500 13.5px system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: 0; }
+.tb-von:hover { background: rgba(201,162,74,.18); border-color: #c9a24a; }
+.tb-von-mark { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 6px; background: #c9a24a; color: #0e1729; font: 600 12px "Jost", system-ui, sans-serif; }
+.tb-avatar { width: 36px; height: 36px; border-radius: 10px; font-size: 13px; }
+.tb-me { margin-left: 2px; }
