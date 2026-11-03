@@ -41,7 +41,7 @@ const actionFor = (f: Flag): { to: string; label: string } => {
     case 'aanvraag_nieuw': return { to: proj, label: 'Aanvraag openen' }
     case 'opdracht': return { to: `/opdrachten?focus=${f.ref}`, label: 'Opdracht openen' }
     case 'mail': return { to: '/mails', label: 'Mails bekijken' }
-    case 'backup': return { to: 'https://github.com/vonstruct/leveranciers-prijzen/actions/workflows/backup-onedrive.yml', label: 'Back-up bekijken' }
+    case 'backup': return { to: 'https://github.com/vonstruct/platform/actions/workflows/backup-onedrive.yml', label: 'Back-up bekijken' }
     default: return { to: proj, label: 'Openen' }
   }
 }
