@@ -23,9 +23,9 @@ type Line = { id: string; category: string | null; description: string | null; a
 const STATUSES = ['te bestellen', 'besteld', 'bevestigd', 'geleverd', 'geannuleerd']
 const URG: Record<string, [string, string]> = {
   'te laat': ['Te laat', 'bad'], 'nu bestellen': ['Nu bestellen', 'warn'], 'levering te laat': ['Levering te laat', 'bad'],
-  'komt te laat': ['Komt te laat', 'bad'], 'geen deadline': ['Geen deadline', 'muted'], later: ['Later', ''], onderweg: ['Onderweg', 'ok'], klaar: ['Klaar', 'ok'],
+  'komt te laat': ['Komt te laat', 'bad'], 'geen deadline': ['Geen deadline', 'muted'], later: ['Later', ''], onderweg: ['Onderweg', 'ok'], klaar: ['Klaar', 'ok'], vervallen: ['Vervallen', 'muted'],
 }
-const ORDER = ['te laat', 'levering te laat', 'komt te laat', 'nu bestellen', 'geen deadline', 'later', 'onderweg', 'klaar']
+const ORDER = ['te laat', 'levering te laat', 'komt te laat', 'nu bestellen', 'geen deadline', 'later', 'onderweg', 'klaar', 'vervallen']
 const d = (v: string | null) => (v ? new Date(v + 'T12:00').toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' }) : '—')
 const today = () => new Date().toLocaleDateString('sv-SE')
 
@@ -40,7 +40,7 @@ export function Orders({ project }: { project?: string }) {
   }, [project])
 
   const rows = useMemo(() => {
-    const all = (q.data ?? []).filter((o) => filter === 'alles' || !['klaar'].includes(o.urgency))
+    const all = (q.data ?? []).filter((o) => filter === 'alles' || !['klaar', 'vervallen'].includes(o.urgency))
     return all.sort((a, b) => ORDER.indexOf(a.urgency) - ORDER.indexOf(b.urgency))
   }, [q.data, filter])
 
@@ -63,7 +63,7 @@ export function Orders({ project }: { project?: string }) {
   }
 
   if (q.loading) return <Loading />
-  const total = rows.reduce((s, o) => s + Number(o.amount ?? 0), 0)
+  const total = rows.filter((o) => o.status !== 'geannuleerd').reduce((s, o) => s + Number(o.amount ?? 0), 0)
 
   return (
     <div className="orders">
@@ -125,7 +125,7 @@ ${lines.map((l) => `<tr><td class="n">${esc(qtyTxt(l))}</td><td>${esc(l.article_
 }
 
 function OrderDetail({ o, onSave, onStatus }: { o: Order; onSave: (p: Partial<Order>) => void; onStatus: (s: string) => void }) {
-  const lines = useQuery<Line[]>(() => supabase.from('order_lines').select('id,category,description,article_no,qty,unit,total').eq('order_id', o.id).order('category'), [o.id])
+  const lines = useQuery<Line[]>(() => supabase.from('order_lines').select('id,category,description,article_no,qty,unit,total').eq('order_id', o.id).eq('active', true).order('category'), [o.id])
   const field = (label: string, key: keyof Order, type = 'date') => (
     <label>
       {label}
