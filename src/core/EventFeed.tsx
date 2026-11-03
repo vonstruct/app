@@ -7,7 +7,7 @@ type Ev = { id: number; at: string; kind: string; importance: number; project_co
 
 const ICON: Record<string, string> = {
   aanvraag_nieuw: '👤', project_nieuw: '📁', fase: '➜', versie_nieuw: '📐', kosten_klaar: '€', berekening_fout: '⚠',
-  opdracht: '📅', mail_probleem: '✉', vragenlijst: '📝', backup: '💾', von_voorstel: '✨', von_actie: '✓', mail_in: '📨', afspraak_antwoord: '📅', bestelling: '📦', mail_leverancier: '📨',
+  opdracht: '📅', mail_probleem: '✉', vragenlijst: '📝', backup: '💾', von_voorstel: '✨', von_actie: '✓', mail_in: '📨', afspraak_antwoord: '📅', bestelling: '📦', offerte: '✍', factuur: '€', oplevering: '🔑', werkpunt: '🔧', nazorg: '⚠', mail_leverancier: '📨',
 }
 const when = (iso: string) => {
   const d = new Date(iso), now = new Date()

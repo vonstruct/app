@@ -29,7 +29,7 @@ export function RuleSentence({ rule }: { rule: Rule }) {
   const maps = Object.entries(rule.fields).filter(([, f]) => f.type === 'map')
   // lange teksten (bv. standaardteksten van de offerte) als blokken onder de zin
   const texts = Object.entries(rule.fields).filter(([, f]) => (f.type as string) === 'textarea')
-  const LABELS: Record<string, string> = { inleiding: 'Inleiding', inbegrepen: 'Inbegrepen (één per regel)', niet_inbegrepen: 'Niet inbegrepen (één per regel)', planning: 'Planning', betaling: 'Betaling', garantie: 'Garantie', btw6: 'Uitleg 6 % btw' }
+  const LABELS: Record<string, string> = { inleiding: 'Inleiding', inbegrepen: 'Inbegrepen (één per regel)', niet_inbegrepen: 'Niet inbegrepen (één per regel)', planning: 'Planning', betaling: 'Betaling', garantie: 'Garantie', btw6: 'Uitleg 6 % btw', pv: 'Tekst van het PV' }
   return (
     <div className="card rule">
       <p className="sentence">

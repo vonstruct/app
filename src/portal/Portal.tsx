@@ -3,6 +3,7 @@ import { supabase } from '../core/supabase'
 import logo from '../assets/vonstruct-logo.webp'
 import { Survey } from './Survey'
 import { Quotes } from './Quotes'
+import { Aftercare, MyPunch } from './Aftercare'
 import { Jobs, MomentForm, type ViewAs } from './Jobs'
 import { downloadIcs } from '../core/ics'
 import { LANGS, asLang, storeLang, storedLang, tr, type Lang } from './i18n'
@@ -75,10 +76,14 @@ export function Portal({ role, preview = false, viewAs = null }: { role: PortalR
         ) : role === 'klant' ? (
           <>
             <Quotes lang={lang} preview={preview} initial={initialQuote} />
+            <Aftercare lang={lang} preview={preview} />
             <ClientProjects preview={preview} lang={lang} onSurvey={setSurvey} />
           </>
         ) : (
-          <Jobs lang={lang} preview={preview} viewAs={viewAs} empty={<EmptyWork role={role} lang={lang} />} />
+          <>
+            <MyPunch lang={lang} preview={preview || !!viewAs} />
+            <Jobs lang={lang} preview={preview} viewAs={viewAs} empty={<EmptyWork role={role} lang={lang} />} />
+          </>
         )}
         {!survey && role !== 'onderaannemer' && <h2 className="portal-h">{t.coming}</h2>}
         {!survey && role !== 'onderaannemer' && (
