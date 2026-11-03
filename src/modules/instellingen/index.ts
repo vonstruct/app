@@ -7,6 +7,7 @@ const instellingen: AppModule = {
   id: 'instellingen',
   label: 'Instellingen',
   path: '/instellingen',
+  inMenu: false,
   routes: [{ path: '/instellingen', element: createElement(Section, { title: 'Instellingen', tabs: SETTINGS, children: createElement(Settings) }) }],
 }
 export default instellingen

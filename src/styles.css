@@ -933,3 +933,45 @@ a.vd-pill:hover { text-decoration: none; border-color: var(--muted); }
   .vd-mail { grid-template-columns: 34px minmax(0, 1fr); } .vd-mail .vd-side { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .vd-toast { animation: none; } }
+
+/* ---------- Kopbalk v3: menu, zoeken, menu onder je naam, tabbalk gsm ---------- */
+.topbar { gap: 18px; }
+.topbar-home { display: block; flex: none; }
+.topbar .topbar-nav { flex: 0 1 auto; }
+.nav-badge, .tab-badge { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; margin-left: 6px; border-radius: 9px; background: #c9a24a; color: #120d03; font: 600 11px/1 system-ui, sans-serif; vertical-align: 1px; }
+.tb-search { margin-left: auto; display: flex; align-items: center; gap: 8px; min-width: 250px; padding: 7px 10px; border-radius: 8px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.1); color: rgba(242,242,240,.62); font: inherit; font-size: 13.5px; cursor: pointer; text-align: left; }
+.tb-search:hover { border-color: rgba(201,162,74,.55); color: #f2f2f0; }
+.tb-search svg { width: 15px; height: 15px; flex: none; }
+.tb-search kbd { margin-left: auto; font: 11px system-ui, sans-serif; border: 1px solid rgba(255,255,255,.18); border-radius: 4px; padding: 1px 5px; }
+.tb-me { position: relative; flex: none; }
+.tb-avatar { width: 34px; height: 34px; border-radius: 50%; border: 0; background: #c9a24a; color: #0e1729; font: 600 13px "Jost", system-ui, sans-serif; letter-spacing: .04em; cursor: pointer; }
+.tb-avatar:hover { box-shadow: 0 0 0 3px rgba(201,162,74,.3); }
+.tb-menu { position: absolute; right: 0; top: calc(100% + 8px); min-width: 230px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 14px 40px rgba(0,0,0,.18); padding: 6px; display: flex; flex-direction: column; z-index: 60; }
+.tb-menu-head { display: flex; flex-direction: column; padding: 8px 10px 10px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+.tb-menu-head span { color: var(--muted); font-size: 12.5px; }
+.tb-menu a, .tb-menu button { padding: 8px 10px; border-radius: 6px; color: var(--ink); text-align: left; background: none; border: 0; font: inherit; cursor: pointer; }
+.tb-menu a:hover, .tb-menu button:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); text-decoration: none; }
+.tb-menu button { color: var(--bad); }
+.sr-overlay { position: fixed; inset: 0; z-index: 1100; background: rgba(5,7,12,.5); display: flex; justify-content: center; align-items: flex-start; padding: 10vh max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px)); }
+.sr-box { width: min(640px, 100%); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 24px 60px rgba(0,0,0,.3); overflow: hidden; }
+.sr-box input { width: 100%; border: 0; border-bottom: 2px solid #c9a24a; padding: 16px 18px; font-size: 16px; background: transparent; color: var(--ink); outline: none; }
+.sr-list { max-height: 60vh; overflow: auto; padding: 6px; }
+.sr-hint { padding: 10px 12px; margin: 0; }
+.sr-group { font: 500 11px "Jost", system-ui, sans-serif; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); padding: 10px 12px 4px; }
+.sr-hit { display: flex; flex-direction: column; width: 100%; text-align: left; padding: 8px 12px; border: 0; background: none; border-radius: 8px; color: var(--ink); font: inherit; cursor: pointer; }
+.sr-hit.on { background: color-mix(in srgb, #c9a24a 14%, transparent); }
+.sr-t { font-weight: 600; } .sr-s { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tabbar { display: none; }
+@media (max-width: 860px) {
+  .topbar .topbar-nav { display: none; }
+  .tb-search { min-width: 0; padding: 8px; } .tb-search span, .tb-search kbd { display: none; }
+  .tabbar { display: flex; position: fixed; inset: auto 0 0; z-index: 800; background: var(--panel); border-top: 1px solid var(--line); padding: 6px max(6px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px)); justify-content: space-around; }
+  .tabbar a { position: relative; display: grid; justify-items: center; gap: 2px; font-size: 11px; color: var(--muted); padding: 2px 8px; }
+  .tabbar a:hover { text-decoration: none; }
+  .tabbar a.on { color: #a8822f; }
+  .tabbar svg { width: 22px; height: 22px; }
+  .tab-badge { position: absolute; top: -2px; right: 2px; margin: 0; }
+  main { padding-bottom: 90px; }
+  .von-fab { bottom: calc(76px + env(safe-area-inset-bottom)); }
+  .vd-toast { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
+}

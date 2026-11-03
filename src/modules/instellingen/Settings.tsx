@@ -39,7 +39,7 @@ export function Settings() {
         <h2>Meer</h2>
         <ul className="settings-links">
           <li><Link to="/regels">Rekenregels</Link><span className="muted small"> tarieven, platen, kanten, lades, productiekosten, berichten</span></li>
-          <li><Link to="/mails">Mails</Link><span className="muted small"> inbox van info@ en olivier@ (met VON), en wat de app verstuurde</span></li>
+          <li><Link to="/mails">Verstuurd door de app</Link><span className="muted small"> wat de app verstuurde en of het aankwam (de inbox staat in het menu)</span></li>
           <li><Link to="/portaal">Portaal (voorbeeld)</Link><span className="muted small"> zo zien klanten, onderaannemers en partners het</span></li>
         </ul>
       </div>

@@ -60,7 +60,7 @@ export function ProposalCard({ p, onDone }: { p: Proposal; onDone: () => void })
 }
 
 export function VonPage() {
-  const [params, setParams] = useSearchParams()
+  const [params] = useSearchParams()
   const tab = params.get('tab') === 'taken' ? 'taken' : 'voorstellen'
   const [props, setProps] = useState<Proposal[] | null>(null)
   const [hist, setHist] = useState(false)
@@ -73,12 +73,7 @@ export function VonPage() {
   useEffect(() => { load() }, [load])
   return (
     <section>
-      <h1>VON</h1>
-      <p className="muted">Voorstellen van VON wachten hier op je goedkeuring. Niets gaat naar buiten zonder jouw klik.</p>
-      <div className="seg">
-        <button className={tab === 'voorstellen' ? 'on' : ''} onClick={() => setParams({})}>Voorstellen{props && !hist && props.length ? ` (${props.length})` : ''}</button>
-        <button className={tab === 'taken' ? 'on' : ''} onClick={() => setParams({ tab: 'taken' })}>Taken</button>
-      </div>
+      {tab !== 'taken' && <p className="muted">Voorstellen van VON wachten hier op je goedkeuring. Niets gaat naar buiten zonder jouw klik.</p>}
       {tab === 'taken' ? <Tasks /> : (
         <>
           <div className="toolbar"><button className="link small" onClick={() => setHist((h) => !h)}>{hist ? '← open voorstellen' : 'afgehandelde voorstellen'}</button></div>

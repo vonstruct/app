@@ -38,7 +38,7 @@ const actionFor = (f: Flag): { to: string; label: string } => {
     case 'aanvraag_nieuw': return { to: proj, label: 'Aanvraag openen' }
     case 'opdracht': return { to: `/opdrachten?focus=${f.ref}`, label: 'Opdracht openen' }
     case 'mail': return { to: '/mails?tab=app', label: 'Mails bekijken' }
-    case 'mail_antwoord': return { to: `/mails?focus=${f.ref}`, label: 'Antwoorden' }
+    case 'mail_antwoord': return { to: `/inbox?focus=${f.ref}`, label: 'Antwoorden' }
     case 'von_voorstel': return { to: '/von', label: 'Bekijken' }
     case 'backup': return { to: 'https://github.com/vonstruct/platform/actions/workflows/backup-onedrive.yml', label: 'Back-up bekijken' }
     default: return { to: proj, label: 'Openen' }
@@ -239,9 +239,9 @@ function NewMail() {
   const list = q.data ?? []
   return (
     <section className="panel vd-panel">
-      <div className="vd-h"><h2>Nieuw in je mailbox</h2><Link to="/mails" className="vd-more">Inbox</Link></div>
+      <div className="vd-h"><h2>Nieuw in je mailbox</h2><Link to="/inbox" className="vd-more">Inbox</Link></div>
       {q.loading ? <p className="muted small vd-pad">Laden…</p> : list.length === 0 ? <p className="muted small vd-pad">Geen nieuwe mails van de laatste dagen.</p> : list.map((m) => (
-        <button key={m.id} className="vd-mail" onClick={() => nav(`/mails?focus=${m.id}`)}>
+        <button key={m.id} className="vd-mail" onClick={() => nav(`/inbox?focus=${m.id}`)}>
           <span className="vd-av">{initials(m.party_name ?? m.from_name ?? m.from_email)}</span>
           <span className="vd-what">
             <span className="vd-t">{m.from_name ?? m.from_email}{m.party_name && m.party_name !== m.from_name && <span className="vd-sub"> · {m.party_name}</span>}</span>
