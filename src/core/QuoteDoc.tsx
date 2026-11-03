@@ -6,7 +6,22 @@ import logo from '../assets/vonstruct-logo.webp'
  * Gedeeld door de beheer-app (voorbeeld/afdrukken) en het klantenportaal. Toont nooit kostprijs of marge.
  */
 export type QLang = 'nl' | 'en' | 'de'
-export type QLine = { title: string; description: string | null; qty: number; unit_price: number; discount_pct: number; vat_rate: number; kind?: string | null }
+export type QLine = { id?: string; title: string; description: string | null; qty: number; unit_price: number; discount_pct: number; vat_rate: number; kind?: string | null
+  opt_kind?: 'optie' | 'keuze' | null; opt_group?: string | null; opt_default?: boolean | null; selected?: boolean | null }
+export type QSignature = { signer_name: string; signed_at: string; hash: string; png?: string | null; ip?: string | null }
+/** Telt de regel mee? Vaste regels altijd; opties/keuzes volgens de keuze van de klant (of de standaard). */
+export const lineOn = (l: QLine, choice?: Set<string> | null) => !l.opt_kind || (choice && l.id ? choice.has(l.id) : (l.selected ?? l.opt_default ?? true))
+/** Startkeuze: wat de klant koos, anders de standaard; per keuzegroep precies één. */
+export function initialChoice(lines: QLine[]) {
+  const c = new Set<string>()
+  const groups = new Map<string, QLine[]>()
+  for (const l of lines) if (l.opt_kind && l.id) {
+    if (l.opt_kind === 'keuze') groups.set(l.opt_group ?? '', [...(groups.get(l.opt_group ?? '') ?? []), l])
+    else if (l.selected ?? l.opt_default) c.add(l.id)
+  }
+  for (const ls of groups.values()) { const pick = ls.find((l) => l.selected) ?? ls.find((l) => l.selected == null && l.opt_default) ?? ls[0]; if (pick?.id) c.add(pick.id) }
+  return c
+}
 export type QDoc = {
   number: string | null; title: string | null; doc_date: string | null; valid_until: string | null; client_name: string | null; client_address: string | null
   intro?: string | null; closing?: string | null; included?: string | null; excluded?: string | null; planning?: string | null; payment?: string | null; warranty?: string | null
@@ -15,9 +30,9 @@ export type QDoc = {
 export type Company = { naam?: string; adres?: string; kbo?: string; btw?: string; bank?: string; web?: string; telefoon?: string; email?: string }
 
 export const QT = {
-  nl: { doc: 'Offerte', ref: 'Referentie', date: 'Documentdatum', valid: 'Vervaldatum', to: 'Aan', desc: 'Omschrijving', qty: 'Aantal', price: 'Prijs excl. btw', disc: 'Korting', amount: 'Bedrag excl. btw', excl: 'Totaal excl. btw', vat: (r: number) => `${r}% Btw`, total: 'Totaal', page: 'Pagina', bank: 'Bank', vatNo: 'Btw' , project: 'Project', site: 'Werfadres', subtotal: 'Subtotaal', know: 'Goed om te weten', inc: 'Inbegrepen', exc: 'Niet inbegrepen', plan: 'Planning', pay: 'Betaling', war: 'Garantie', vat6: 'Btw 6 %', sign: 'Voor akkoord', signName: 'Naam', signDate: 'Datum', signSig: 'Handtekening', signedOnline: (n: string, d: string) => `Online aanvaard door ${n} op ${d}`, groups: { maatwerk: 'Maatwerk', toestel: 'Toestellen', sanitair: 'Sanitair', dienst: 'Ontwerp, plaatsing en transport', vrij: 'Overige' } as Record<string, string> },
-  en: { doc: 'Quotation', ref: 'Reference', date: 'Date', valid: 'Valid until', to: 'To', desc: 'Description', qty: 'Qty', price: 'Price excl. VAT', disc: 'Discount', amount: 'Amount excl. VAT', excl: 'Total excl. VAT', vat: (r: number) => `${r}% VAT`, total: 'Total', page: 'Page', bank: 'Bank', vatNo: 'VAT' , project: 'Project', site: 'Site address', subtotal: 'Subtotal', know: 'Good to know', inc: 'Included', exc: 'Not included', plan: 'Planning', pay: 'Payment', war: 'Warranty', vat6: 'VAT 6 %', sign: 'For approval', signName: 'Name', signDate: 'Date', signSig: 'Signature', signedOnline: (n: string, d: string) => `Accepted online by ${n} on ${d}`, groups: { maatwerk: 'Custom furniture', toestel: 'Appliances', sanitair: 'Sanitary', dienst: 'Design, installation and transport', vrij: 'Other' } as Record<string, string> },
-  de: { doc: 'Angebot', ref: 'Referenz', date: 'Datum', valid: 'Gültig bis', to: 'An', desc: 'Beschreibung', qty: 'Menge', price: 'Preis exkl. MwSt.', disc: 'Rabatt', amount: 'Betrag exkl. MwSt.', excl: 'Summe exkl. MwSt.', vat: (r: number) => `${r}% MwSt.`, total: 'Gesamt', page: 'Seite', bank: 'Bank', vatNo: 'USt-IdNr.' , project: 'Projekt', site: 'Baustelle', subtotal: 'Zwischensumme', know: 'Gut zu wissen', inc: 'Inbegriffen', exc: 'Nicht inbegriffen', plan: 'Planung', pay: 'Zahlung', war: 'Garantie', vat6: 'MwSt. 6 %', sign: 'Einverstanden', signName: 'Name', signDate: 'Datum', signSig: 'Unterschrift', signedOnline: (n: string, d: string) => `Online angenommen von ${n} am ${d}`, groups: { maatwerk: 'Maßanfertigung', toestel: 'Geräte', sanitair: 'Sanitär', dienst: 'Entwurf, Montage und Transport', vrij: 'Sonstiges' } as Record<string, string> },
+  nl: { doc: 'Offerte', ref: 'Referentie', date: 'Documentdatum', valid: 'Vervaldatum', to: 'Aan', desc: 'Omschrijving', qty: 'Aantal', price: 'Prijs excl. btw', disc: 'Korting', amount: 'Bedrag excl. btw', excl: 'Totaal excl. btw', vat: (r: number) => `${r}% Btw`, total: 'Totaal', page: 'Pagina', bank: 'Bank', vatNo: 'Btw' , project: 'Project', site: 'Werfadres', subtotal: 'Subtotaal', know: 'Goed om te weten', inc: 'Inbegrepen', exc: 'Niet inbegrepen', plan: 'Planning', pay: 'Betaling', war: 'Garantie', vat6: 'Btw 6 %', sign: 'Voor akkoord', signName: 'Naam', signDate: 'Datum', signSig: 'Handtekening', signedOnline: (n: string, d: string) => `Online aanvaard door ${n} op ${d}`, groups: { maatwerk: 'Maatwerk', toestel: 'Toestellen', sanitair: 'Sanitair', dienst: 'Ontwerp, plaatsing en transport', vrij: 'Overige' } as Record<string, string>, optional: 'Optie', choose: 'Keuze', notChosen: 'niet gekozen', options: 'Opties: vink aan wat je wil, de prijs past zich aan.', signedBy: 'Digitaal ondertekend door', proof: 'Vingerafdruk' },
+  en: { doc: 'Quotation', ref: 'Reference', date: 'Date', valid: 'Valid until', to: 'To', desc: 'Description', qty: 'Qty', price: 'Price excl. VAT', disc: 'Discount', amount: 'Amount excl. VAT', excl: 'Total excl. VAT', vat: (r: number) => `${r}% VAT`, total: 'Total', page: 'Page', bank: 'Bank', vatNo: 'VAT' , project: 'Project', site: 'Site address', subtotal: 'Subtotal', know: 'Good to know', inc: 'Included', exc: 'Not included', plan: 'Planning', pay: 'Payment', war: 'Warranty', vat6: 'VAT 6 %', sign: 'For approval', signName: 'Name', signDate: 'Date', signSig: 'Signature', signedOnline: (n: string, d: string) => `Accepted online by ${n} on ${d}`, groups: { maatwerk: 'Custom furniture', toestel: 'Appliances', sanitair: 'Sanitary', dienst: 'Design, installation and transport', vrij: 'Other' } as Record<string, string>, optional: 'Option', choose: 'Choice', notChosen: 'not chosen', options: 'Options: tick what you want, the price adjusts.', signedBy: 'Digitally signed by', proof: 'Fingerprint' },
+  de: { doc: 'Angebot', ref: 'Referenz', date: 'Datum', valid: 'Gültig bis', to: 'An', desc: 'Beschreibung', qty: 'Menge', price: 'Preis exkl. MwSt.', disc: 'Rabatt', amount: 'Betrag exkl. MwSt.', excl: 'Summe exkl. MwSt.', vat: (r: number) => `${r}% MwSt.`, total: 'Gesamt', page: 'Seite', bank: 'Bank', vatNo: 'USt-IdNr.' , project: 'Projekt', site: 'Baustelle', subtotal: 'Zwischensumme', know: 'Gut zu wissen', inc: 'Inbegriffen', exc: 'Nicht inbegriffen', plan: 'Planung', pay: 'Zahlung', war: 'Garantie', vat6: 'MwSt. 6 %', sign: 'Einverstanden', signName: 'Name', signDate: 'Datum', signSig: 'Unterschrift', signedOnline: (n: string, d: string) => `Online angenommen von ${n} am ${d}`, groups: { maatwerk: 'Maßanfertigung', toestel: 'Geräte', sanitair: 'Sanitär', dienst: 'Entwurf, Montage und Transport', vrij: 'Sonstiges' } as Record<string, string>, optional: 'Option', choose: 'Auswahl', notChosen: 'nicht gewählt', options: 'Optionen: kreuzen Sie an, was Sie möchten, der Preis passt sich an.', signedBy: 'Digital unterschrieben von', proof: 'Fingerabdruck' },
 }
 const loc = (l: QLang) => (l === 'de' ? 'de-DE' : l === 'en' ? 'en-GB' : 'nl-BE')
 const num = (v: number, l: QLang) => Number(v).toLocaleString(loc(l), { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -25,7 +40,8 @@ const eur = (v: number, l: QLang) => '€ ' + num(v, l)
 const day = (d: string | null) => (d ? d.split('-').reverse().join('-') : '—')
 export const lineAmount = (l: QLine) => Math.round(Number(l.qty) * Number(l.unit_price) * (1 - Number(l.discount_pct) / 100) * 100) / 100
 
-export function quoteTotals(lines: QLine[]) {
+export function quoteTotals(all: QLine[], choice?: Set<string> | null) {
+  const lines = all.filter((l) => lineOn(l, choice))
   const by = new Map<number, number>()
   for (const l of lines) by.set(Number(l.vat_rate), (by.get(Number(l.vat_rate)) ?? 0) + lineAmount(l))
   const excl = [...by.values()].reduce((a, b) => a + b, 0)
@@ -38,23 +54,36 @@ const GROUP: Record<string, string> = { kasten: 'maatwerk', lades: 'maatwerk', w
 const ORDER = ['maatwerk', 'toestel', 'sanitair', 'vrij', 'dienst']
 const groupOf = (l: QLine) => GROUP[l.kind ?? ''] ?? 'vrij'
 
-export function QuoteDoc({ q, lines, company, lang = 'nl', btw6 }: { q: QDoc; lines: QLine[]; company: Company; lang?: QLang; btw6?: string | null }) {
+export function QuoteDoc({ q, lines, company, lang = 'nl', btw6, choice, onToggle, signature }: {
+  q: QDoc; lines: QLine[]; company: Company; lang?: QLang; btw6?: string | null
+  choice?: Set<string> | null; onToggle?: (l: QLine) => void; signature?: QSignature | null
+}) {
   const t = QT[lang]
-  const tot = quoteTotals(lines)
+  const tot = quoteTotals(lines, choice)
+  const on = (l: QLine) => lineOn(l, choice)
   // per rubriek (enkel als er meer dan één rubriek is)
   const groups = ORDER.map((g) => ({ g, ls: lines.filter((l) => groupOf(l) === g) })).filter((x) => x.ls.length)
   const grouped = q.show_groups !== false && groups.length > 1
   const blocks: [string, string | null | undefined][] = [[t.inc, q.included], [t.exc, q.excluded], [t.plan, q.planning], [t.pay, q.payment], [t.war, q.warranty]]
   const has6 = lines.some((l) => Number(l.vat_rate) === 6) && !!btw6
-  const row = (l: QLine, i: number) => (
-    <tr key={i}>
-      <td><div className="qdoc-lt">{l.title}</div>{l.description && <div className="qdoc-ld">{l.description}</div>}</td>
-      <td className="n">{num(l.qty, lang)}</td>
-      <td className="n">{num(l.unit_price, lang)}</td>
-      <td className="n">{Number(l.discount_pct) ? num(l.discount_pct, lang) + '%' : ''}</td>
-      <td className="n">{num(lineAmount(l), lang)}</td>
-    </tr>
-  )
+  const row = (l: QLine, i: number) => {
+    const inc = on(l)
+    const mark = l.opt_kind ? (onToggle
+      ? <input type={l.opt_kind === 'keuze' ? 'radio' : 'checkbox'} className="qdoc-pick" checked={inc} onChange={() => onToggle(l)} aria-label={l.title} />
+      : <span className="qdoc-box">{inc ? '☑' : '☐'}</span>) : null
+    return (
+      <tr key={i} className={l.opt_kind ? 'qdoc-opt' + (inc ? '' : ' off') : ''} onClick={onToggle && l.opt_kind ? () => onToggle(l) : undefined}>
+        <td>
+          <div className="qdoc-lt">{mark}{l.title}{l.opt_kind && <span className="qdoc-tag">{l.opt_kind === 'keuze' ? `${t.choose}${l.opt_group ? ': ' + l.opt_group : ''}` : t.optional}</span>}</div>
+          {l.description && <div className="qdoc-ld">{l.description}</div>}
+        </td>
+        <td className="n">{num(l.qty, lang)}</td>
+        <td className="n">{num(l.unit_price, lang)}</td>
+        <td className="n">{Number(l.discount_pct) ? num(l.discount_pct, lang) + '%' : ''}</td>
+        <td className="n">{inc ? num(lineAmount(l), lang) : <span className="qdoc-nc">{t.notChosen}</span>}</td>
+      </tr>
+    )
+  }
   return (
     <article className="qdoc">
       <header className="qdoc-head">
@@ -88,13 +117,14 @@ export function QuoteDoc({ q, lines, company, lang = 'nl', btw6 }: { q: QDoc; li
       {q.title && <h2 className="qdoc-title">{q.title}</h2>}
       {(q.project_code || q.site) && <p className="qdoc-proj">{q.project_code && <>{t.project} {q.project_code}{q.project_title ? ' · ' + q.project_title : ''}</>}{q.site && <>{q.project_code ? ' · ' : ''}{t.site}: {q.site}</>}</p>}
       {q.intro && <p className="qdoc-text">{q.intro}</p>}
+      {onToggle && lines.some((l) => l.opt_kind) && <p className="qdoc-hint">{t.options}</p>}
       <table className="qdoc-lines">
         <thead><tr><th>{t.desc}</th><th className="n">{t.qty}</th><th className="n">{t.price}</th><th className="n">{t.disc}</th><th className="n">{t.amount}</th></tr></thead>
         {grouped ? groups.map(({ g, ls }) => (
           <tbody key={g} className="qdoc-group">
             <tr className="qdoc-gh"><td colSpan={5}>{t.groups[g]}</td></tr>
             {ls.map(row)}
-            <tr className="qdoc-sub"><td colSpan={4}>{t.subtotal} {t.groups[g].toLowerCase()}</td><td className="n">{num(ls.reduce((a, l) => a + lineAmount(l), 0), lang)}</td></tr>
+            <tr className="qdoc-sub"><td colSpan={4}>{t.subtotal} {t.groups[g].toLowerCase()}</td><td className="n">{num(ls.filter(on).reduce((a, l) => a + lineAmount(l), 0), lang)}</td></tr>
           </tbody>
         )) : <tbody>{lines.map(row)}</tbody>}
       </table>
@@ -118,7 +148,12 @@ export function QuoteDoc({ q, lines, company, lang = 'nl', btw6 }: { q: QDoc; li
         </section>
       )}
       <section className="qdoc-sign">
-        {q.status === 'aanvaard' && q.accepted_name
+        {signature
+          ? <div className="qdoc-sigbox">
+              {signature.png && <img src={signature.png} alt="" />}
+              <div><b>{t.signedBy} {signature.signer_name}</b><span>{new Date(signature.signed_at).toLocaleString(loc(lang), { timeZone: 'Europe/Brussels', dateStyle: 'long', timeStyle: 'short' })}{signature.ip ? ' · IP ' + signature.ip : ''}</span><small>{t.proof} SHA-256: {signature.hash}</small></div>
+            </div>
+          : q.status === 'aanvaard' && q.accepted_name
           ? <p className="qdoc-signed">✓ {t.signedOnline(q.accepted_name, day(q.accepted_at?.slice(0, 10) ?? null))}</p>
           : <><b>{t.sign}</b><div className="qdoc-sign-row"><span>{t.signName}</span><span>{t.signDate}</span><span>{t.signSig}</span></div></>}
       </section>

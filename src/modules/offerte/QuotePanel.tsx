@@ -4,7 +4,7 @@ import { useQuery } from '../../core/useQuery'
 import { ErrorBox, Loading } from '../../core/ui'
 import { fmtEur } from '../../core/format'
 import { toast } from '../../core/toast'
-import { QuoteDoc, printQuote, lineAmount, quoteTotals, type Company, type QLang } from '../../core/QuoteDoc'
+import { QuoteDoc, printQuote, lineAmount, quoteTotals, lineOn, type Company, type QLang, type QSignature } from '../../core/QuoteDoc'
 
 /**
  * Tab "Offerte" op de projectpagina. Opbouwen uit de kosten = RPC quote_generate (kasten, lades, werkblad + vaste regels),
@@ -17,12 +17,13 @@ type Quote = {
   total_excl: number; total_incl: number; cost: number | null; margin_eur: number; n_zero: number; created_at: string
   included: string | null; excluded: string | null; planning: string | null; payment: string | null; warranty: string | null; show_groups: boolean; project_title: string | null; site: string | null
 }
-type Line = { id: string; quote_id: string; sort: number; title: string; description: string | null; qty: number; unit_price: number; discount_pct: number; vat_rate: number; kind: string | null; source: string | null; cost_basis: number | null }
+type Line = { id: string; quote_id: string; sort: number; title: string; description: string | null; qty: number; unit_price: number; discount_pct: number; vat_rate: number; kind: string | null; source: string | null; cost_basis: number | null; opt_kind: 'optie' | 'keuze' | null; opt_group: string | null; opt_default: boolean; selected: boolean | null }
+type Sig = { id: string; signer_name: string; signer_email: string | null; signed_at: string; ip: string | null; user_agent: string | null; signature_png: string | null; doc_hash: string; vat6_confirmed: boolean | null; consent_text: string | null; confirmation_sent_at: string | null }
 
 const STATUS: Record<string, [string, string]> = {
   concept: ['Concept', 'muted'], verstuurd: ['Verstuurd', 'warn'], aanvaard: ['Aanvaard', 'ok'], geweigerd: ['Geweigerd', 'bad'], vervallen: ['Vervallen', 'muted'], vervangen: ['Vervangen', 'muted'],
 }
-const KINDS: [string, string, number | null][] = [['vrij', 'Vrije regel', null], ['toestel', 'Toestel (21 % btw)', 21], ['sanitair', 'Sanitair', null], ['dienst', 'Dienst / arbeid', null]]
+const KINDS: [string, string, number | null][] = [['vrij', 'Vrije regel', null], ['toestel', 'Toestel (21 % btw)', 21], ['sanitair', 'Sanitair', null], ['dienst', 'Dienst / arbeid', null], ['optie', 'Optie (klant vinkt aan)', null], ['keuze', 'Alternatief (klant kiest één)', null]]
 
 export function QuotePanel({ project }: { project: string }) {
   const list = useQuery<Quote[]>(() => supabase.from('app_quotes').select('*').eq('project_code', project).order('created_at', { ascending: false }), [project])
@@ -61,6 +62,9 @@ export function QuotePanel({ project }: { project: string }) {
 
 function QuoteEditor({ q, company, btw6, onChange, onGenerate, busy }: { q: Quote; company: Company; btw6: string | null; onChange: () => void; onGenerate: (m?: number | null) => void; busy: boolean }) {
   const lines = useQuery<Line[]>(() => supabase.from('quote_lines').select('*').eq('quote_id', q.id).order('sort').order('created_at'), [q.id, q.total_excl])
+  const sigs = useQuery<Sig[]>(() => supabase.from('quote_signatures').select('*').eq('quote_id', q.id).order('signed_at', { ascending: false }), [q.id, q.status])
+  const sig = (sigs.data ?? [])[0] ?? null
+  const qsig: QSignature | null = sig ? { signer_name: sig.signer_name, signed_at: sig.signed_at, hash: sig.doc_hash, png: sig.signature_png, ip: sig.ip } : null
   const [view, setView] = useState<'bewerken' | 'voorbeeld'>(q.status === 'concept' ? 'bewerken' : 'voorbeeld')
   const [margin, setMargin] = useState<string>(q.margin_pct != null ? String(q.margin_pct) : '')
   const [sending, setSending] = useState(false)
@@ -69,8 +73,9 @@ function QuoteEditor({ q, company, btw6, onChange, onGenerate, busy }: { q: Quot
   const editable = q.status === 'concept'
   const ls = lines.data ?? []
   const tot = useMemo(() => quoteTotals(ls), [ls])
-  const cost = ls.reduce((a, l) => a + Number(l.cost_basis ?? 0), 0)
-  const marginEur = ls.filter((l) => l.cost_basis != null).reduce((a, l) => a + lineAmount(l) - Number(l.cost_basis), 0)
+  const cost = ls.filter((l) => lineOn(l)).reduce((a, l) => a + Number(l.cost_basis ?? 0), 0)
+  const marginEur = ls.filter((l) => l.cost_basis != null && lineOn(l)).reduce((a, l) => a + lineAmount(l) - Number(l.cost_basis), 0)
+  const groups = [...new Set(ls.filter((l) => l.opt_kind === 'keuze').map((l) => l.opt_group ?? ''))]
   const zero = ls.filter((l) => Number(l.unit_price) === 0 && Number(l.discount_pct) < 100)
 
   // naam en adres zoals ze op de offerte komen (concept: uit klant/project)
@@ -97,7 +102,9 @@ function QuoteEditor({ q, company, btw6, onChange, onGenerate, busy }: { q: Quot
   const addLine = async (kind: string, vat: number | null) => {
     const sort = Math.max(0, ...ls.filter((l) => l.sort < 800).map((l) => l.sort)) + 10
     const std = ls.find((l) => l.kind !== 'toestel')?.vat_rate ?? 6
-    const { error } = await supabase.from('quote_lines').insert({ quote_id: q.id, sort, title: kind === 'toestel' ? 'Toestel' : 'Nieuwe regel', qty: 1, unit_price: 0, vat_rate: vat ?? std, kind })
+    const opt = kind === 'optie' || kind === 'keuze' ? kind : null
+    const grp = kind === 'keuze' ? (groups[0] || 'Werkblad') : null
+    const { error } = await supabase.from('quote_lines').insert({ quote_id: q.id, sort, title: kind === 'toestel' ? 'Toestel' : opt === 'keuze' ? 'Alternatief' : opt === 'optie' ? 'Optie' : 'Nieuwe regel', qty: 1, unit_price: 0, vat_rate: vat ?? std, kind: opt ? 'vrij' : kind, opt_kind: opt, opt_group: grp, opt_default: opt === 'keuze' ? !ls.some((l) => l.opt_kind === 'keuze' && l.opt_group === grp) : opt === 'optie' ? false : true })
     if (error) toast(error.message, 'err'); else { lines.reload(); onChange() }
   }
   const removeLine = async (l: Line) => {
@@ -195,6 +202,14 @@ function QuoteEditor({ q, company, btw6, onChange, onGenerate, busy }: { q: Quot
                 <input className="qline-title" disabled={!editable} defaultValue={l.title} onBlur={(e) => e.target.value !== l.title && saveL(l.id, { title: e.target.value })} />
                 <textarea disabled={!editable} rows={Math.min(8, Math.max(1, (l.description ?? '').split('\n').length))} placeholder="omschrijving" defaultValue={l.description ?? ''} onBlur={(e) => e.target.value !== (l.description ?? '') && saveL(l.id, { description: e.target.value || null })} />
                 {l.source && <small className="muted">automatisch uit de kosten · kostprijs {fmtEur(l.cost_basis)}</small>}
+                <div className="qline-opt">
+                  <select disabled={!editable} value={l.opt_kind ?? ''} onChange={(e) => { const v = e.target.value || null; saveL(l.id, { opt_kind: v as Line['opt_kind'], opt_group: v === 'keuze' ? (l.opt_group || groups[0] || 'Keuze 1') : null, opt_default: v === 'optie' ? false : true }) }}>
+                    <option value="">Vaste regel</option><option value="optie">Optie (aanvinken)</option><option value="keuze">Alternatief (één kiezen)</option>
+                  </select>
+                  {l.opt_kind === 'keuze' && <input disabled={!editable} list={'grp-' + q.id} placeholder="groep, bv. Werkblad" defaultValue={l.opt_group ?? ''} onBlur={(e) => e.target.value !== (l.opt_group ?? '') && saveL(l.id, { opt_group: e.target.value || null })} />}
+                  {l.opt_kind && <label className="qcheck"><input type="checkbox" disabled={!editable} checked={l.opt_default} onChange={(e) => saveL(l.id, { opt_default: e.target.checked })} /> {l.opt_kind === 'keuze' ? 'standaardkeuze' : 'standaard aangevinkt'}</label>}
+                  {l.selected != null && <span className={'jo-pill ' + (l.selected ? 'ok' : 'muted')}>{l.selected ? 'gekozen door klant' : 'niet gekozen'}</span>}
+                </div>
               </div>
               <div className="qline-nums">
                 <label>Aantal<input type="number" disabled={!editable} defaultValue={l.qty} onBlur={(e) => Number(e.target.value) !== Number(l.qty) && saveL(l.id, { qty: Number(e.target.value) })} /></label>
@@ -206,6 +221,7 @@ function QuoteEditor({ q, company, btw6, onChange, onGenerate, busy }: { q: Quot
               </div>
             </div>
           ))}
+          <datalist id={'grp-' + q.id}>{groups.map((g) => <option key={g} value={g} />)}</datalist>
           {editable && <div className="order-actions">{KINDS.map(([k, label, vat]) => <button key={k} onClick={() => addLine(k, vat)}>+ {label}</button>)}</div>}
         </div>
       ))}
@@ -213,10 +229,29 @@ function QuoteEditor({ q, company, btw6, onChange, onGenerate, busy }: { q: Quot
       {view === 'voorbeeld' && (
         <div className="qpreview">
           <div className="order-actions"><button onClick={printQuote}>Afdrukken / PDF</button></div>
-          <QuoteDoc q={{ ...q, client_name: q.client_name ?? preview?.name ?? '', client_address: q.client_address ?? preview?.address ?? '' }} lines={ls} company={company} lang={(q.language as QLang) ?? 'nl'} btw6={btw6} />
+          <QuoteDoc q={{ ...q, client_name: q.client_name ?? preview?.name ?? '', client_address: q.client_address ?? preview?.address ?? '' }} lines={ls} company={company} lang={(q.language as QLang) ?? 'nl'} btw6={btw6} signature={qsig} />
         </div>
       )}
 
+      {sig && (
+        <details className="qtexts qproof" open>
+          <summary>Ondertekeningsbewijs</summary>
+          <div className="qproof-grid">
+            {sig.signature_png && <img src={sig.signature_png} alt="handtekening" />}
+            <dl>
+              <dt>Ondertekend door</dt><dd>{sig.signer_name} · {sig.signer_email}</dd>
+              <dt>Tijdstip</dt><dd>{new Date(sig.signed_at).toLocaleString('nl-BE', { timeZone: 'Europe/Brussels' })}</dd>
+              <dt>IP-adres</dt><dd>{sig.ip ?? '—'}</dd>
+              <dt>Toestel</dt><dd className="small">{sig.user_agent ?? '—'}</dd>
+              <dt>6 % btw-attest</dt><dd>{sig.vat6_confirmed == null ? 'n.v.t.' : sig.vat6_confirmed ? 'bevestigd' : 'niet bevestigd'}</dd>
+              <dt>Verklaring</dt><dd className="small">{sig.consent_text}</dd>
+              <dt>SHA-256</dt><dd className="small mono">{sig.doc_hash}</dd>
+              <dt>Bevestiging</dt><dd>{sig.confirmation_sent_at ? 'gemaild ' + new Date(sig.confirmation_sent_at).toLocaleString('nl-BE') : 'nog niet verstuurd'}</dd>
+            </dl>
+          </div>
+          <p className="muted small">De ondertekende versie (regels, keuzes, totalen) is vastgelegd en kan niet meer gewijzigd worden.</p>
+        </details>
+      )}
       <div className="quote-actions">
         {editable && (
           <div className="quote-send">
