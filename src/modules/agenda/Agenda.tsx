@@ -26,6 +26,7 @@ type Ev = {
   show_as?: string
   categories?: string[]
   emails?: string[]
+  responses?: { email: string; name: string | null; response: string }[]
 }
 type Proj = { project_code: string; title: string | null; client_name: string | null; intro_at: string | null; target_install_week: string | null; phase: string }
 type Note = { event_key: string; note: string | null; category: Cat | null; project_code: string | null; hold?: boolean; hold_reason?: string | null }
@@ -252,6 +253,7 @@ export function Agenda() {
                       <button key={e.id} className={'agenda-ev ' + cls(e)} onClick={() => setSel(e)}>
                         <span className="agenda-time">{e.job?.slot ? SLOTS[e.job.slot].label : e.all_day ? 'Hele dag' : `${hm(e.start)}–${hm(e.end)}`}{e.job?.job_type ? ` · ${e.job.job_type}` : ''}</span>
                         <span className="agenda-title">{e.title}</span>
+                        {(e.responses ?? []).length > 0 && <span className="agenda-loc">{e.responses!.every((r) => r.response === 'accepted') ? '✓ aanvaard' : e.responses!.some((r) => r.response === 'declined') ? '✗ geweigerd' : '? wacht op antwoord'}</span>}
                         {e.job && <span className={'job-st small ' + e.job.status}>{JOB_STATUS[e.job.status]}</span>}
                         {e.location && <span className="agenda-loc">{e.location}</span>}
                         {notes[keyOf(e)]?.note && <span className="agenda-loc">✎ {notes[keyOf(e)]!.note}</span>}
@@ -527,6 +529,16 @@ function Detail({ ev, cat, note, project, projects, onClose, onChanged, onJob }:
           </div>
         )}
         <h2 className={note?.hold ? 'held-title' : undefined}>{ev.title}</h2>
+        {(ev.responses ?? []).length > 0 && (
+          <p className="inv-list">
+            {(ev.responses ?? []).map((r) => (
+              <span key={r.email} className={'inv inv-' + r.response}>
+                {r.response === 'accepted' ? '✓' : r.response === 'declined' ? '✗' : r.response === 'tentativelyAccepted' ? '~' : '?'} {r.name || r.email}
+                <small>{r.response === 'accepted' ? 'aanvaard' : r.response === 'declined' ? 'geweigerd' : r.response === 'tentativelyAccepted' ? 'voorlopig' : 'nog geen antwoord'}</small>
+              </span>
+            ))}
+          </p>
+        )}
         <p>{new Date(ev.start).toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}{!ev.all_day && ` · ${hm(ev.start)}–${hm(ev.end)}`}</p>
 
         {mode !== 'edit' && (

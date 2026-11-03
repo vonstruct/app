@@ -1237,3 +1237,8 @@ summary.vd-h::-webkit-details-marker { display: none; }
 .hold-banner b { color: var(--bad); }
 .hold-invite { display: grid; gap: 6px; margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
 .hold-invite input:not([type=checkbox]) { width: 100%; margin-top: 3px; }
+.inv-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
+.inv { display: inline-flex; gap: 6px; align-items: baseline; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); font-size: 13px; }
+.inv small { color: var(--muted); }
+.inv-accepted { border-color: color-mix(in srgb, var(--good) 45%, var(--line)); color: var(--good); }
+.inv-declined { border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); color: var(--bad); }
