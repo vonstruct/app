@@ -40,6 +40,8 @@ const actionFor = (f: Flag): { to: string; label: string } => {
     case 'mail': return { to: '/mails?tab=app', label: 'Mails bekijken' }
     case 'mail_antwoord': return { to: `/inbox?focus=${f.ref}`, label: 'Antwoorden' }
     case 'von_voorstel': return { to: '/von', label: 'Bekijken' }
+    case 'afspraak_hold': return { to: '/agenda', label: 'Annuleren of verzetten' }
+    case 'bestelling': return { to: f.project_code ? `/projecten/${encodeURIComponent(f.project_code)}?tab=bestellingen` : '/projecten', label: 'Bestelling bekijken' }
     case 'backup': return { to: 'https://github.com/vonstruct/platform/actions/workflows/backup-onedrive.yml', label: 'Back-up bekijken' }
     default: return { to: proj, label: 'Openen' }
   }
@@ -61,7 +63,7 @@ const ICON: Record<string, string> = {
 const iconFor = (kind: string) =>
   kind === 'von_voorstel' ? 'von' : kind === 'mail_antwoord' ? 'mail' : ['prijzen', 'kosten'].includes(kind) ? 'euro'
   : ['aanvraag_nieuw', 'survey_nieuw', 'survey_open', 'klant_email', 'stilstand'].includes(kind) ? 'person'
-  : kind === 'opdracht' ? 'cal' : ['optimalisatie', 'stuklijst_fout', 'stuklijst_opm'].includes(kind) ? 'draw' : 'gear'
+  : kind === 'opdracht' || kind === 'afspraak_hold' ? 'cal' : ['optimalisatie', 'stuklijst_fout', 'stuklijst_opm'].includes(kind) ? 'draw' : 'gear'
 const Ico = ({ name }: { name: string }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={ICON[name]} /></svg>
 )

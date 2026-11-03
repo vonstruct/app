@@ -1227,3 +1227,11 @@ summary.vd-h::-webkit-details-marker { display: none; }
 .tb-von-mark { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 6px; background: #c9a24a; color: #0e1729; font: 600 12px "Jost", system-ui, sans-serif; }
 .tb-avatar { width: 36px; height: 36px; border-radius: 10px; font-size: 13px; }
 .tb-me { margin-left: 2px; }
+
+/* Afspraak on hold: blijft zichtbaar, doorstreept, tot je annuleert of verzet */
+.held { opacity: .75; }
+.held .agenda-title, .held .agenda-next-item strong, .agenda-next-item.held strong, .held-title { text-decoration: line-through; text-decoration-color: var(--bad); text-decoration-thickness: 2px; }
+.held .agenda-title::after, .agenda-next-item.held strong::after { content: 'gaat mogelijk niet door'; display: inline-block; margin-left: 8px; padding: 0 7px; border-radius: 10px; background: color-mix(in srgb, var(--bad) 15%, transparent); color: var(--bad); font-size: 11px; font-weight: 600; text-decoration: none; vertical-align: 2px; }
+.agenda-mev.held { text-decoration: line-through; }
+.hold-banner { display: grid; gap: 6px; margin: 8px 0 12px; padding: 12px 14px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--bad) 40%, var(--line)); background: color-mix(in srgb, var(--bad) 8%, var(--panel)); }
+.hold-banner b { color: var(--bad); }

@@ -28,7 +28,7 @@ type Ev = {
   emails?: string[]
 }
 type Proj = { project_code: string; title: string | null; client_name: string | null; intro_at: string | null; target_install_week: string | null; phase: string }
-type Note = { event_key: string; note: string | null; category: Cat | null; project_code: string | null }
+type Note = { event_key: string; note: string | null; category: Cat | null; project_code: string | null; hold?: boolean; hold_reason?: string | null }
 type Rel = { kind: 'klant' | 'onderaannemer' | 'partner'; name: string; email: string | null }
 
 export type Cat = 'klant' | 'onderaannemer' | 'partner' | 'mezelf' | 'project'
@@ -97,7 +97,7 @@ export function Agenda() {
   const toggle = (c: Cat) => setHidden((h) => { const n = h.includes(c) ? h.filter((x) => x !== c) : [...h, c]; try { localStorage.setItem('agenda.hidden', JSON.stringify(n)) } catch { /* */ } return n })
 
   const loadNotes = useCallback(async () => {
-    const { data } = await supabase.from('agenda_notes').select('event_key,note,category,project_code')
+    const { data } = await supabase.from('agenda_notes').select('event_key,note,category,project_code,hold,hold_reason')
     setNotes(Object.fromEntries(((data as Note[]) ?? []).map((n) => [n.event_key, n])))
   }, [])
   useEffect(() => {
@@ -210,7 +210,7 @@ export function Agenda() {
     : view === 'week'
       ? `Week ${isoWeek(from).week} · ${from.toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' })} – ${addDays(from, 6).toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', year: 'numeric' })}`
       : anchor.toLocaleDateString('nl-BE', { month: 'long', year: 'numeric' })
-  const cls = (e: Ev) => 'cat-' + classify(e) + (e.job && !e.job.for_me ? (e.job.status === 'gepland' ? ' unconf' : e.job.status === 'voorstel' ? ' unconf prop' : ' conf') : '')
+  const cls = (e: Ev) => 'cat-' + classify(e) + (e.job && !e.job.for_me ? (e.job.status === 'gepland' ? ' unconf' : e.job.status === 'voorstel' ? ' unconf prop' : ' conf') : '') + (notes[keyOf(e)]?.hold ? ' held' : '')
   const loading = events === null
 
   return (
@@ -391,7 +391,7 @@ async function call(body: Record<string, unknown>) {
 /** Eigen info bij een afspraak (enkel in de app): notitie, soort en project. */
 async function saveNote(key: string, note: string, category: Cat | '', project: string) {
   const row = { event_key: key, note: note.trim() || null, category: category || null, project_code: project.trim() || null, updated_at: new Date().toISOString() }
-  if (!row.note && !row.category && !row.project_code) return (await supabase.from('agenda_notes').delete().eq('event_key', key)).error?.message ?? null
+  if (!row.note && !row.category && !row.project_code) return (await supabase.from('agenda_notes').delete().eq('event_key', key).eq('hold', false)).error?.message ?? null
   return (await supabase.from('agenda_notes').upsert(row)).error?.message ?? null
 }
 
@@ -448,6 +448,11 @@ function Detail({ ev, cat, note, project, projects, onClose, onChanged, onJob }:
     if (e) return setErr(e)
     onChanged(reload)
   }
+  const putOnHold = async () => {
+    setBusy(true)
+    await supabase.from('agenda_notes').upsert({ event_key: keyOf(ev), hold: true, hold_reason: 'Met de hand on hold gezet', hold_at: new Date().toISOString(), event_title: ev.title, event_start: ev.start, updated_at: new Date().toISOString() })
+    setBusy(false); onChanged(false)
+  }
   const cancel = async () => {
     setBusy(true); setErr(null)
     const e = await call({ action: 'cancel', ...ids, message: msg })
@@ -465,7 +470,18 @@ function Detail({ ev, cat, note, project, projects, onClose, onChanged, onJob }:
           </span>
           <button className="link" onClick={onClose} aria-label="Sluiten">✕</button>
         </div>
-        <h2>{ev.title}</h2>
+        {note?.hold && (
+          <div className="hold-banner">
+            <b>Gaat mogelijk niet door</b>
+            <span>{note.hold_reason ?? 'De afspraak staat on hold.'}</span>
+            <span className="toolbar">
+              <button disabled={busy} onClick={async () => { setBusy(true); await supabase.from('agenda_notes').update({ hold: false, hold_reason: null, hold_at: null, updated_at: new Date().toISOString() }).eq('event_key', keyOf(ev)); setBusy(false); onChanged(false) }}>Toch doorgaan</button>
+              <button className="primary" onClick={() => setMode('cancel')}>Annuleren</button>
+              <button onClick={() => setMode('edit')}>Verzetten</button>
+            </span>
+          </div>
+        )}
+        <h2 className={note?.hold ? 'held-title' : undefined}>{ev.title}</h2>
         <p>{new Date(ev.start).toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}{!ev.all_day && ` · ${hm(ev.start)}–${hm(ev.end)}`}</p>
 
         {mode !== 'edit' && (
@@ -507,7 +523,7 @@ function Detail({ ev, cat, note, project, projects, onClose, onChanged, onJob }:
         )}
         {err && <p className="auth-msg error">{err}</p>}
         <div className="toolbar">
-          {mode === 'view' && <><button className="primary" onClick={() => setMode('edit')}>Wijzigen / info toevoegen</button><button onClick={() => onJob({ title: ev.source === 'planning' ? ev.title : '', slot: ev.all_day ? 'dag' : null, start_at: ev.all_day ? new Date(new Date(ev.start).setHours(8, 0, 0, 0)).toISOString() : ev.start, end_at: ev.all_day ? new Date(new Date(new Date(ev.end).getTime() - 86400000).setHours(16, 30, 0, 0)).toISOString() : ev.end, address: ev.location ?? null, project_code: project ?? null, instructions: note?.note ?? null })}>Opdracht voor onderaannemer</button>{timeEditable && <button className="danger-btn" onClick={() => setMode('cancel')}>Annuleren</button>}</>}
+          {mode === 'view' && <><button className="primary" onClick={() => setMode('edit')}>Wijzigen / info toevoegen</button><button onClick={() => onJob({ title: ev.source === 'planning' ? ev.title : '', slot: ev.all_day ? 'dag' : null, start_at: ev.all_day ? new Date(new Date(ev.start).setHours(8, 0, 0, 0)).toISOString() : ev.start, end_at: ev.all_day ? new Date(new Date(new Date(ev.end).getTime() - 86400000).setHours(16, 30, 0, 0)).toISOString() : ev.end, address: ev.location ?? null, project_code: project ?? null, instructions: note?.note ?? null })}>Opdracht voor onderaannemer</button>{!note?.hold && ev.source !== 'planning' && <button disabled={busy} onClick={putOnHold} title="Blijft zichtbaar, doorstreept, tot je annuleert of verzet">On hold</button>}{timeEditable && <button className="danger-btn" onClick={() => setMode('cancel')}>Annuleren</button>}</>}
           {mode === 'edit' && <><button className="primary" disabled={busy} onClick={save}>{busy ? 'Bewaren…' : 'Bewaren'}</button><button onClick={() => setMode('view')}>Terug</button></>}
           {mode === 'cancel' && <><button className="danger-btn" disabled={busy} onClick={cancel}>{busy ? 'Annuleren…' : 'Afspraak annuleren'}</button><button onClick={() => setMode('view')}>Terug</button></>}
         </div>
