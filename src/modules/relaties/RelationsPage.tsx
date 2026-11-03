@@ -1,4 +1,5 @@
 import { useSearchParams } from 'react-router'
+import { RelationCards } from './RelationCards'
 import { EditableTable, type EditCol } from '../../core/EditableTable'
 import { Tabs } from '../../core/ui'
 
@@ -54,12 +55,25 @@ export function RelationsPage() {
   const [params, setParams] = useSearchParams()
   const sec = SECTIONS.find((s) => s.id === params.get('tab')) ?? SECTIONS[0]
   const [fid, fkey] = (params.get('focus') ?? '').split(':')
+  // focus (vanuit de control tower of het zoeken) opent meteen de tabel
+  const view = params.get('view') === 'tabel' || (fid && fkey) ? 'tabel' : 'kaarten'
   return (
     <section>
-      <h1>Relaties</h1>
-      <p className="muted">Klik in een cel om te wijzigen. Alles wordt meteen bewaard.</p>
-      <Tabs tabs={SECTIONS.map((s) => ({ id: s.id, label: s.label }))} active={sec.id} onChange={(id) => setParams({ tab: id }, { replace: true })} />
-      <p className="muted">{sec.intro}</p>
+      <div className="page-head">
+        <div>
+          <h1>Relaties</h1>
+          <p className="muted">{sec.intro}</p>
+        </div>
+        <div className="segmented small">
+          <button className={view === 'kaarten' ? 'on' : ''} onClick={() => setParams({ tab: sec.id }, { replace: true })}>Kaarten</button>
+          <button className={view === 'tabel' ? 'on' : ''} onClick={() => setParams({ tab: sec.id, view: 'tabel' }, { replace: true })}>Bewerken (tabel)</button>
+        </div>
+      </div>
+      <Tabs tabs={SECTIONS.map((s) => ({ id: s.id, label: s.label }))} active={sec.id} onChange={(id) => setParams(view === 'tabel' ? { tab: id, view: 'tabel' } : { tab: id }, { replace: true })} />
+      {view === 'kaarten' ? (
+        <RelationCards table={sec.table as 'clients' | 'subcontractors' | 'partners'} onEdit={(id) => setParams({ tab: sec.id, view: 'tabel', focus: `${id}:${sec.table === 'clients' ? 'last_name' : 'name'}` }, { replace: true })} />
+      ) : (<>
+      <p className="muted small">Klik in een cel om te wijzigen. Alles wordt meteen bewaard.</p>
       {fid && fkey && <p className="notice">Vul het gemarkeerde veld in en druk op Enter.</p>}
       <EditableTable
         key={sec.id}
@@ -70,6 +84,7 @@ export function RelationsPage() {
         canDelete={sec.canDelete}
         focus={fid && fkey ? { id: fid, key: fkey } : undefined}
       />
+      </>)}
     </section>
   )
 }

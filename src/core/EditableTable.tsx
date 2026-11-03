@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from './supabase'
+import { toast } from './toast'
 import { useQuery } from './useQuery'
 import { ErrorBox, Loading } from './ui'
 
@@ -31,6 +32,7 @@ export function EditableTable({ table, columns, orderBy = 'id', newRow = {}, emp
   const save = async (id: unknown, key: string, value: unknown) => {
     const { error } = await supabase.from(table).update({ [key]: value }).eq('id', id)
     setMsg(error ? error.message : 'Bewaard')
+    toast(error ? 'Niet bewaard: ' + error.message : 'Bewaard', error ? 'err' : 'ok')
     if (error) q.reload()
   }
   const add = async () => {

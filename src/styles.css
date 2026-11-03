@@ -1060,3 +1060,40 @@ button { border-radius: 8px; }
 .portal-contact-btns { display: flex; gap: 8px; flex-wrap: wrap; }
 .portal-contact-btn.wa { background: #25d366; border-color: #25d366; color: #06301a !important; font-weight: 600; }
 .portal-contact-btn.wa:hover { background: #2fe072; }
+
+/* ---------- Projectkaarten v3 ---------- */
+.pcard { border-radius: 12px; gap: 12px; }
+.pcard-who { display: flex; gap: 12px; align-items: flex-start; min-width: 0; }
+.pcard-av { width: 40px; height: 40px; border-radius: 50%; flex: none; display: grid; place-items: center; background: var(--gold-soft); color: var(--gold-ink); font: 600 14px "Jost", system-ui, sans-serif; }
+.pcard-head h3 { font-family: "Jost", "Avenir Next", system-ui, sans-serif; font-weight: 500; font-size: 18px; }
+.pcard-code { display: inline-block; margin-right: 8px; padding: 0 6px; border-radius: 4px; background: color-mix(in srgb, var(--ink) 6%, transparent); color: var(--muted) !important; font: 500 11.5px "Jost", system-ui, sans-serif; letter-spacing: .06em; }
+.pcard-ico { width: 14px; height: 14px; vertical-align: -2px; margin-right: 6px; }
+.pcard-facts dd { font-weight: 500; }
+.tabs .tab { border-bottom: 2px solid transparent; }
+.tabs .tab.active { border-bottom-color: var(--gold); color: var(--ink); }
+
+/* ---------- Relaties v3: contactkaarten ---------- */
+.rc-bar { display: flex; gap: 12px; align-items: center; margin: 4px 0 14px; flex-wrap: wrap; }
+.rc-bar .search-input { flex: 1 1 280px; max-width: 420px; }
+.rc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px; }
+.rc { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; gap: 10px; align-content: start; }
+.rc:hover { border-color: color-mix(in srgb, var(--gold) 45%, var(--line)); }
+.rc.inactive { opacity: .65; }
+.rc-top { display: flex; gap: 12px; align-items: flex-start; }
+.rc-av { width: 40px; height: 40px; border-radius: 50%; flex: none; display: grid; place-items: center; background: var(--gold-soft); color: var(--gold-ink); font: 600 14px "Jost", system-ui, sans-serif; }
+.rc-who { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.rc-who b { font-family: "Jost", "Avenir Next", system-ui, sans-serif; font-weight: 500; font-size: 16px; }
+.rc-edit { margin-left: auto; }
+.rc-contact { display: flex; flex-direction: column; gap: 1px; font-size: 13.5px; }
+.rc-line { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: all; }
+.rc-line.missing { color: var(--warn); user-select: none; }
+.rc-acts { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.rc-btn { padding: 5px 11px; border-radius: 7px; border: 1px solid var(--line); color: var(--ink) !important; font-size: 13px; font-weight: 500; }
+.rc-btn:hover { border-color: var(--muted); text-decoration: none; }
+.rc-btn.wa { background: #25d366; border-color: #25d366; color: #06301a !important; }
+.rc-lang { font-size: 11.5px; padding: 2px 7px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 6%, transparent); color: var(--muted); }
+.rc-projs { display: flex; gap: 6px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 8px; }
+.rc-proj { font-size: 12.5px; padding: 2px 8px; border-radius: 999px; background: var(--gold-soft); color: var(--gold-ink) !important; }
+.rc-proj.done { background: color-mix(in srgb, var(--ink) 6%, transparent); color: var(--muted) !important; }
+.rc-proj:hover { text-decoration: none; filter: brightness(.97); }
+.vd-toast.err { background: #5a1c14; }

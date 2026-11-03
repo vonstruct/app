@@ -5,6 +5,7 @@ import { supabase } from './supabase'
 import logo from '../assets/vonstruct-logo.webp'
 import { Von } from './Von'
 import { SearchButton } from './Search'
+import { ToastHost } from './toast'
 
 /** Aantal dingen in de Inbox: mails die op antwoord wachten + open VON-voorstellen. */
 function useInboxCount() {
@@ -82,6 +83,7 @@ export function Layout() {
         ))}
       </nav>
       <Von />
+      <ToastHost />
     </div>
   )
 }

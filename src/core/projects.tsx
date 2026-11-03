@@ -1,4 +1,5 @@
 import { Link } from 'react-router'
+import { toast } from './toast'
 import { supabase } from './supabase'
 import { useQuery } from './useQuery'
 import { fmtEur } from './format'
@@ -113,7 +114,7 @@ export function PhaseSelect({ p, phases, onSaved }: { p: ProjectRow; phases: Pha
       onClick={(e) => e.stopPropagation()}
       onChange={async (e) => {
         const { error } = await supabase.from('projects').update({ phase: e.target.value }).eq('id', p.project_id)
-        if (error) alert('Fase niet bewaard: ' + error.message)
+        toast(error ? 'Fase niet bewaard: ' + error.message : 'Fase gewijzigd', error ? 'err' : 'ok')
         onSaved()
       }}
     >
@@ -134,18 +135,16 @@ export function ProjectCard({ p, phases, onSaved, planning, progress }: { p: Pro
   return (
     <article className={'pcard' + (p.phase_active === false ? ' inactive' : '')}>
       <header className="pcard-head">
-        <div>
-          <Link to={href} className="pcard-code">
-            {p.project_code}
-          </Link>
-          {p.phase === 'lead' && <span className="pcard-new">Nieuwe aanvraag</span>}
-          <h3>
-            <Link to={href}>{p.title || p.scene_title || 'Zonder titel'}</Link>
-          </h3>
-          <p className="muted">
-            {p.client_name}
-            {p.site_city ? ` · ${p.site_city}` : ''}
-          </p>
+        <div className="pcard-who">
+          <span className="pcard-av" aria-hidden="true">{(p.client_name ?? p.title ?? '?').replace(/[^\p{L}\s]/gu, ' ').trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('') || '?'}</span>
+          <div>
+            <h3><Link to={href}>{p.client_name || p.title || p.scene_title || 'Zonder titel'}</Link></h3>
+            <p className="muted">
+              <Link to={href} className="pcard-code">{p.project_code}</Link>
+              {[p.client_name ? p.title || p.scene_title : null, p.site_city].filter(Boolean).join(' · ')}
+              {p.phase === 'lead' && <span className="pcard-new">Nieuwe aanvraag</span>}
+            </p>
+          </div>
         </div>
         <PhaseSelect p={p} phases={phases} onSaved={onSaved} />
       </header>
@@ -158,7 +157,7 @@ export function ProjectCard({ p, phases, onSaved, planning, progress }: { p: Pro
       )}
       {planning && planning.next_at && (
         <Link to={href} className={'pcard-plan' + (planning.jobs_unconfirmed ? ' warn' : '')}>
-          <span>📅 {new Date(planning.next_at).toLocaleDateString('nl-BE', { weekday: 'short', day: 'numeric', month: 'short' })} · {planning.next_title}</span>
+          <span><svg className="pcard-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M4 10h16M8.5 3v4M15.5 3v4" /></svg>{new Date(planning.next_at).toLocaleDateString('nl-BE', { weekday: 'short', day: 'numeric', month: 'short' })} · {planning.next_title}</span>
           {planning.jobs_unconfirmed > 0 && <span className="small">{planning.jobs_unconfirmed} te bevestigen{planning.jobs_changed ? ` · ${planning.jobs_changed} gewijzigd` : ''}</span>}
         </Link>
       )}
