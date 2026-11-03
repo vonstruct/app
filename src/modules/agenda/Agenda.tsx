@@ -453,11 +453,26 @@ function Detail({ ev, cat, note, project, projects, onClose, onChanged, onJob }:
   /** Toch doorgaan: staat er nog niemand op de afspraak, stel dan voor een uitnodiging (met Teams) te sturen. */
   const goOn = async () => {
     if (ev.source !== 'outlook' || (ev.attendees ?? 0) > 0) { setBusy(true); await clearHold(); setBusy(false); return onChanged(false) }
-    const { data } = await supabase.from('clients').select('first_name,last_name,company,email').not('email', 'is', null)
-    const t = ev.title.toLowerCase()
-    const c = ((data ?? []) as { first_name: string | null; last_name: string | null; company: string | null; email: string }[])
-      .find((x) => [[x.first_name, x.last_name].filter(Boolean).join(' '), x.last_name, x.company].some((n) => n && n.length > 3 && t.includes(n.toLowerCase())))
-    setInv({ to: c?.email ?? '', online: true })
+    // wie is de klant? 1) project van de afspraak, 2) naam of e-mailadres in de titel, 3) e-mailadres in de notitie
+    let to = ''
+    const code = proj || project || (ev.title.match(/\b20\d{4}\b/) ?? [])[0]
+    if (code) {
+      const { data: p } = await supabase.from('app_projects').select('client_email').eq('project_code', code).maybeSingle()
+      to = (p as { client_email?: string } | null)?.client_email ?? ''
+    }
+    if (!to) {
+      const { data } = await supabase.from('clients').select('first_name,last_name,company,email').not('email', 'is', null)
+      const hay = (ev.title + ' ' + (ev.notes ?? '') + ' ' + (note?.note ?? '')).toLowerCase()
+      const best = ((data ?? []) as { first_name: string | null; last_name: string | null; company: string | null; email: string }[])
+        .map((x) => {
+          const tokens = [x.first_name, x.last_name, x.company, ...x.email.split('@')[0].split(/[._-]+/)].filter(Boolean).map((t) => String(t).toLowerCase()).filter((t) => t.length >= 4)
+          return { x, score: hay.includes(x.email.toLowerCase()) ? 10 : new Set(tokens.filter((t) => hay.includes(t))).size }
+        })
+        .filter((r) => r.score > 0).sort((a, b) => b.score - a.score)[0]
+      to = best?.x.email ?? ''
+    }
+    if (!to) to = (ev.title + ' ' + (ev.notes ?? '')).match(/[\w.+-]+@[\w-]+\.[\w.]+/)?.[0] ?? ''
+    setInv({ to, online: true })
   }
   const sendInvite = async () => {
     if (!inv) return
