@@ -1242,3 +1242,21 @@ summary.vd-h::-webkit-details-marker { display: none; }
 .inv small { color: var(--muted); }
 .inv-accepted { border-color: color-mix(in srgb, var(--good) 45%, var(--line)); color: var(--good); }
 .inv-declined { border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); color: var(--bad); }
+
+/* VON → Team en Nakijker */
+.team { display: grid; gap: 16px; }
+.team-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.team-card.off { opacity: .6; }
+.team-body { padding: 4px 16px 14px; display: grid; gap: 8px; }
+.team-body select, .team-body input[type=number] { width: 100%; margin-top: 3px; }
+.team-nums { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.team-on { margin-left: auto; color: var(--vd-navy-ink); font-size: 13px; display: flex; gap: 6px; align-items: center; }
+.team-route { display: grid; grid-template-columns: minmax(0, 1fr) 180px auto; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.prop-agent { font-size: 11.5px; padding: 2px 8px; border-radius: 10px; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
+.prop-review { margin: 8px 0; padding: 8px 12px; border-radius: 8px; font-size: 13.5px; }
+.prop-review ul { margin: 4px 0 0; padding-left: 18px; }
+.prop-review.bad { background: color-mix(in srgb, var(--bad) 10%, var(--panel)); border: 1px solid color-mix(in srgb, var(--bad) 35%, var(--line)); }
+.prop-review.bad b { color: var(--bad); }
+.prop-review.warn { background: color-mix(in srgb, var(--warn) 10%, var(--panel)); border: 1px solid color-mix(in srgb, var(--warn) 35%, var(--line)); }
+.prop-review-ok { color: var(--good); margin: 4px 0; }
+@media (max-width: 620px) { .team-route { grid-template-columns: 1fr; } }

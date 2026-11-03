@@ -10,7 +10,7 @@ import { toast } from '../../core/toast'
  * In het oog (wat VON opvolgt), Taken. Voorstellen kunnen over alles gaan (soorten in tabel von_action_types).
  * Uitvoeren / weigeren / ongedaan maken via Edge Function von-action. Niets gebeurt zonder goedkeuring.
  */
-export type Proposal = { id: string; created_at: string; kind: string; project_code: string | null; title: string; summary: string | null; payload: any; before: any; plan: string | null; status: string; result: string | null; decided_at: string | null; source: string | null; undone_at: string | null }
+export type Proposal = { id: string; created_at: string; kind: string; project_code: string | null; title: string; summary: string | null; payload: any; before: any; plan: string | null; status: string; result: string | null; decided_at: string | null; source: string | null; undone_at: string | null; agent?: string | null; review?: { ok: boolean; issues: string[]; warnings?: string[]; by?: string } | null }
 type ActionType = { kind: string; area: string; label: string; outward: boolean; undoable: boolean }
 
 let typesCache: Record<string, ActionType> | null = null
@@ -28,6 +28,7 @@ const FIELD: Record<string, string> = {
   first_name: 'Voornaam', last_name: 'Naam', company: 'Bedrijf', email: 'E-mail', phone: 'Telefoon', street: 'Straat', postal_code: 'Postcode', city: 'Gemeente', country: 'Land', language: 'Taal', notes: 'Notitie',
   name: 'Naam', trade: 'Vak', services: 'Diensten', contact_person: 'Contactpersoon', active: 'Actief',
 }
+const AGENT_NAME: Record<string, string> = { inbox: 'Inbox', planning: 'Planning', nakijker: 'Nakijker', von_watch: 'Meedenken', inkoop: 'Inkoop' }
 const show = (v: unknown) => v === null || v === undefined || v === '' ? '—' : typeof v === 'object' ? JSON.stringify(v) : String(v)
 const when = (iso?: string) => iso ? new Date(iso).toLocaleString('nl-BE', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'
 
@@ -78,11 +79,19 @@ export function ProposalCard({ p, onDone }: { p: Proposal; onDone: () => void })
     <div className={'panel prop prop-' + p.status + (p.undone_at ? ' prop-undone' : '')}>
       <div className="prop-head">
         <span className="prop-kind">{t?.label ?? p.kind}</span>
+        {p.agent && p.agent !== 'von' && <span className="prop-agent">{AGENT_NAME[p.agent] ?? p.agent}</span>}
         {t?.outward && open && <span className="prop-out" title="Gaat naar buiten (mail, uitnodiging, opdracht of agenda)">naar buiten</span>}
         <strong>{p.title}</strong>
         {p.project_code && <Link className="small" to={`/projecten/${encodeURIComponent(p.project_code)}`}>{p.project_code}</Link>}
         <span className="muted small">{new Date(p.created_at).toLocaleString('nl-BE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}{p.source ? ` · via ${p.source}` : ''}</span>
       </div>
+      {open && p.review && (p.review.issues.length > 0 || (p.review.warnings ?? []).length > 0) && (
+        <div className={'prop-review' + (p.review.ok ? ' warn' : ' bad')}>
+          <b>{p.review.ok ? 'Nakijker: let op' : 'Nakijker: niet in orde'}</b>
+          <ul>{[...p.review.issues, ...(p.review.warnings ?? [])].map((x) => <li key={x}>{x}</li>)}</ul>
+        </div>
+      )}
+      {open && p.review?.ok && !p.review.issues.length && !(p.review.warnings ?? []).length && <p className="prop-review-ok small">✓ Nagekeken</p>}
       {isMail && <p className="small muted">Aan: {p.payload?.to_name} &lt;{p.payload?.to}&gt;{p.kind === 'mail_reply' ? ` · antwoord op “${p.payload?.subject ?? ''}” (vanuit ${p.payload?.mailbox})` : ''}</p>}
       {p.kind === 'whatsapp' && <p className="small muted">Aan: {p.payload?.to_name} · {p.payload?.phone}</p>}
       {!isMail && !hasDiff && !['job_create', 'event_create', 'event_move'].includes(p.kind) && p.summary && <p className="small">{p.summary}</p>}
@@ -130,10 +139,10 @@ export function ProposalCard({ p, onDone }: { p: Proposal; onDone: () => void })
           <div className="prop-actions">
             {isMail ? (
               <>
-                <button className="primary" disabled={busy} onClick={() => act('approve', 'send')}>✓ Versturen</button>
+                <button className="primary" disabled={busy} onClick={() => act('approve', 'send')}>{p.review?.ok === false ? 'Toch versturen' : '✓ Versturen'}</button>
                 <button disabled={busy} onClick={() => act('approve', 'draft')}>Als concept in Outlook</button>
               </>
-            ) : <button className="primary" disabled={busy} onClick={() => act('approve')}>✓ Goedkeuren</button>}
+            ) : <button className="primary" disabled={busy} onClick={() => act('approve')}>{p.review?.ok === false ? 'Toch goedkeuren' : '✓ Goedkeuren'}</button>}
             <button disabled={busy} onClick={() => act('reject')}>Weigeren</button>
           </div>
         </>
@@ -245,7 +254,7 @@ function Watching() {
   )
 }
 
-const TABS: [string, string][] = [['wacht', 'Wacht op jou'], ['gesprek', 'Gesprek'], ['gedaan', 'Wat VON deed'], ['oog', 'In het oog'], ['taken', 'Taken']]
+const TABS: [string, string][] = [['wacht', 'Wacht op jou'], ['gesprek', 'Gesprek'], ['gedaan', 'Wat VON deed'], ['team', 'Team'], ['oog', 'In het oog'], ['taken', 'Taken']]
 
 export function VonPage() {
   const [params, setParams] = useSearchParams()
@@ -269,7 +278,76 @@ export function VonPage() {
       {tab === 'gesprek' && <Von embedded />}
       {tab === 'gedaan' && <Done />}
       {tab === 'oog' && <Watching />}
+      {tab === 'team' && <Team />}
       {tab === 'taken' && <Tasks title="Taken" />}
     </section>
+  )
+}
+
+/** Team: de agents (VON en de specialisten) met model, budget, regels en kosten; en welke gebeurtenis naar wie gaat. */
+type AgentUse = { id: string; name: string; role: string | null; model: string; enabled: boolean; max_runs_per_day: number; daily_budget_usd: number; sort: number; tools: string[] | null; cost_today: number; runs_today: number; cost_30d: number; runs_30d: number }
+const MODELS: [string, string][] = [['claude-haiku-5-5', 'Snel en goedkoop (Haiku)'], ['claude-sonnet-5-5', 'Middel (Sonnet)'], ['claude-opus-5-5', 'Sterkst en duurst (Opus)']]
+function Team() {
+  const [list, setList] = useState<AgentUse[] | null>(null)
+  const [routes, setRoutes] = useState<{ event_kind: string; agent_id: string; enabled: boolean; note: string | null }[]>([])
+  const [edit, setEdit] = useState<string | null>(null)
+  const [instr, setInstr] = useState('')
+  const load = useCallback(async () => {
+    const [a, r] = await Promise.all([supabase.from('app_agent_usage').select('*').order('sort'), supabase.from('agent_routes').select('*').order('event_kind')])
+    setList((a.data as AgentUse[]) ?? []); setRoutes((r.data as any[]) ?? [])
+  }, [])
+  useEffect(() => { load() }, [load])
+  const save = async (id: string, patch: Record<string, unknown>) => {
+    const { error } = await supabase.from('agents').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id)
+    toast(error ? 'Niet bewaard: ' + error.message : 'Bewaard', error ? 'err' : 'ok'); load()
+  }
+  const openEdit = async (id: string) => { const { data } = await supabase.from('agents').select('instructions').eq('id', id).single(); setInstr((data as { instructions: string } | null)?.instructions ?? ''); setEdit(id) }
+  if (list === null) return <p className="muted">Laden…</p>
+  const usd = (n: number) => '$ ' + Number(n ?? 0).toFixed(2)
+  const total30 = list.reduce((a, x) => a + Number(x.cost_30d ?? 0), 0)
+  return (
+    <div className="team">
+      <p className="muted">VON is je aanspreekpunt; de specialisten doen elk één vak. Kosten laatste 30 dagen samen: <b>{usd(total30)}</b>.</p>
+      <div className="team-grid">
+        {list.filter((a) => a.id !== 'mail').map((a) => (
+          <section key={a.id} className={'panel vd-panel team-card' + (a.enabled ? '' : ' off')}>
+            <div className="vd-h"><h2>{a.name}</h2><label className="team-on"><input type="checkbox" checked={a.enabled} onChange={(e) => save(a.id, { enabled: e.target.checked })} /> {a.enabled ? 'aan' : 'uit'}</label></div>
+            <div className="team-body">
+              <p className="small">{a.role}</p>
+              <label className="small">Model
+                <select value={a.model} onChange={(e) => save(a.id, { model: e.target.value })}>{MODELS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+              </label>
+              <div className="team-nums">
+                <label className="small">Budget per dag ($)<input type="number" step="0.5" min="0" defaultValue={a.daily_budget_usd} onBlur={(e) => Number(e.target.value) !== a.daily_budget_usd && save(a.id, { daily_budget_usd: Number(e.target.value) })} /></label>
+                <label className="small">Max. keer per dag<input type="number" min="0" defaultValue={a.max_runs_per_day} onBlur={(e) => Number(e.target.value) !== a.max_runs_per_day && save(a.id, { max_runs_per_day: Number(e.target.value) })} /></label>
+              </div>
+              <p className="small muted">Vandaag: {a.runs_today}× · {usd(a.cost_today)} · 30 dagen: {a.runs_30d}× · {usd(a.cost_30d)}</p>
+              {a.tools?.length ? <p className="small muted">Hulpmiddelen: {a.tools.length}</p> : <p className="small muted">Hulpmiddelen: alle</p>}
+              {edit === a.id ? (
+                <>
+                  <textarea className="prop-body" rows={10} value={instr} onChange={(e) => setInstr(e.target.value)} />
+                  <span className="toolbar"><button className="primary" onClick={async () => { await save(a.id, { instructions: instr }); setEdit(null) }}>Regels bewaren</button><button onClick={() => setEdit(null)}>Annuleren</button></span>
+                </>
+              ) : <button className="link small" onClick={() => openEdit(a.id)}>Regels bekijken of aanpassen</button>}
+            </div>
+          </section>
+        ))}
+      </div>
+      <section className="panel vd-panel">
+        <div className="vd-h"><h2>Wie doet wat bij een gebeurtenis</h2></div>
+        <div className="team-body">
+          {routes.map((r) => (
+            <div key={r.event_kind} className="team-route">
+              <span>{r.note ?? r.event_kind}</span>
+              <select value={r.agent_id} onChange={async (e) => { await supabase.from('agent_routes').update({ agent_id: e.target.value }).eq('event_kind', r.event_kind); toast('Bewaard'); load() }}>
+                {list.filter((a) => !['mail', 'nakijker'].includes(a.id)).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+              <label className="check small"><input type="checkbox" checked={r.enabled} onChange={async (e) => { await supabase.from('agent_routes').update({ enabled: e.target.checked }).eq('event_kind', r.event_kind); load() }} /> aan</label>
+            </div>
+          ))}
+          <p className="small muted">De Nakijker controleert elk voorstel. Bij een fout kan het pas uitgevoerd worden als jij het toch wilt.</p>
+        </div>
+      </section>
+    </div>
   )
 }
