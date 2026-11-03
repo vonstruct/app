@@ -40,7 +40,7 @@ export function ProposalCard({ p, onDone }: { p: Proposal; onDone: () => void })
   const [jobTitle, setJobTitle] = useState<string>(p.payload?.row?.title ?? p.payload?.title ?? '')
   const [jobInfo, setJobInfo] = useState<string>(p.payload?.row?.instructions ?? p.payload?.notes ?? '')
   const [att, setAtt] = useState<string>((p.payload?.attendees ?? []).join(', '))
-  const [online, setOnline] = useState<boolean>(!!p.payload?.online)
+  const [online, setOnline] = useState<boolean>(p.payload?.online !== false)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const open = p.status === 'voorstel'
