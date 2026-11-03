@@ -13,6 +13,22 @@ export type RuleTable = {
 /** Regeltabellen per onderdeel. Nieuwe tabel: hier één blok toevoegen. */
 export const ruleTables: RuleTable[] = [
   {
+    section: 'Checklist',
+    table: 'checklist_template',
+    title: 'Projectchecklist',
+    explanation:
+      'De standaardpunten per fase die je bij elk project ziet. Fase: lead = Aanvraag, design = Ontwerp, quote = Offerte, production = Productie, installation = Plaatsing. Punten met een automatische regel vinken vanzelf af (intro_done, survey_submitted, go_given, design_version, costs_done, prices_complete, jobs_confirmed, jobs_done); laat dat veld leeg om met de hand af te vinken. Zet Actief uit om een punt niet meer te tonen.',
+    columns: [
+      { key: 'stage', label: 'Fase', type: 'select', options: ['lead', 'design', 'quote', 'production', 'installation'], width: 120 },
+      { key: 'sort', label: 'Volgorde', type: 'number', width: 90 },
+      { key: 'label', label: 'Punt' },
+      { key: 'auto_rule', label: 'Automatisch', type: 'select', options: ['', 'intro_done', 'survey_submitted', 'go_given', 'design_version', 'costs_done', 'prices_complete', 'jobs_confirmed', 'jobs_done'], width: 150 },
+      { key: 'active', label: 'Actief', type: 'bool', width: 70 },
+    ],
+    orderBy: 'stage',
+    newRow: { stage: 'design', sort: 100, label: 'Nieuw punt', active: true },
+  },
+  {
     section: 'Berichten',
     table: 'message_templates',
     title: 'Berichten aan klanten',

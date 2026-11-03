@@ -11,6 +11,7 @@ import { ClientPanel } from './ClientPanel'
 import { SurveyPanel } from './SurveyPanel'
 import { LeadActions } from './LeadActions'
 import { PlanningPanel } from './PlanningPanel'
+import { ChecklistPanel } from './ChecklistPanel'
 import { EventFeed } from '../../core/EventFeed'
 import { Tasks } from '../../core/Tasks'
 
@@ -65,6 +66,7 @@ export function ProjectDetail() {
         </div>
       )}
       {project && <LeadActions p={project} onDone={pq.reload} />}
+      {project && <ChecklistPanel code={code} currentStage={project.stage} />}
       {project && <PlanningPanel project={project} />}
       {project && <SurveyPanel code={code} focus={focus === 'survey'} />}
       {project && <Tasks project={code} title="Taken" />}

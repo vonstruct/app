@@ -128,7 +128,8 @@ export function PhaseSelect({ p, phases, onSaved }: { p: ProjectRow; phases: Pha
 
 export type ProjectPlanning = { project_code: string; jobs_open: number; jobs_unconfirmed: number; jobs_changed: number; next_at: string | null; next_title: string | null }
 
-export function ProjectCard({ p, phases, onSaved, planning }: { p: ProjectRow; phases: Phase[]; onSaved: () => void; planning?: ProjectPlanning }) {
+export type ProjectProgress = { project_code: string; stage_total: number; stage_done: number; total: number; done: number; next_item: string | null }
+export function ProjectCard({ p, phases, onSaved, planning, progress }: { p: ProjectRow; phases: Phase[]; onSaved: () => void; planning?: ProjectPlanning; progress?: ProjectProgress }) {
   const href = `/projecten/${encodeURIComponent(p.project_code)}`
   return (
     <article className={'pcard' + (p.phase_active === false ? ' inactive' : '')}>
@@ -149,6 +150,12 @@ export function ProjectCard({ p, phases, onSaved, planning }: { p: ProjectRow; p
         <PhaseSelect p={p} phases={phases} onSaved={onSaved} />
       </header>
       <PhaseSteps phase={p.phase} phases={phases} />
+      {progress && progress.stage_total > 0 && (
+        <Link to={href} className="pcard-next">
+          <span className="pcard-bar"><i style={{ width: `${Math.round((100 * progress.stage_done) / progress.stage_total)}%` }} /></span>
+          <span className="small">{progress.stage_done}/{progress.stage_total}{progress.next_item ? <> · volgende: <b>{progress.next_item}</b></> : ' · fase rond ✓'}</span>
+        </Link>
+      )}
       {planning && planning.next_at && (
         <Link to={href} className={'pcard-plan' + (planning.jobs_unconfirmed ? ' warn' : '')}>
           <span>📅 {new Date(planning.next_at).toLocaleDateString('nl-BE', { weekday: 'short', day: 'numeric', month: 'short' })} · {planning.next_title}</span>
