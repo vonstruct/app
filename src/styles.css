@@ -1470,3 +1470,8 @@ summary.vd-h::-webkit-details-marker { display: none; }
 .cap-bar span { display: block; height: 100%; background: #2e7d4f; } .cap-bar span.full { background: #d9822b; } .cap-bar span.over { background: #b3261e; }
 .cap-num { text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; } .cap-what { display: flex; gap: 6px; flex-wrap: wrap; }
 @media (max-width: 860px) { .cap-row { grid-template-columns: 70px 1fr 60px; } .cap-what { grid-column: 1 / -1; } }
+
+.update-bar { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 3000; background: #0e1729; color: #f4f1ea; border: 1px solid #c9a24a; border-radius: 12px; padding: 10px 14px; display: flex; gap: 12px; align-items: center; box-shadow: 0 6px 24px rgba(0,0,0,.25); font-size: 14px; }
+@media (min-width: 861px) { .update-bar { bottom: 24px; } }
+/* projecttabbladen op de gsm: alles zichtbaar (op meerdere regels) in plaats van verborgen achter scrollen */
+@media (max-width: 860px) { .pd-tabs { flex-wrap: wrap; overflow-x: visible; row-gap: 0; } .pd-tabs button { padding: 8px 10px; font-size: 13.5px; } }
