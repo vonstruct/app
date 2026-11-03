@@ -32,6 +32,14 @@ const Steps = ({ endpoint, token }: { endpoint: string; token: string }) => (
     <h4>3. "Noteer taak" (taak inspreken)</h4>
     <p className="small">Dupliceer <b>Vraag VON</b>, noem ze <b>Noteer taak</b> en zet <code>mode</code> = <code>taak</code> (het veld <code>question</code> met Gedicteerde tekst blijft). Zeg "Hey Siri, noteer taak" → "Jan bellen over het werkblad, tegen vrijdag".</p>
     <p className="small muted">Tip: maak eerst "Vraag VON", houd ze ingedrukt → <b>Dupliceer</b> en pas naam en velden aan.</p>
+    <h4>4. "Praat met VON" (blijft luisteren tot je stop zegt)</h4>
+    <ol>
+      <li>Dupliceer <b>Vraag VON</b> en noem ze <b>Praat met VON</b>.</li>
+      <li>Voeg bovenaan de actie <b>Herhaal</b> toe, zet ze op <b>30</b> keer en sleep de vier bestaande acties (Dicteer tekst, Haal inhoud op, Spreek tekst) <b>binnen</b> Herhaal.</li>
+      <li>Voeg direct na <b>Dicteer tekst</b> de actie <b>Als</b> toe: <b>Gedicteerde tekst</b> · <b>bevat</b> · <code>stop</code>. Zet binnen Als de actie <b>Stop deze opdracht</b>.</li>
+      <li>Bij <b>Spreek tekst</b>: laat <b>Wacht tot klaar</b> aan, zodat VON eerst uitspreekt en daarna weer luistert.</li>
+      <li>Zeg <b>"Hey Siri, praat met VON"</b>. Na elk antwoord luistert VON opnieuw: stel een vervolgvraag of zeg <b>"ja, doe maar"</b> om een voorstel goed te keuren. Zeg <b>"stop"</b> om te eindigen.</li>
+    </ol>
   </div>
 )
 
