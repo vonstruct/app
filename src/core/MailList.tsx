@@ -6,7 +6,7 @@ import { supabase } from './supabase'
 export type MailRow = {
   id: string; mailbox: string; direction: 'in' | 'out'; at: string; from_name: string | null; from_email: string | null; to_emails: string[]; to_names: string[]
   subject: string | null; snippet: string | null; summary: string | null; category: string | null; needs_reply: boolean | null; urgency: number | null
-  replied: boolean; dismissed_at: string | null; party_kind: string | null; party_name: string | null; project_code: string | null; has_attachments: boolean; web_link: string | null; is_bulk: boolean
+  replied: boolean; dismissed_at: string | null; party_kind: string | null; party_name: string | null; project_code: string | null; has_attachments: boolean; web_link: string | null; is_bulk: boolean; proposal_status: string | null
 }
 type Filter = 'wacht' | 'alle' | 'in' | 'out'
 
@@ -14,7 +14,8 @@ const fmt = (iso: string) => {
   const d = new Date(iso), today = new Date().toDateString() === d.toDateString()
   return today ? d.toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' })
 }
-const waiting = (m: MailRow) => m.direction === 'in' && m.needs_reply && !m.replied && !m.dismissed_at
+const hasProposal = (m: MailRow) => !!m.proposal_status && m.proposal_status !== 'mislukt'
+const waiting = (m: MailRow) => m.direction === 'in' && !!m.needs_reply && !m.replied && !m.dismissed_at && !hasProposal(m)
 
 function MailItem({ m, open, onToggle, onChanged, showProject }: { m: MailRow; open: boolean; onToggle: () => void; onChanged: () => void; showProject: boolean }) {
   const [body, setBody] = useState<string | null>(null)
@@ -29,6 +30,7 @@ function MailItem({ m, open, onToggle, onChanged, showProject }: { m: MailRow; o
     const { data, error } = await supabase.functions.invoke('von', { body: { message: `Stel een antwoord voor op de mail met id ${m.id}. Lees eerst het gesprek met mail_thread, en maak dan het voorstel met propose_mail_reply. Antwoord daarna in één zin.` } })
     setBusy(false)
     setNote(error ? 'VON kon geen voorstel maken.' : ((data as { answer?: string } | null)?.answer ?? 'Voorstel gemaakt.'))
+    onChanged()
   }
   const dismiss = async () => { await supabase.from('mail_messages').update({ dismissed_at: new Date().toISOString() }).eq('id', m.id); onChanged() }
   return (
@@ -41,7 +43,10 @@ function MailItem({ m, open, onToggle, onChanged, showProject }: { m: MailRow; o
         </span>
         <span className="ml-side">
           <span className="muted small">{fmt(m.at)}</span>
-          {waiting(m) ? <span className="chip warn">wacht op antwoord</span> : m.direction === 'in' && m.replied ? <span className="chip ok">beantwoord</span> : null}
+          {m.direction === 'in' && m.replied ? <span className="chip ok">beantwoord</span>
+            : m.proposal_status === 'voorstel' ? <Link to="/von" className="chip gold" onClick={(e) => e.stopPropagation()}>✨ voorstel klaar</Link>
+            : m.proposal_status === 'uitgevoerd' ? <span className="chip ok">✓ antwoord verstuurd of concept</span>
+            : waiting(m) ? <span className="chip warn">wacht op antwoord</span> : null}
         </span>
       </button>
       {open && (
@@ -73,7 +78,7 @@ export function MailList({ project, focus, title, limit = 40 }: { project?: stri
     let q = supabase.from('app_mail_messages').select('*').order('at', { ascending: false }).limit(limit)
     if (project) q = q.eq('project_code', project)
     if (!bulk) q = q.eq('is_bulk', false)
-    if (filter === 'wacht') q = q.eq('direction', 'in').eq('needs_reply', true).eq('replied', false).is('dismissed_at', null)
+    if (filter === 'wacht') q = q.eq('direction', 'in').eq('needs_reply', true).eq('replied', false).is('dismissed_at', null).or('proposal_status.is.null,proposal_status.eq.voorstel,proposal_status.eq.mislukt')
     if (filter === 'in' || filter === 'out') q = q.eq('direction', filter)
     const s = search.trim().replace(/[,()]/g, ' ')
     if (s) q = q.or(`subject.ilike.%${s}%,from_name.ilike.%${s}%,from_email.ilike.%${s}%,party_name.ilike.%${s}%,summary.ilike.%${s}%`)

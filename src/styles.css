@@ -289,6 +289,7 @@ button.auth-alt:hover { border-color: var(--gold); }
 .chip.ok { background: color-mix(in srgb, var(--good) 13%, transparent); color: var(--good); }
 .chip.warn { background: color-mix(in srgb, var(--warn) 14%, transparent); color: var(--warn); }
 .chip.bad { background: color-mix(in srgb, var(--bad) 12%, transparent); color: var(--bad); }
+.chip.gold { background: color-mix(in srgb, var(--gold) 16%, transparent); color: var(--gold); text-decoration: none; }
 
 .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin: 16px 0 20px; }
 .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; border-top: 3px solid var(--line); }
