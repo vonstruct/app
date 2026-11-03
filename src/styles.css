@@ -771,3 +771,41 @@ a.action-btn.primary { background: #16233a; color: #f3e3a0; border-color: #16233
 .prop { margin: 12px 0; } .prop-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; } .prop-kind { font-size: 12.5px; padding: 2px 8px; border-radius: 10px; background: rgba(201,162,74,.18); }
 .prop-subject, .prop-body { width: 100%; box-sizing: border-box; margin: 6px 0; font: inherit; padding: 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: inherit; }
 .prop-actions { display: flex; gap: 8px; } .prop-uitgevoerd, .prop-geweigerd { opacity: .8; }
+
+/* Opdrachten (compact) */
+.jo-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 4px 0 12px; }
+.jo-search { flex: 1; min-width: 180px; max-width: 360px; }
+.jo-cancel { display: block; margin: -4px 0 10px; }
+.jo-empty { padding: 28px; text-align: center; border: 1px dashed var(--line); border-radius: 12px; color: var(--muted); }
+.jo-day { margin: 0 0 16px; }
+.jo-day h3 { font-size: 13px; text-transform: capitalize; letter-spacing: .02em; color: var(--muted); margin: 0 0 6px; font-weight: 600; }
+.jo-day h3.today { color: #b8862b; }
+.jo-row { width: 100%; display: grid; grid-template-columns: 110px 1fr auto; gap: 12px; align-items: center; text-align: left; padding: 10px 12px; margin: 0 0 6px;
+  border: 1px solid var(--line); border-left: 4px solid #3a6ea5; border-radius: 10px; background: var(--panel); cursor: pointer; font: inherit; color: inherit; }
+.jo-row:hover { border-color: #c9a24a; }
+.jo-row.act { border-left-color: #d9a520; } .jo-row.st-voorstel { border-left-color: #d9822b; } .jo-row.st-bevestigd, .jo-row.st-bezig, .jo-row.st-klaar { border-left-color: #2e7d4f; }
+.jo-row.st-geannuleerd { opacity: .55; border-left-color: #999; }
+.jo-time { font-size: 13px; color: var(--muted); }
+.jo-main { display: flex; flex-direction: column; min-width: 0; }
+.jo-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jo-sub { font-size: 13px; color: var(--muted); } .jo-sub b { color: inherit; font-weight: 600; }
+.jo-checks { display: inline-flex; gap: 8px; font-size: 13px; } .jo-checks .ok { color: #2e7d4f; font-weight: 600; } .jo-checks .wait { color: #b8862b; font-weight: 600; }
+.jo-pill { font-size: 12.5px; padding: 3px 9px; border-radius: 12px; background: var(--bg); white-space: nowrap; }
+.jo-pill.ok { color: #2e7d4f; } .jo-pill.warn { color: #b05a12; background: rgba(217,130,43,.12); }
+@media (max-width: 640px) {
+  .jo-row { grid-template-columns: 1fr auto; } .jo-time { grid-column: 1 / -1; } .jo-search { max-width: none; }
+}
+
+/* Onderdelen met tabs (Planning, Instellingen) */
+.section-head h1 { margin-bottom: 2px; }
+.section-head p { margin: 0 0 10px; font-size: 13.5px; }
+.section-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: 0 0 16px; overflow-x: auto; }
+.section-tabs a { padding: 9px 14px; text-decoration: none; color: var(--muted); border-bottom: 2px solid transparent; white-space: nowrap; font-weight: 500; }
+.section-tabs a.on { color: inherit; border-bottom-color: #c9a24a; }
+.section-body > div > h1:first-child, .section-body h1 { font-size: 20px; }
+.settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; align-items: start; }
+.settings-links { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.tasks-plan { position: relative; } .tasks-plan > .link { text-decoration: none; }
+.tasks-menu { position: absolute; right: 0; top: 100%; z-index: 20; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.15); }
+.tasks-menu button { border: 0; background: transparent; padding: 8px 12px; text-align: left; white-space: nowrap; cursor: pointer; font: inherit; color: inherit; }
+.tasks-menu button:hover { background: var(--bg); }

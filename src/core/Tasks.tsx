@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { supabase } from './supabase'
+import { NewEvent } from '../modules/agenda/Agenda'
+import { JobEditor } from '../modules/agenda/JobEditor'
 
 /** Takenlijst van Olivier (tabel `tasks`): ingesproken via Siri/VON of hier getypt. Overal dezelfde component. */
 export type Task = { id: string; text: string; project_code: string | null; due_date: string | null; done_at: string | null; source: string; created_at: string }
@@ -20,6 +22,18 @@ export function Tasks({ project, limit, title = 'Mijn taken', showAdd = true }: 
   const [text, setText] = useState('')
   const [due, setDue] = useState('')
   const [showDone, setShowDone] = useState(false)
+  const [plan, setPlan] = useState<{ t: Task; kind: 'afspraak' | 'opdracht' } | null>(null)
+  const [menu, setMenu] = useState<string | null>(null)
+  const [projects, setProjects] = useState<any[]>([])
+  const startPlan = async (t: Task, kind: 'afspraak' | 'opdracht') => {
+    setMenu(null)
+    if (kind === 'afspraak' && !projects.length) {
+      const { data } = await supabase.from('app_projects').select('project_code,title,client_name,intro_at,target_install_week,phase').eq('phase_active', true)
+      setProjects(data ?? [])
+    }
+    setPlan({ t, kind })
+  }
+  const planned = async () => { if (plan) await supabase.from('tasks').update({ done_at: new Date().toISOString() }).eq('id', plan.t.id); setPlan(null); load() }
 
   const load = useCallback(async () => {
     let q = supabase.from('tasks').select('*').order('due_date', { ascending: true, nullsFirst: false }).order('created_at', { ascending: false })
@@ -73,13 +87,32 @@ export function Tasks({ project, limit, title = 'Mijn taken', showAdd = true }: 
                     {t.source === 'siri' && <span className="muted"> · 🎙</span>}
                   </span>
                 </span>
+                {!t.done_at && (
+                  <span className="tasks-plan">
+                    <button className="link small" onClick={() => setMenu(menu === t.id ? null : t.id)} title="Inplannen als afspraak of opdracht">📅</button>
+                    {menu === t.id && (
+                      <span className="tasks-menu">
+                        <button onClick={() => startPlan(t, 'afspraak')}>Afspraak maken</button>
+                        <button onClick={() => startPlan(t, 'opdracht')}>Opdracht maken</button>
+                      </span>
+                    )}
+                  </span>
+                )}
                 <button className="link small tasks-del" onClick={() => remove(t)} title="Verwijderen">✕</button>
               </li>
             )
           })}
         </ul>
       )}
-      {limit && tasks && tasks.length > limit && <Link className="small" to="/von?tab=taken">Alle {tasks.length} taken →</Link>}
+      {limit && tasks && tasks.length > limit && <Link className="small" to="/taken">Alle {tasks.length} taken →</Link>}
+      {plan?.kind === 'afspraak' && (
+        <NewEvent day={plan.t.due_date ? new Date(plan.t.due_date) : new Date()} project={plan.t.project_code ?? ''} initialTitle={plan.t.text}
+          projects={projects} onClose={() => setPlan(null)} onCreated={planned} />
+      )}
+      {plan?.kind === 'opdracht' && (
+        <JobEditor draft={{ title: plan.t.text, project_code: plan.t.project_code ?? undefined, ...(plan.t.due_date ? { start_at: `${plan.t.due_date}T08:00:00`, end_at: `${plan.t.due_date}T16:30:00` } : {}) }}
+          onClose={() => setPlan(null)} onSaved={planned} />
+      )}
     </div>
   )
 }

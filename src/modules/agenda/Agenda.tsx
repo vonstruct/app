@@ -516,9 +516,9 @@ function Detail({ ev, cat, note, project, projects, onClose, onChanged, onJob }:
   )
 }
 
-export function NewEvent({ day, projects, onClose, onCreated, project = '' }: { day: Date; projects: Proj[]; onClose: () => void; onCreated: () => void; project?: string }) {
+export function NewEvent({ day, projects, onClose, onCreated, project = '', initialTitle = '' }: { day: Date; projects: Proj[]; onClose: () => void; onCreated: () => void; project?: string; initialTitle?: string }) {
   const d = new Date(day); d.setHours(9, 0, 0, 0)
-  const [title, setTitle] = useState(project ? project + ' – ' : '')
+  const [title, setTitle] = useState((project ? project + ' – ' : '') + initialTitle)
   const [start, setStart] = useState(toLocalInput(d.toISOString()))
   const [dur, setDur] = useState(60)
   const [loc, setLoc] = useState('')

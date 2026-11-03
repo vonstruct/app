@@ -7,5 +7,6 @@ const von: AppModule = {
   label: 'VON',
   path: '/von',
   routes: [{ path: '/von', element: createElement(VonPage) }],
+  inMenu: false,
 }
 export default von
