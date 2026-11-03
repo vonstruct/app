@@ -27,6 +27,9 @@ export function RuleSentence({ rule }: { rule: Rule }) {
   // zin opsplitsen in tekst en {velden}
   const parts = rule.sentence.split(/(\{[a-z_0-9]+\})/g)
   const maps = Object.entries(rule.fields).filter(([, f]) => f.type === 'map')
+  // lange teksten (bv. standaardteksten van de offerte) als blokken onder de zin
+  const texts = Object.entries(rule.fields).filter(([, f]) => (f.type as string) === 'textarea')
+  const LABELS: Record<string, string> = { inleiding: 'Inleiding', inbegrepen: 'Inbegrepen (één per regel)', niet_inbegrepen: 'Niet inbegrepen (één per regel)', planning: 'Planning', betaling: 'Betaling', garantie: 'Garantie', btw6: 'Uitleg 6 % btw' }
   return (
     <div className="card rule">
       <p className="sentence">
@@ -40,6 +43,12 @@ export function RuleSentence({ rule }: { rule: Rule }) {
           return <FieldInput key={i} field={f} value={value[name]} onChange={(v) => setField(name, v)} />
         })}
       </p>
+      {texts.map(([name]) => (
+        <label key={name} className="rule-text">
+          <span>{LABELS[name] ?? name}</span>
+          <textarea rows={Math.max(2, String(value[name] ?? '').split('\n').length + 1)} defaultValue={String(value[name] ?? '')} onBlur={(e) => e.target.value !== String(value[name] ?? '') && setField(name, e.target.value)} />
+        </label>
+      ))}
       {maps.map(([name, f]) => (
         <MapEditor key={name} field={f} value={(value[name] as Record<string, string>) ?? {}} onChange={(v) => setField(name, v)} />
       ))}

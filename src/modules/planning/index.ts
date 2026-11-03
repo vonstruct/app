@@ -3,6 +3,7 @@ import type { AppModule } from '../../core/module'
 import { PLANNING, Section } from '../../core/Section'
 import { Agenda } from '../agenda/Agenda'
 import { JobsOverview } from '../opdrachten/JobsOverview'
+import { Invoices } from '../facturen/Invoices'
 import { Orders } from '../bestellingen/Orders'
 import { Tasks } from '../../core/Tasks'
 
@@ -18,6 +19,7 @@ const planning: AppModule = {
     { path: '/agenda', element: wrap(createElement(Agenda)) },
     { path: '/opdrachten', element: wrap(createElement(JobsOverview)) },
     { path: '/bestellingen', element: wrap(createElement(Orders)) },
+    { path: '/facturen', element: wrap(createElement(Invoices)) },
     { path: '/taken', element: wrap(createElement(Tasks, { title: 'Taken' })) },
   ],
 }

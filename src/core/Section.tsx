@@ -7,6 +7,7 @@ export const PLANNING: Tab[] = [
   { to: '/agenda', label: 'Agenda' },
   { to: '/opdrachten', label: 'Opdrachten' },
   { to: '/bestellingen', label: 'Bestellingen' },
+  { to: '/facturen', label: 'Facturen' },
   { to: '/taken', label: 'Taken' },
 ]
 export const INBOX: Tab[] = [{ to: '/inbox', label: 'Mails' }]

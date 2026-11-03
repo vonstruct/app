@@ -13,6 +13,23 @@ export type RuleTable = {
 /** Regeltabellen per onderdeel. Nieuwe tabel: hier één blok toevoegen. */
 export const ruleTables: RuleTable[] = [
   {
+    section: 'Offerte',
+    table: 'quote_line_templates',
+    title: 'Vaste regels op elke offerte',
+    explanation: 'Deze regels komen automatisch op elke nieuwe offerte (bv. finale opmeting, ontwerp en installatie, transport). Prijs 0 = per offerte in te vullen. Soort dienst = rubriek "Ontwerp, plaatsing en transport".',
+    columns: [
+      { key: 'sort', label: 'Volgorde', type: 'number', width: 90 },
+      { key: 'title', label: 'Titel' },
+      { key: 'description', label: 'Omschrijving' },
+      { key: 'qty', label: 'Aantal', type: 'number', width: 80 },
+      { key: 'unit_price', label: 'Prijs excl. (€)', type: 'number', width: 110 },
+      { key: 'kind', label: 'Soort', type: 'select', options: ['dienst', 'vrij', 'sanitair', 'toestel'], width: 110 },
+      { key: 'active', label: 'Actief', type: 'bool', width: 70 },
+    ],
+    orderBy: 'sort',
+    newRow: { sort: 830, title: 'Nieuwe vaste regel', qty: 1, unit_price: 0, kind: 'dienst', active: true },
+  },
+  {
     section: 'Checklist',
     table: 'checklist_template',
     title: 'Projectchecklist',

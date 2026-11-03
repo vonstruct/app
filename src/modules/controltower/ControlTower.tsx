@@ -41,6 +41,8 @@ const actionFor = (f: Flag): { to: string; label: string } => {
     case 'mail_antwoord': return { to: `/inbox?focus=${f.ref}`, label: 'Antwoorden' }
     case 'von_voorstel': return { to: '/von', label: 'Bekijken' }
     case 'afspraak_hold': return { to: '/agenda', label: 'Annuleren of verzetten' }
+    case 'factuur': return { to: f.project_code ? `/projecten/${encodeURIComponent(f.project_code)}?tab=facturen` : '/facturen', label: f.title.startsWith('Onbetaald') ? 'Opvolgen' : 'Factuur maken' }
+    case 'offerte': return { to: f.project_code ? `/projecten/${encodeURIComponent(f.project_code)}?tab=offerte` : '/projecten', label: 'Offerte openen' }
     case 'bestelling': return { to: f.project_code ? `/projecten/${encodeURIComponent(f.project_code)}?tab=bestellingen` : '/projecten', label: 'Bestelling bekijken' }
     case 'backup': return { to: 'https://github.com/vonstruct/platform/actions/workflows/backup-onedrive.yml', label: 'Back-up bekijken' }
     default: return { to: proj, label: 'Openen' }
