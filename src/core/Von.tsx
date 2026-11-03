@@ -45,9 +45,11 @@ export function Von() {
   const [busy, setBusy] = useState(false)
   const [voice, setVoice] = useState(() => store.get(KEY_VOICE) !== 'off')
   const [listening, setListening] = useState(false)
+  const [speaking, setSpeaking] = useState(false)
   const [history, setHistory] = useState<Conv[] | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
-  const recRef = useRef<{ stop: () => void } | null>(null)
+  const recRef = useRef<{ stop: () => void; abort?: () => void } | null>(null)
+  const recTimer = useRef<number | undefined>(undefined)
 
   const Rec = (window as unknown as { SpeechRecognition?: new () => any; webkitSpeechRecognition?: new () => any }).SpeechRecognition
     ?? (window as unknown as { webkitSpeechRecognition?: new () => any }).webkitSpeechRecognition
@@ -62,19 +64,27 @@ export function Von() {
   useEffect(() => { if (open) loadConv(conv) }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' }) }, [msgs, busy])
 
+  const hush = () => { if ('speechSynthesis' in window) speechSynthesis.cancel(); setSpeaking(false) }
   const say = (t: string) => {
     if (!voice || !('speechSynthesis' in window)) return
-    const u = new SpeechSynthesisUtterance(speakable(t))
-    u.lang = 'nl-BE'
-    const v = speechSynthesis.getVoices().find((x) => x.lang?.startsWith('nl-BE')) ?? speechSynthesis.getVoices().find((x) => x.lang?.startsWith('nl'))
-    if (v) u.voice = v
     speechSynthesis.cancel()
-    speechSynthesis.speak(u)
+    const v = speechSynthesis.getVoices().find((x) => x.lang?.startsWith('nl-BE')) ?? speechSynthesis.getVoices().find((x) => x.lang?.startsWith('nl'))
+    // in korte zinnen: lange teksten lopen in sommige browsers vast en zijn dan niet te stoppen
+    const parts = speakable(t).split(/(?<=[.!?:])\s+|\n+/).map((x) => x.trim()).filter(Boolean)
+    parts.forEach((part, i) => {
+      const u = new SpeechSynthesisUtterance(part)
+      u.lang = 'nl-BE'
+      if (v) u.voice = v
+      if (i === parts.length - 1) { u.onend = () => setSpeaking(false); u.onerror = () => setSpeaking(false) }
+      speechSynthesis.speak(u)
+    })
+    setSpeaking(parts.length > 0)
   }
 
   const send = async (text: string) => {
     const q = text.trim()
     if (!q || busy) return
+    hush()
     setInput('')
     setMsgs((m) => [...m, { role: 'user', text: q }])
     setBusy(true)
@@ -93,7 +103,8 @@ export function Von() {
 
   const listen = () => {
     if (!Rec) return
-    if (listening) { recRef.current?.stop(); return }
+    if (listening) { stopListening(); return }
+    hush()
     const r = new Rec()
     r.lang = 'nl-BE'
     r.interimResults = true
@@ -105,12 +116,21 @@ export function Von() {
       finalText = t
       setInput(t)
     }
-    r.onend = () => { setListening(false); recRef.current = null; if (finalText.trim()) send(finalText) }
-    r.onerror = () => { setListening(false); recRef.current = null }
+    let done = false
+    const finish = () => { if (done) return; done = true; clearTimeout(recTimer.current); setListening(false); recRef.current = null; if (finalText.trim()) send(finalText) }
+    r.onend = finish
+    r.onerror = finish
     recRef.current = r
     setListening(true)
-    if ('speechSynthesis' in window) speechSynthesis.cancel()
+    recTimer.current = window.setTimeout(() => { try { r.stop() } catch { /* al gestopt */ } setTimeout(finish, 800) }, 20000)
     r.start()
+  }
+  const stopListening = () => {
+    clearTimeout(recTimer.current)
+    try { recRef.current?.stop() } catch { /* al gestopt */ }
+    try { recRef.current?.abort?.() } catch { /* al gestopt */ }
+    recRef.current = null
+    setListening(false)
   }
 
   const newConv = () => { setConv(null); store.set(KEY_CONV, null); setMsgs([]); setHistory(null) }
@@ -126,7 +146,7 @@ export function Von() {
     setHistory((h) => h?.filter((c) => c.id !== id) ?? null)
     if (id === conv) newConv()
   }
-  const toggleVoice = () => { const v = !voice; setVoice(v); store.set(KEY_VOICE, v ? 'on' : 'off'); if (!v && 'speechSynthesis' in window) speechSynthesis.cancel() }
+  const toggleVoice = () => { const v = !voice; setVoice(v); store.set(KEY_VOICE, v ? 'on' : 'off'); if (!v) hush() }
 
   return (
     <>
@@ -145,7 +165,7 @@ export function Von() {
               <button className="link" onClick={toggleVoice} title={voice ? 'Voorlezen staat aan' : 'Voorlezen staat uit'}>{voice ? '🔊' : '🔇'}</button>
               <button className="link" onClick={showHistory} title="Vorige gesprekken">🕘</button>
               <button className="link" onClick={newConv} title="Nieuw gesprek">＋</button>
-              <button className="link" onClick={() => { setOpen(false); if ('speechSynthesis' in window) speechSynthesis.cancel() }} aria-label="Sluiten">✕</button>
+              <button className="link" onClick={() => { setOpen(false); hush(); stopListening() }} aria-label="Sluiten">✕</button>
             </span>
           </header>
           {history ? (
@@ -179,9 +199,10 @@ export function Von() {
               {busy && <div className="von-msg assistant"><span className="von-dots"><i /><i /><i /></span></div>}
             </div>
           )}
+          {speaking && <button className="von-stop" onClick={hush}>⏹ Stop voorlezen</button>}
           <form className="von-input" onSubmit={(e) => { e.preventDefault(); send(input) }}>
             {Rec && <button type="button" className={'von-mic' + (listening ? ' on' : '')} onClick={listen} title={listening ? 'Stop' : 'Spreek'}>🎙</button>}
-            <textarea rows={1} value={input} placeholder={listening ? 'Ik luister…' : 'Vraag iets aan VON…'} onChange={(e) => setInput(e.target.value)}
+            <textarea rows={1} value={input} placeholder={listening ? 'Ik luister…' : 'Vraag iets aan VON…'} onChange={(e) => { setInput(e.target.value); if (speaking) hush() }}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input) } }} />
             <button type="submit" className="primary" disabled={busy || !input.trim()}>➤</button>
           </form>
