@@ -5,6 +5,7 @@ import { Survey } from './Survey'
 import { Quotes } from './Quotes'
 import { Aftercare, MyPunch } from './Aftercare'
 import { Documents } from './Documents'
+import { BrochureList } from './BrochureList'
 import { Jobs, MomentForm, type ViewAs } from './Jobs'
 import { downloadIcs } from '../core/ics'
 import { LANGS, asLang, storeLang, storedLang, tr, type Lang } from './i18n'
@@ -78,6 +79,7 @@ export function Portal({ role, preview = false, viewAs = null }: { role: PortalR
           <>
             <Quotes lang={lang} preview={preview} initial={initialQuote} />
             <Aftercare lang={lang} preview={preview} />
+            <BrochureList lang={lang} preview={preview} />
             <Documents lang={lang} preview={preview} />
             <ClientProjects preview={preview} lang={lang} onSurvey={setSurvey} />
           </>

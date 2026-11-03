@@ -13,6 +13,23 @@ export type RuleTable = {
 /** Regeltabellen per onderdeel. Nieuwe tabel: hier één blok toevoegen. */
 export const ruleTables: RuleTable[] = [
   {
+    section: 'Brochure',
+    table: 'material_public_names',
+    title: 'Publieke namen van materialen',
+    explanation: 'Wat de klant in de brochure ziet in plaats van de technische naam. "Herkennen aan" = een stuk van de technische naam (bv. 49D of Lissa Oak). Decorbeeld = een webadres van een afbeelding (bv. van de leverancier).',
+    columns: [
+      { key: 'match', label: 'Herkennen aan' },
+      { key: 'public_name', label: 'Publieke naam' },
+      { key: 'family', label: 'Familie', width: 140 },
+      { key: 'description', label: 'Uitleg' },
+      { key: 'care', label: 'Onderhoud' },
+      { key: 'image_url', label: 'Decorbeeld (link)' },
+      { key: 'active', label: 'Actief', type: 'bool', width: 70 },
+    ],
+    orderBy: 'public_name',
+    newRow: { match: 'deel van de naam', public_name: 'Naam voor de klant', active: true },
+  },
+  {
     section: 'Offerte',
     table: 'quote_line_templates',
     title: 'Vaste regels op elke offerte',

@@ -1448,3 +1448,19 @@ summary.vd-h::-webkit-details-marker { display: none; }
 .doc-new { grid-template-columns: 180px auto 1fr auto; } .doc-row { display: grid; grid-template-columns: 140px 1fr auto auto auto auto; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); }
 .doc-title { border: none; background: transparent; font: inherit; font-weight: 600; } .doc-title:focus { background: var(--panel); outline: 1px solid var(--line); }
 @media (max-width: 860px) { .doc-new, .doc-row { grid-template-columns: 1fr 1fr; } }
+
+/* Brochure */
+.bro-cover { position: relative; background: #000; color: #fff; min-height: 220px; display: flex; align-items: flex-end; overflow: hidden; }
+.bro-hero { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .7; }
+.bro-cover-text { position: relative; padding: 32px 44px; } .bro-cover h1 { font: 600 30px Jost, Arial, sans-serif; margin: 14px 0 4px; color: #fff; } .bro-cover p { margin: 0; color: #e8e2cf; }
+.bro-intro { font-size: 14px; margin-top: 22px !important; }
+.bro-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin: 18px 44px 0; } .bro-gallery img { width: 100%; border-radius: 6px; }
+.bro-h { font: 600 18px Jost, Arial, sans-serif; margin: 28px 44px 10px; color: #8a6d1d; border-bottom: 1px solid #c9a24a; padding-bottom: 6px; }
+.bro-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin: 0 44px; }
+.bro-card { border: 1px solid #eee; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 4px; break-inside: avoid; } .bro-card img { width: 100%; }
+.bro-card small { color: #777; font-size: 11.5px; } .bro-box { width: 60%; max-height: 120px; margin: 4px auto 8px; border: 2px solid #c9a24a; border-radius: 2px; background: #faf8f2; }
+.bro-mats { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 0 44px; }
+.bro-mat { display: flex; gap: 12px; break-inside: avoid; } .bro-mat img, .bro-swatch { width: 84px; height: 84px; object-fit: cover; border-radius: 6px; flex: none; } .bro-swatch { background: linear-gradient(135deg, #eee, #ddd); }
+.bro-mat small { display: block; color: #8a6d1d; font-size: 11.5px; } .bro-mat p { margin: 4px 0 0; font-size: 12.5px; }
+.bro-ph { background: #eee; min-height: 80px; }
+@media (max-width: 700px) { .bro-mats { grid-template-columns: 1fr; } .bro-grid, .bro-mats, .bro-gallery { margin-left: 18px; margin-right: 18px; } .bro-h { margin-left: 18px; margin-right: 18px; } .bro-cover-text { padding: 24px 18px; } }
