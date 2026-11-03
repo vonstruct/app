@@ -5,7 +5,7 @@ import { Tasks } from '../../core/Tasks'
 
 /** VON: voorstellen goedkeuren (fase 3) en de takenlijst. Uitvoeren via Edge Function von-action. */
 type Proposal = { id: string; created_at: string; kind: string; project_code: string | null; title: string; summary: string | null; payload: any; status: string; result: string | null; decided_at: string | null; source: string | null }
-const KIND: Record<string, string> = { mail: '✉ Mail', job_reminder: '🔔 Herinnering', job_move: '📅 Verzetten', project_note: '📝 Notitie' }
+const KIND: Record<string, string> = { mail: '✉ Mail', mail_reply: '↩ Antwoord', job_reminder: '🔔 Herinnering', job_move: '📅 Verzetten', project_note: '📝 Notitie' }
 
 function ProposalCard({ p, onDone }: { p: Proposal; onDone: () => void }) {
   const [subject, setSubject] = useState<string>(p.payload?.subject ?? '')
@@ -13,11 +13,12 @@ function ProposalCard({ p, onDone }: { p: Proposal; onDone: () => void }) {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const open = p.status === 'voorstel'
-  const act = async (action: 'approve' | 'reject') => {
-    if (action === 'approve' && !confirm(p.kind === 'mail' ? `Mail nu versturen naar ${p.payload?.to}?` : 'Dit voorstel nu uitvoeren?')) return
+  const isMail = p.kind === 'mail' || p.kind === 'mail_reply'
+  const act = async (action: 'approve' | 'reject', mode?: 'draft' | 'send') => {
+    if (action === 'approve' && mode !== 'draft' && !confirm(isMail ? `Mail nu versturen naar ${p.payload?.to}?` : 'Dit voorstel nu uitvoeren?')) return
     setBusy(true)
-    const edits = p.kind === 'mail' ? { subject, body } : p.kind === 'project_note' ? { text: body } : p.kind === 'job_reminder' ? { note: body || null } : p.kind === 'job_move' ? { note: body } : {}
-    const { data, error } = await supabase.functions.invoke('von-action', { body: { action, id: p.id, payload: edits } })
+    const edits = p.kind === 'mail' ? { subject, body } : p.kind === 'mail_reply' ? { body } : p.kind === 'project_note' ? { text: body } : p.kind === 'job_reminder' ? { note: body || null } : p.kind === 'job_move' ? { note: body } : {}
+    const { data, error } = await supabase.functions.invoke('von-action', { body: { action, id: p.id, payload: edits, mode } })
     setBusy(false)
     const d = data as { ok?: boolean; result?: string; error?: string } | null
     setMsg(error ? 'Mislukt.' : d?.error ?? d?.result ?? (action === 'reject' ? 'Geweigerd.' : 'Uitgevoerd.'))
@@ -31,15 +32,20 @@ function ProposalCard({ p, onDone }: { p: Proposal; onDone: () => void }) {
         {p.project_code && <Link className="small" to={`/projecten/${encodeURIComponent(p.project_code)}`}>{p.project_code}</Link>}
         <span className="muted small">{new Date(p.created_at).toLocaleString('nl-BE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}{p.source ? ` · via ${p.source}` : ''}</span>
       </div>
-      {p.summary && p.kind !== 'mail' && <p className="small">{p.summary}</p>}
-      {p.kind === 'mail' && <p className="small muted">Aan: {p.payload?.to_name} &lt;{p.payload?.to}&gt;</p>}
+      {p.summary && !isMail && <p className="small">{p.summary}</p>}
+      {isMail && <p className="small muted">Aan: {p.payload?.to_name} &lt;{p.payload?.to}&gt;{p.kind === 'mail_reply' ? ` · antwoord op “${p.payload?.subject ?? ''}” (vanuit ${p.payload?.mailbox})` : ''}</p>}
       {open ? (
         <>
           {p.kind === 'mail' && <input className="prop-subject" value={subject} onChange={(e) => setSubject(e.target.value)} />}
-          <textarea className="prop-body" rows={p.kind === 'mail' ? 8 : 3} value={body} onChange={(e) => setBody(e.target.value)}
+          <textarea className="prop-body" rows={isMail ? 8 : 3} value={body} onChange={(e) => setBody(e.target.value)}
             placeholder={p.kind === 'job_reminder' ? 'Optioneel extra zinnetje' : p.kind === 'job_move' ? 'Reden (wordt meegestuurd)' : ''} />
           <div className="prop-actions">
-            <button className="primary" disabled={busy} onClick={() => act('approve')}>✓ Goedkeuren</button>
+            {isMail ? (
+              <>
+                <button className="primary" disabled={busy} onClick={() => act('approve', 'send')}>✓ Versturen</button>
+                <button disabled={busy} onClick={() => act('approve', 'draft')}>Als concept in Outlook</button>
+              </>
+            ) : <button className="primary" disabled={busy} onClick={() => act('approve')}>✓ Goedkeuren</button>}
             <button disabled={busy} onClick={() => act('reject')}>Weigeren</button>
           </div>
         </>

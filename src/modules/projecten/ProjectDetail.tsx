@@ -9,6 +9,7 @@ import { Compare } from './Compare'
 import { ProjectCard, usePhases, type ProjectRow } from '../../core/projects'
 import { ClientPanel } from './ClientPanel'
 import { SurveyPanel } from './SurveyPanel'
+import { MailList } from '../../core/MailList'
 import { LeadActions } from './LeadActions'
 import { PlanningPanel } from './PlanningPanel'
 import { ChecklistPanel } from './ChecklistPanel'
@@ -69,6 +70,7 @@ export function ProjectDetail() {
       {project && <ChecklistPanel code={code} currentStage={project.stage} />}
       {project && <PlanningPanel project={project} />}
       {project && <SurveyPanel code={code} focus={focus === 'survey'} />}
+      {project && <MailList project={code} title="Mails" limit={30} />}
       {project && <Tasks project={code} title="Taken" />}
       {project && <EventFeed project={code} title="Tijdlijn" limit={15} />}
       {q.loading ? (

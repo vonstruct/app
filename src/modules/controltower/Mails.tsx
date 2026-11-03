@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Link } from 'react-router'
+import { useSearchParams } from 'react-router'
+import { MailList } from '../../core/MailList'
 import { supabase } from '../../core/supabase'
 import { useQuery } from '../../core/useQuery'
 import { ErrorBox, Loading } from '../../core/ui'
@@ -16,6 +17,17 @@ const ST: Record<string, { label: string; cls: string }> = {
 
 /** Alle mails van de app (via Resend) en of ze aangekomen zijn. Gevuld door de Resend-webhook. */
 export function Mails() {
+  const [params, setParams] = useSearchParams()
+  const tab = params.get('tab') === 'app' ? 'app' : 'inbox'
+  const focus = params.get('focus')
+  if (tab === 'inbox')
+    return (
+      <section>
+        <div className="page-head"><div><h1>Mails</h1><p className="muted">Inkomende en verzonden mails van info@ en olivier@ (laatste 6 maanden), met samenvatting van VON. Elke 5 minuten bijgewerkt.</p></div></div>
+        <div className="seg"><button className="on">Inbox</button><button onClick={() => setParams({ tab: 'app' })}>Verstuurd door de app</button></div>
+        <MailList title="Inbox" focus={focus} limit={80} />
+      </section>
+    )
   const [onlyProblems, setOnlyProblems] = useState(false)
   const q = useQuery<Mail[]>(() => {
     let b = supabase.from('mail_events').select('*').order('created_at', { ascending: false }).limit(200)
@@ -25,7 +37,7 @@ export function Mails() {
   const seen = async (id: string) => { await supabase.from('mail_events').update({ seen: true }).eq('email_id', id); q.reload() }
   return (
     <section>
-      <p className="crumbs"><Link to="/overzicht">Control tower</Link> / Mails</p>
+      <div className="seg"><button onClick={() => setParams({})}>Inbox</button><button className="on">Verstuurd door de app</button></div>
       <div className="page-head">
         <div>
           <h1>Mails</h1>

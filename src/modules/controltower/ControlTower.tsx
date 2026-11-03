@@ -16,6 +16,7 @@ type DayItem = { id: string; start: string; end: string; title: string; sub?: st
 /** Thema's: elk aandachtspunt (kind) hoort bij één thema. Nieuw kind = één regel hier. */
 const THEMES = [
   { id: 'von', label: 'VON-voorstellen', icon: '✨', kinds: ['von_voorstel'] },
+  { id: 'mails', label: 'Mails', icon: '✉️', kinds: ['mail_antwoord'] },
   { id: 'klant', label: 'Aanvragen & klanten', icon: '👤', kinds: ['aanvraag_nieuw', 'survey_nieuw', 'survey_open', 'klant_email', 'stilstand'] },
   { id: 'planning', label: 'Planning', icon: '📅', kinds: ['opdracht'] },
   { id: 'ontwerp', label: 'Ontwerp & kosten', icon: '📐', kinds: ['prijzen', 'kosten', 'optimalisatie', 'stuklijst_fout', 'stuklijst_opm'] },
@@ -43,7 +44,8 @@ const actionFor = (f: Flag): { to: string; label: string } => {
     case 'leverancier': return { to: '/regels', label: 'Regels' }
     case 'aanvraag_nieuw': return { to: proj, label: 'Aanvraag openen' }
     case 'opdracht': return { to: `/opdrachten?focus=${f.ref}`, label: 'Opdracht openen' }
-    case 'mail': return { to: '/mails', label: 'Mails bekijken' }
+    case 'mail': return { to: '/mails?tab=app', label: 'Mails bekijken' }
+    case 'mail_antwoord': return { to: `/mails?focus=${f.ref}`, label: 'Mail bekijken' }
     case 'von_voorstel': return { to: '/von', label: 'Bekijken en goedkeuren' }
     case 'backup': return { to: 'https://github.com/vonstruct/platform/actions/workflows/backup-onedrive.yml', label: 'Back-up bekijken' }
     default: return { to: proj, label: 'Openen' }
@@ -156,7 +158,7 @@ export function ControlTower() {
             <div className="ct-aside">
               <Today projects={ps} />
               <div className="panel">
-                <div className="ct-panel-head"><h2>Mails (7 dagen)</h2><Link to="/mails" className="small">Alles →</Link></div>
+                <div className="ct-panel-head"><h2>Mails (7 dagen)</h2><Link to="/mails?tab=app" className="small">Alles →</Link></div>
                 {(mails.data ?? []).length === 0 ? (
                   <p className="muted small">Nog geen gegevens van Resend. Zodra de koppeling actief is, zie je hier of je mails aankomen.</p>
                 ) : (
