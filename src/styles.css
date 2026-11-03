@@ -1439,3 +1439,8 @@ summary.vd-h::-webkit-details-marker { display: none; }
 .aftercare-report summary { cursor: pointer; font-weight: 600; } .aftercare-report[open] { display: flex; flex-direction: column; gap: 8px; }
 .aftercare-report input:not([type=file]), .aftercare-report textarea, .aftercare-done textarea { font: inherit; padding: 10px; border: 1px solid #ddd; border-radius: 8px; }
 .aftercare-done { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; } .aftercare-pv { margin-bottom: 10px; }
+
+.nc-row { display: grid; grid-template-columns: 110px 1fr auto auto; gap: 10px; align-items: center; padding: 6px 10px; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+.nc-row button { padding: 2px 8px; } .nc-new { grid-template-columns: 1fr 2fr 1fr 1fr auto; }
+.nacalc .inline.num { width: 110px; }
+@media (max-width: 860px) { .nc-new { grid-template-columns: 1fr 1fr; } .nc-row { grid-template-columns: 70px 1fr auto auto; } }

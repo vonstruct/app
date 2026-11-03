@@ -1,3 +1,4 @@
+import { NacalcPanel } from '../nacalculatie/NacalcPanel'
 import { HandoverPanel } from '../oplevering/HandoverPanel'
 import { Invoices } from '../facturen/Invoices'
 import { QuotePanel } from '../offerte/QuotePanel'
@@ -58,11 +59,12 @@ export function ProjectDetail() {
   const vb = versions.find((v) => v.version === (b ?? versions[0]?.version))
 
   const wa = (project?.client_phone ?? '').replace(/[^\d+]/g, '').replace(/^\+/, '').replace(/^00/, '').replace(/^0/, '32')
-  const TABS: [string, string][] = [['overzicht', 'Overzicht'], ['planning', 'Planning'], ['mails', 'Mails'], ['ontwerp', `Ontwerp & kosten${versions.length ? ` (${versions.length})` : ''}`], ['offerte', 'Offerte'], ['facturen', 'Facturen'], ['oplevering', 'Oplevering'], ['bestellingen', 'Bestellingen'], ['vragenlijst', 'Vragenlijst'], ['tijdlijn', 'Tijdlijn']]
+  const TABS: [string, string][] = [['overzicht', 'Overzicht'], ['planning', 'Planning'], ['mails', 'Mails'], ['ontwerp', `Ontwerp & kosten${versions.length ? ` (${versions.length})` : ''}`], ['vragenlijst', 'Vragenlijst'], ['offerte', 'Offerte'], ['bestellingen', 'Bestellingen'], ['facturen', 'Facturen'], ['oplevering', 'Oplevering'], ['nacalculatie', 'Nacalculatie'], ['tijdlijn', 'Tijdlijn']]
   let body: ReactNode = null
   if (project && ph.data) {
     if (tab === 'planning') body = <PlanningPanel project={project} />
     else if (tab === 'mails') body = <MailList project={code} title="Mails" limit={60} />
+    else if (tab === 'nacalculatie') body = <NacalcPanel project={code} />
     else if (tab === 'oplevering') body = <HandoverPanel project={code} />
     else if (tab === 'facturen') body = <Invoices project={code} />
     else if (tab === 'offerte') body = <QuotePanel project={code} />
