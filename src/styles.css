@@ -1493,3 +1493,5 @@ summary.vd-h::-webkit-details-marker { display: none; }
 }
 @media (max-width: 860px) { .section-tabs { flex-wrap: wrap; overflow-x: visible; } .section-tabs a { padding: 8px 10px; font-size: 13.5px; } }
 .tb-version { font-size: 11.5px; color: var(--muted); margin-top: 2px; } .tb-menu button.tb-reload { color: var(--ink); }
+.inv-rem-box { grid-template-columns: 1fr 1fr; } .inv-rem-body { grid-column: 1 / -1; } .inv-rem-box textarea { font: inherit; }
+.intake-card { border-left: 3px solid var(--vd-gold, #c9a24a); margin: 12px 0; } .intake-head { display: flex; gap: 10px; align-items: baseline; margin-bottom: 6px; } .intake-sum { white-space: pre-line; margin: 0 0 8px; }

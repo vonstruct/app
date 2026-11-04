@@ -67,10 +67,11 @@ export const ruleTables: RuleTable[] = [
     table: 'message_templates',
     title: 'Berichten aan klanten',
     explanation:
-      'Teksten voor WhatsApp en mail. Tussen accolades wordt automatisch ingevuld: {voornaam}, {naam}, {projectcode}, {link} (de portaallink) en {email}.',
+      'Teksten voor WhatsApp en mail. Tussen accolades wordt automatisch ingevuld: {voornaam}, {naam}, {projectcode}, {link} (de portaallink) en {email}. Betalingsherinnering: ook {factuur} {datum} {bedrag} {vervaldag} {rekening}.',
     columns: [
       { key: 'label', label: 'Bericht', width: 220 },
       { key: 'lang', label: 'Taal', type: 'select', options: ['nl', 'en', 'de'], width: 70 },
+      { key: 'subject', label: 'Onderwerp (mail)', width: 200 },
       { key: 'body', label: 'Tekst', type: 'textarea' },
     ],
     orderBy: 'id',

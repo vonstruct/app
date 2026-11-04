@@ -5,7 +5,7 @@ import { HandoverPanel } from '../oplevering/HandoverPanel'
 import { Invoices } from '../facturen/Invoices'
 import { QuotePanel } from '../offerte/QuotePanel'
 import { Orders } from '../bestellingen/Orders'
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { supabase } from '../../core/supabase'
 import { useQuery } from '../../core/useQuery'
@@ -115,6 +115,7 @@ export function ProjectDetail() {
           <ClientPanel project={project} focus={focus === 'fase' || focus === 'survey' ? null : focus} onSaved={pq.reload} />
         </div>
         <ProjectProposals code={code} />
+        <IntakeCard code={code} />
         <LeadActions p={project} onDone={pq.reload} />
         <ChecklistPanel code={code} currentStage={project.stage} />
         <Tasks project={code} title="Taken" />
@@ -154,5 +155,20 @@ function ProjectProposals({ code }: { code: string }) {
     <div className="pd-von">
       <ProposalList project={code} compact />
     </div>
+  )
+}
+
+/** Samenvatting van de Intake-agent (nieuwe aanvraag of vragenlijst): wat de klant wil, wat ontbreekt, volgende stap. */
+function IntakeCard({ code }: { code: string }) {
+  const [x, setX] = useState<{ intake_summary: string | null; intake_missing: string | null; intake_next: string | null; intake_at: string | null } | null>(null)
+  useEffect(() => { supabase.from('projects').select('intake_summary,intake_missing,intake_next,intake_at').eq('project_code', code).maybeSingle().then(({ data }) => setX(data as never)) }, [code])
+  if (!x?.intake_summary) return null
+  return (
+    <section className="panel intake-card">
+      <div className="intake-head"><b>Intake</b><span className="muted small">samengevat door VON · {x.intake_at ? new Date(x.intake_at).toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' }) : ''}</span></div>
+      <p className="intake-sum">{x.intake_summary}</p>
+      {x.intake_missing && <p className="small"><b>Ontbreekt:</b> {x.intake_missing}</p>}
+      {x.intake_next && <p className="small"><b>Volgende stap:</b> {x.intake_next}</p>}
+    </section>
   )
 }

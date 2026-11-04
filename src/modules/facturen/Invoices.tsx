@@ -17,6 +17,7 @@ type Inv = {
   amount_excl: number; amount_vat: number; amount_incl: number; vat_split: Record<string, { basis: number; btw: number }> | null
   status: string; state: string; ready_at: string | null; invoice_number: string | null; invoice_date: string | null; due_date: string | null
   paid_amount: number | null; paid_at: string | null; note: string | null; client_name: string | null; quote_number: string | null; days_overdue: number | null
+  reminders?: number; last_reminder_at?: string | null
 }
 const STATE: Record<string, [string, string]> = {
   gepland: ['Gepland', 'muted'], 'te factureren': ['Te factureren', 'warn'], open: ['Gefactureerd', ''], vervallen: ['Vervallen', 'bad'], betaald: ['Betaald', 'ok'], geannuleerd: ['Geannuleerd', 'muted'],
@@ -115,6 +116,7 @@ function InvoiceDetail({ i, onSave }: { i: Inv; onSave: (p: Partial<Inv>) => voi
           {i.status === 'gepland' && <button onClick={() => onSave({ status: 'te factureren', ready_at: new Date().toISOString() })}>Nu al factureren</button>}
         </div>
       )}
+      {i.status === 'gefactureerd' && <Reminder i={i} onDone={() => onSave({})} />}
       {i.status === 'gefactureerd' && (
         <div className="inv-make">
           <button className="primary" onClick={() => onSave({ status: 'betaald', paid_at: today(), paid_amount: i.amount_incl })}>Betaald (volledig)</button>
@@ -132,6 +134,47 @@ function InvoiceDetail({ i, onSave }: { i: Inv; onSave: (p: Partial<Inv>) => voi
       <div className="seg">
         {['gepland', 'te factureren', 'gefactureerd', 'betaald', 'geannuleerd'].map((s) => <button key={s} className={i.status === s ? 'on' : ''} onClick={() => onSave({ status: s })}>{s}</button>)}
       </div>
+    </div>
+  )
+}
+
+/** Herinnering voor een onbetaalde factuur: vaste tekst (Rekenregels → Berichten, betaling_herinnering), aanpasbaar, verstuurd vanuit info@ na jouw klik. */
+function Reminder({ i, onDone }: { i: Inv; onDone: () => void }) {
+  const [d, setD] = useState<{ to: string | null; to_name: string | null; subject: string; body: string } | null>(null)
+  const [busy, setBusy] = useState(false)
+  const open = async () => {
+    const { data, error } = await supabase.rpc('invoice_reminder_draft', { p_id: i.id })
+    if (error) return toast(error.message, 'err')
+    setD(data as never)
+  }
+  const send = async () => {
+    if (!d?.to) return toast('De klant heeft geen e-mailadres', 'err')
+    setBusy(true)
+    const { data: p, error } = await supabase.from('von_proposals').insert({ kind: 'mail', project_code: i.project_code, title: `Betalingsherinnering ${i.invoice_number ?? i.label}`, summary: `aan ${d.to}`, payload: { to: d.to, to_name: d.to_name, subject: d.subject, body: d.body }, source: 'app', agent: 'app' }).select('id').single()
+    if (error || !p) { setBusy(false); return toast(error?.message ?? 'mislukt', 'err') }
+    const { data: r, error: e2 } = await supabase.functions.invoke('von-action', { body: { action: 'approve', id: p.id, mode: 'send' } })
+    setBusy(false)
+    const res = r as { ok?: boolean; result?: string; error?: string } | null
+    if (e2 || res?.ok === false || res?.error) return toast(res?.error ?? res?.result ?? 'Versturen mislukt', 'err')
+    await supabase.from('invoices').update({ reminders: (i.reminders ?? 0) + 1, last_reminder_at: new Date().toISOString() }).eq('id', i.id)
+    toast('Herinnering verstuurd naar ' + d.to); setD(null); onDone()
+  }
+  return (
+    <div className="inv-rem">
+      {!d ? (
+        <div className="inv-make">
+          <button className={i.state === 'vervallen' ? 'primary' : ''} onClick={open}>Herinnering sturen</button>
+          {(i.reminders ?? 0) > 0 && <span className="muted small">{i.reminders}× herinnerd, laatst {new Date(i.last_reminder_at!).toLocaleDateString('nl-BE')}</span>}
+        </div>
+      ) : (
+        <div className="qedit-head inv-rem-box">
+          <label>Aan<input value={d.to ?? ''} onChange={(e) => setD({ ...d, to: e.target.value })} /></label>
+          <label>Onderwerp<input value={d.subject} onChange={(e) => setD({ ...d, subject: e.target.value })} /></label>
+          <label className="inv-rem-body">Tekst<textarea rows={9} value={d.body} onChange={(e) => setD({ ...d, body: e.target.value })} /></label>
+          <div className="order-actions"><button className="primary" disabled={busy} onClick={send}>{busy ? 'Versturen…' : 'Versturen'}</button><button onClick={() => setD(null)}>Annuleren</button>
+            <span className="muted small">Standaardtekst aanpassen: Rekenregels → Berichten (betaling_herinnering).</span></div>
+        </div>
+      )}
     </div>
   )
 }
