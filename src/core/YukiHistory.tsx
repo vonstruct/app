@@ -1,9 +1,18 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { fmtEur } from './format'
+import { toast } from './toast'
 
-/** Facturen en betalingen van een klant uit Yuki (klantenrekening, view app_client_ledger; elke nacht bijgewerkt). Offertes zitten niet in de boekhouding. */
-type L = { yuki_id: string; entry_date: string; kind: 'factuur' | 'creditnota' | 'betaling'; invoice_no: string | null; description: string | null; amount: number; paid: boolean | null; client_balance: number }
+/** Pdf uit het Yuki-archief openen (tijdelijke link van 15 min via Edge Function yuki, actie doc_url). */
+export async function openYukiPdf(documentId: string) {
+  const w = window.open('', '_blank')
+  const { data, error } = await supabase.functions.invoke('yuki', { body: { action: 'doc_url', document_id: documentId } })
+  if (error || !data?.url) { w?.close(); toast('Pdf niet gevonden in Yuki', 'err'); return }
+  if (w) w.location.href = data.url; else window.location.href = data.url
+}
+
+/** Facturen en betalingen van een klant uit Yuki (klantenrekening, view app_client_ledger; elke nacht bijgewerkt), met pdf uit het archief. Offertes uit Yuki zijn niet op te halen (niet in het archief). */
+type L = { yuki_id: string; entry_date: string; kind: 'factuur' | 'creditnota' | 'betaling'; invoice_no: string | null; description: string | null; amount: number; paid: boolean | null; client_balance: number; document_id: string | null }
 const d = (v: string) => new Date(v + 'T12:00').toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', year: 'numeric' })
 const clean = (s: string | null) => (s ?? '').replace(/^Binnenlandse overschrijvingen - SEPA credit transfers : /, '').replace(/\s*\|.*$/, '').replace(/Netto bedrag: [\d,.]+ : /, '').slice(0, 90)
 
@@ -40,7 +49,7 @@ export function YukiHistory({ clientId, compact = false }: { clientId: string | 
             <li key={r.yuki_id} className={'yh-' + r.kind}>
               <span className="yh-d">{d(r.entry_date)}</span>
               <span className="yh-t">{r.kind === 'factuur' ? <b>{r.invoice_no ?? 'Factuur'}</b> : r.kind === 'creditnota' ? <b>Creditnota</b> : 'Betaling'} <span className="muted">{clean(r.description)}</span></span>
-              <span className="yh-a">{fmtEur(r.kind === 'factuur' ? r.amount : -r.amount)}{r.kind === 'factuur' && (r.paid ? <span className="ok-txt"> ✓</span> : <span className="bad-txt"> open</span>)}</span>
+              <span className="yh-a">{r.document_id && <button className="link small yh-pdf" onClick={() => openYukiPdf(r.document_id!)} title="Factuur openen (pdf uit Yuki)">pdf</button>}{fmtEur(r.kind === 'factuur' ? r.amount : -r.amount)}{r.kind === 'factuur' && (r.paid ? <span className="ok-txt"> ✓</span> : <span className="bad-txt"> open</span>)}</span>
             </li>
           ))}
         </ul>

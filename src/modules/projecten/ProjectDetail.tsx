@@ -1,3 +1,4 @@
+import { YukiHistory } from '../../core/YukiHistory'
 import { KeyDates } from './KeyDates'
 import { BrochurePanel } from '../brochure/BrochurePanel'
 import { DocumentsPanel } from '../documenten/DocumentsPanel'
@@ -71,7 +72,7 @@ export function ProjectDetail() {
     else if (tab === 'documenten') body = <DocumentsPanel project={code} />
     else if (tab === 'nacalculatie') body = <NacalcPanel project={code} />
     else if (tab === 'oplevering') body = <HandoverPanel project={code} />
-    else if (tab === 'facturen') body = <Invoices project={code} />
+    else if (tab === 'facturen') body = <><Invoices project={code} /><div className="panel"><h2>In Yuki</h2><p className="muted small">Alle facturen en betalingen van deze klant in de boekhouding (ook van vóór de app), met de pdf.</p><YukiHistory clientId={project.client_id} /></div></>
     else if (tab === 'offerte') body = <QuotePanel project={code} />
     else if (tab === 'bestellingen') body = <Orders project={code} />
     else if (tab === 'vragenlijst') body = <>{!['lead', 'intake', 'survey'].includes(project.phase) && <LeadActions p={project} onDone={pq.reload} />}<SurveyPanel code={code} focus={focus === 'survey'} /></>
