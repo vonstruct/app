@@ -9,7 +9,8 @@ import { toast } from '../../core/toast'
 /**
  * Betalingsschema en facturen (tabel `invoices`, view `app_invoices`). Na een ondertekende offerte maakt de database de schijven
  * (voorschot / levering / saldo, regel `betalingsschijven`); de fase zet ze op "te factureren". Hier: factuur gemaakt (nummer, datum)
- * en betaald aanduiden, meerwerk toevoegen. Later maakt de app de factuur in Yuki en leest ze de betalingen.
+ * en betaald aanduiden, meerwerk toevoegen. Yuki (Edge Function `yuki`): knop "Factuur maken in Yuki" (concept of meteen geboekt, regel `yuki`)
+ * en elk uur de betalingen ophalen (pg_cron `yuki-sync`, ook met de knop "Betalingen ophalen").
  * Met `project`: enkel dat project (tab Facturen), anders alle projecten.
  */
 type Inv = {
@@ -18,6 +19,7 @@ type Inv = {
   status: string; state: string; ready_at: string | null; invoice_number: string | null; invoice_date: string | null; due_date: string | null
   paid_amount: number | null; paid_at: string | null; note: string | null; client_name: string | null; quote_number: string | null; days_overdue: number | null
   reminders?: number; last_reminder_at?: string | null
+  yuki_status?: 'concept' | 'geboekt' | 'fout' | null; yuki_sent_at?: string | null; yuki_message?: string | null; yuki_open_amount?: number | null; yuki_checked_at?: string | null
 }
 const STATE: Record<string, [string, string]> = {
   gepland: ['Gepland', 'muted'], 'te factureren': ['Te factureren', 'warn'], open: ['Gefactureerd', ''], vervallen: ['Vervallen', 'bad'], betaald: ['Betaald', 'ok'], geannuleerd: ['Geannuleerd', 'muted'],
@@ -58,6 +60,7 @@ export function Invoices({ project }: { project?: string }) {
           <button className={filter === 'alles' ? 'on' : ''} onClick={() => setFilter('alles')}>Alles</button>
         </div>
         {project && <button onClick={() => setAdding((a) => !a)}>+ Meerwerk / andere factuur</button>}
+        <SyncButton onDone={q.reload} />
       </div>
       <ErrorBox error={q.error} />
       {adding && project && <NewInvoice project={project} onDone={() => { setAdding(false); q.reload() }} />}
@@ -74,6 +77,7 @@ export function Invoices({ project }: { project?: string }) {
                 <div className="muted small">
                   {!project && <><Link to={`/projecten/${i.project_code}?tab=facturen`} onClick={(e) => e.stopPropagation()}>{i.project_code}</Link>{i.client_name ? ' · ' + i.client_name : ''} · </>}
                   {i.invoice_number ? 'factuur ' + i.invoice_number : i.status === 'gepland' ? planned(i.kind) : 'nog geen factuur'}
+                  {i.yuki_status && <> · <span className={i.yuki_status === 'fout' ? 'bad-txt' : ''}>Yuki: {YUKI[i.yuki_status]}</span></>}
                 </div>
               </div>
               <div className="order-dates small">
@@ -86,6 +90,51 @@ export function Invoices({ project }: { project?: string }) {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+const YUKI: Record<string, string> = { concept: 'concept (nakijken in Yuki)', geboekt: 'geboekt', fout: 'fout' }
+
+async function callYuki(body: Record<string, unknown>) {
+  const { data, error } = await supabase.functions.invoke('yuki', { body })
+  if (error) {
+    let msg = error.message
+    try { const j = await (error as { context?: Response }).context?.json(); if (j?.error) msg = j.error } catch { /* */ }
+    throw new Error(msg)
+  }
+  if (data?.ok === false) throw new Error(data.error ?? 'mislukt')
+  return data
+}
+
+/** Betalingen ophalen uit Yuki (openstaande posten); gebeurt ook elk uur vanzelf. */
+function SyncButton({ onDone }: { onDone: () => void }) {
+  const [busy, setBusy] = useState(false)
+  return <button disabled={busy} onClick={async () => {
+    setBusy(true)
+    try { const r = await callYuki({ action: 'sync_payments', force: true }); toast(r.paid ? `${r.paid} betaling(en) verwerkt` : `Bijgewerkt · ${r.outstanding} openstaand in Yuki`); onDone() }
+    catch (e) { toast(String((e as Error).message), 'err') } finally { setBusy(false) }
+  }}>{busy ? 'Ophalen…' : 'Betalingen ophalen (Yuki)'}</button>
+}
+
+/** Factuur maken in Yuki: pas na jouw klik. Concept = je kijkt na en verstuurt vanuit Yuki; meteen boeken = Rekenregels → Facturen. */
+function YukiBlock({ i, onDone }: { i: Inv; onDone: () => void }) {
+  const [busy, setBusy] = useState(false)
+  const can = ['te factureren', 'gepland', 'gefactureerd'].includes(i.status) && i.yuki_status !== 'concept' && i.yuki_status !== 'geboekt' && !(i.status === 'gefactureerd' && i.invoice_number)
+  const when = (v?: string | null) => (v ? new Date(v).toLocaleString('nl-BE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '')
+  return (
+    <div className="inv-yuki">
+      {i.yuki_status === 'concept' && <p className="small">In Yuki als <b>concept</b> sinds {when(i.yuki_sent_at)}. Kijk het na en verstuur het vanuit Yuki; zodra het daar geboekt is, zet de app het op gefactureerd.</p>}
+      {i.yuki_status === 'geboekt' && <p className="small">Geboekt in Yuki{i.yuki_open_amount != null ? <> · nog open: <b>{fmtEur(i.yuki_open_amount)}</b></> : null}{i.yuki_checked_at ? <span className="muted"> · nagekeken {when(i.yuki_checked_at)}</span> : null}</p>}
+      {i.yuki_status === 'fout' && <p className="small bad-txt">Yuki weigerde de factuur: {i.yuki_message}</p>}
+      {can && (
+        <button className="primary" disabled={busy} onClick={async () => {
+          if (!confirm(`Factuur "${i.label}" (${fmtEur(i.amount_incl)}) aanmaken in Yuki?`)) return
+          setBusy(true)
+          try { const r = await callYuki({ action: 'create_invoice', id: i.id }); toast(r.status === 'geboekt' ? 'Geboekt in Yuki' : 'Als concept in Yuki gezet'); onDone() }
+          catch (e) { toast(String((e as Error).message), 'err'); onDone() } finally { setBusy(false) }
+        }}>{busy ? 'Bezig…' : i.yuki_status === 'fout' ? 'Opnieuw naar Yuki' : 'Factuur maken in Yuki'}</button>
+      )}
     </div>
   )
 }
@@ -108,9 +157,10 @@ function InvoiceDetail({ i, onSave }: { i: Inv; onSave: (p: Partial<Inv>) => voi
         {Object.entries(i.vat_split ?? {}).map(([r, v]) => <span key={r}>{Number(r)} % btw op {fmtEur(v.basis)}: <b>{fmtEur(v.btw)}</b></span>)}
         <span>Incl. btw <b>{fmtEur(i.amount_incl)}</b></span>
       </div>
+      <YukiBlock i={i} onDone={() => onSave({})} />
       {(i.status === 'te factureren' || i.status === 'gepland') && (
         <div className="inv-make">
-          <label>Factuurnummer (uit Yuki)<input value={nr} onChange={(e) => setNr(e.target.value)} placeholder="bv. VF2026-0123" /></label>
+          <label>Of met de hand: factuurnummer<input value={nr} onChange={(e) => setNr(e.target.value)} placeholder="bv. VF2026-0123" /></label>
           <label>Factuurdatum<input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
           <button className="primary" onClick={() => onSave({ status: 'gefactureerd', invoice_number: nr || null, invoice_date: date, due_date: null })}>Gefactureerd</button>
           {i.status === 'gepland' && <button onClick={() => onSave({ status: 'te factureren', ready_at: new Date().toISOString() })}>Nu al factureren</button>}
