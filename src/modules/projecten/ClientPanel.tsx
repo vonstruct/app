@@ -1,4 +1,3 @@
-import { YukiHistory } from '../../core/YukiHistory'
 import { Link } from 'react-router'
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../../core/supabase'
@@ -52,7 +51,6 @@ export function ClientPanel({ project, focus, onSaved }: { project: ProjectRow; 
           {addr && <span className="muted">{addr}</span>}
           {c.language && c.language !== 'nl' && <span className="muted">Taal: {c.language === 'en' ? 'Engels' : 'Duits'}</span>}
         </div>
-        <YukiHistory clientId={c.id} compact />
       </div>
     )
   }

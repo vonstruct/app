@@ -3,7 +3,8 @@ import { supabase } from '../../core/supabase'
 import { toast } from '../../core/toast'
 
 /**
- * Planning van een project. Zelf in te vullen: deadline klant (+ reden), start van de werken (eerste werfdag) en plaatsing
+ * Planning van een project = de enige tijdlijn op de projectpagina: bovenaan de fases (✓ voorbij, "nu" = waar het project staat,
+ * met tegen wanneer), daaronder de datums. Zelf in te vullen: deadline klant (+ reden), start van de werken (eerste werfdag) en plaatsing
  * (start + dagen, ook weekend). De app rekent terug (view app_project_timeline) en toont per stage gate tegen wanneer
  * die klaar moet zijn of wanneer ze klaar was (view app_project_gates: due / done_at). Ingevuld = ingeklapt, "wijzigen" klapt open.
  * Opvolging = Planning-agent (events project_planning + dagplanning), geen vaste regels in de control tower.
@@ -13,7 +14,7 @@ type T = {
   install_end: string | null; first_job: string | null; production_by: string | null; final_measure_by: string | null; final_measure_done: boolean
   order_by: string | null; order_by_supplier: string | null; target_install_week: string | null
 }
-type G = { stage: string; gate_label: string; sort: number; n: number; n_done: number; done_at: string | null; passed: boolean; due: string | null }
+type G = { stage: string; label: string; gate_label: string; sort: number; n: number; n_done: number; done_at: string | null; passed: boolean; due: string | null }
 type Entry = { date: string; label: string; sub?: string; kind: 'gate' | 'moment' | 'mine' | 'deadline' | 'today'; state?: 'ok' | 'late' | 'open' | 'risk' }
 
 const d = (v: string | null) => (v ? new Date(v + 'T12:00').toLocaleDateString('nl-BE', { weekday: 'short', day: 'numeric', month: 'short' }) : '—')
@@ -70,7 +71,9 @@ export function KeyDates({ code, onSaved }: { code: string; onSaved?: () => void
   if (t.install_start) E.push({ date: t.install_start, label: 'Plaatsing', sub: t.install_end && t.install_end !== t.install_start ? `tot ${d(t.install_end)}` : undefined, kind: 'mine' })
   if (t.deadline) E.push({ date: t.deadline, label: 'Deadline klant', sub: t.deadline_reason ?? undefined, kind: 'deadline', state: late ? 'risk' : undefined })
   E.sort((a, b) => a.date.localeCompare(b.date) || (a.kind === 'gate' ? 1 : -1))
-  if (E.length) { const i = E.findIndex((e) => e.date > today); E.splice(i < 0 ? E.length : i, 0, { date: today, label: 'Vandaag', kind: 'today' }) }
+  // waar staan we nu: de eerste fase die nog niet voorbij is
+  const current = gates.find((g) => !g.passed)
+  if (E.length) { const i = E.findIndex((e) => e.date > today); E.splice(i < 0 ? E.length : i, 0, { date: today, label: current ? `Vandaag · nu in ${current.label}` : 'Vandaag', kind: 'today' }) }
 
   return (
     <div className="panel keydates">
@@ -101,6 +104,21 @@ export function KeyDates({ code, onSaved }: { code: string; onSaved?: () => void
             <input type="number" min={1} max={30} defaultValue={t.install_days ?? ''} key={'id' + t.install_days} placeholder="4" onBlur={(e) => (e.target.value ? Number(e.target.value) : null) !== t.install_days && save({ install_days: e.target.value ? Number(e.target.value) : null })} />
           </label>
         </div>
+      )}
+      {gates.length > 0 && (
+        <ol className="kd-steps" style={{ gridTemplateColumns: `repeat(${gates.length}, minmax(0, 1fr))` }}>
+          {gates.map((g) => {
+            const now = g === current
+            const st = g.passed ? 'done' : now ? 'now' : 'next'
+            const lateDue = !g.passed && g.due && g.due < today && g.n_done < g.n
+            return (
+              <li key={g.stage} className={st + (lateDue ? ' late' : '')} title={g.gate_label}>
+                <b>{g.label}</b>
+                <small>{g.passed ? `✓${g.done_at ? ' ' + d(g.done_at) : ''}` : now ? `nu · ${g.n_done}/${g.n}${g.due ? ' · tegen ' + d(g.due) : ''}` : g.due ? 'tegen ' + d(g.due) : ''}</small>
+              </li>
+            )
+          })}
+        </ol>
       )}
       {late && <p className="notice bad-txt">Deadline in gevaar: de plaatsing is pas klaar op {d(t.install_end)}, de deadline is {d(t.deadline)}.</p>}
       {E.length > 1 && (

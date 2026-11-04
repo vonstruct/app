@@ -113,7 +113,7 @@ export function ProjectDetail() {
         <div className="pdetail-top">
           <div className={'pcard-wide' + (focus === 'fase' ? ' focus' : '')}>
             {focus === 'fase' && <p className="notice">Kies rechtsboven in de kaart de fase waarin het project nu zit.</p>}
-            <ProjectCard p={project} phases={ph.data} onSaved={pq.reload} />
+            <ProjectCard p={project} phases={ph.data} onSaved={pq.reload} hideSteps />
           </div>
           <ClientPanel project={project} focus={focus === 'fase' || focus === 'survey' ? null : focus} onSaved={pq.reload} />
         </div>

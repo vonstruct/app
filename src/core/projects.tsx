@@ -82,27 +82,28 @@ export const relDays = (iso: string | null) => {
   return d <= 0 ? 'vandaag' : d === 1 ? 'gisteren' : `${d} dagen geleden`
 }
 
+/** Status van ontwerp en kosten; elke melding is een link naar de plek waar je het oplost. */
 export function StatusChips({ p }: { p: ProjectRow }) {
-  const chips: { cls: string; text: string; title?: string }[] = []
-  if (p.last_version == null) chips.push({ cls: 'chip', text: 'Nog geen tekening' })
+  const base = `/projecten/${encodeURIComponent(p.project_code)}`
+  const v = p.last_version != null ? `${base}/v/${p.last_version}` : null
+  const chips: { cls: string; text: string; title?: string; to?: string }[] = []
+  if (p.last_version == null) chips.push({ cls: 'chip', text: 'Nog geen tekening', title: 'Nog geen ontwerp uit PaletteCAD (knop Supabase in de stuklijst)' })
   else {
-    if (p.optimizer_status == null) chips.push({ cls: 'chip warn', text: 'Optimalisatie bezig' })
-    else if (!p.optimizer_ok) chips.push({ cls: 'chip bad', text: 'Optimalisatie mislukt', title: p.optimizer_status })
-    if (p.cost_status == null) chips.push({ cls: 'chip warn', text: 'Kosten bezig' })
-    else if (!p.cost_ok) chips.push({ cls: 'chip bad', text: 'Kosten mislukt', title: p.cost_status })
-    if (p.n_errors) chips.push({ cls: 'chip bad', text: `${p.n_errors} fout${p.n_errors === 1 ? '' : 'en'}` })
-    if (p.n_missing_prices) chips.push({ cls: 'chip warn', text: `${p.n_missing_prices} zonder prijs` })
-    if (p.n_warnings) chips.push({ cls: 'chip', text: `${p.n_warnings} opmerking${p.n_warnings === 1 ? '' : 'en'}` })
+    if (p.optimizer_status == null) chips.push({ cls: 'chip warn', text: 'Optimalisatie bezig', to: `${v}?tab=platen` })
+    else if (!p.optimizer_ok) chips.push({ cls: 'chip bad', text: 'Optimalisatie mislukt', title: p.optimizer_status, to: `${v}?tab=platen` })
+    if (p.cost_status == null) chips.push({ cls: 'chip warn', text: 'Kosten bezig', to: `${v}?tab=kosten` })
+    else if (!p.cost_ok) chips.push({ cls: 'chip bad', text: 'Kosten mislukt', title: p.cost_status, to: `${v}?tab=kosten` })
+    if (p.n_errors) chips.push({ cls: 'chip bad', text: `${p.n_errors} fout${p.n_errors === 1 ? '' : 'en'}`, title: 'Fouten in de stuklijst: bekijken en oplossen', to: `${v}?tab=controle` })
+    if (p.n_missing_prices) chips.push({ cls: 'chip warn', text: `${p.n_missing_prices} zonder prijs`, title: 'Artikels zonder prijs: prijs invullen, zelf maken of negeren', to: `${v}?tab=kosten&focus=prijzen` })
+    if (p.n_warnings) chips.push({ cls: 'chip', text: `${p.n_warnings} opmerking${p.n_warnings === 1 ? '' : 'en'}`, title: 'Opmerkingen uit de stuklijst (PaletteCAD): nakijken', to: `${v}?tab=controle` })
     if (p.optimizer_ok && p.cost_ok && !p.n_errors && !p.n_missing_prices) chips.push({ cls: 'chip ok', text: 'Raming compleet' })
   }
-  if (!p.client_email) chips.push({ cls: 'chip', text: 'Klant zonder e-mail', title: 'Nodig voor toegang tot het klantenportaal' })
+  if (!p.client_email) chips.push({ cls: 'chip', text: 'Klant zonder e-mail', title: 'Nodig voor toegang tot het klantenportaal', to: `${base}?focus=email` })
   return (
     <div className="chips">
-      {chips.map((c) => (
-        <span key={c.text} className={c.cls} title={c.title}>
-          {c.text}
-        </span>
-      ))}
+      {chips.map((c) => c.to
+        ? <Link key={c.text} to={c.to} className={c.cls + ' chip-link'} title={c.title}>{c.text} ›</Link>
+        : <span key={c.text} className={c.cls} title={c.title}>{c.text}</span>)}
     </div>
   )
 }
@@ -132,7 +133,7 @@ export function PhaseSelect({ p, phases, onSaved }: { p: ProjectRow; phases: Pha
 export type ProjectPlanning = { project_code: string; jobs_open: number; jobs_unconfirmed: number; jobs_changed: number; next_at: string | null; next_title: string | null }
 
 export type ProjectProgress = { project_code: string; stage_total: number; stage_done: number; total: number; done: number; next_item: string | null }
-export function ProjectCard({ p, phases, onSaved, planning, progress }: { p: ProjectRow; phases: Phase[]; onSaved: () => void; planning?: ProjectPlanning; progress?: ProjectProgress }) {
+export function ProjectCard({ p, phases, onSaved, planning, progress, hideSteps }: { p: ProjectRow; phases: Phase[]; onSaved: () => void; planning?: ProjectPlanning; progress?: ProjectProgress; hideSteps?: boolean }) {
   const href = `/projecten/${encodeURIComponent(p.project_code)}`
   return (
     <article className={'pcard' + (p.phase_active === false ? ' inactive' : '')}>
@@ -150,7 +151,7 @@ export function ProjectCard({ p, phases, onSaved, planning, progress }: { p: Pro
         </div>
         <PhaseSelect p={p} phases={phases} onSaved={onSaved} />
       </header>
-      <PhaseSteps phase={p.phase} phases={phases} />
+      {!hideSteps && <PhaseSteps phase={p.phase} phases={phases} />}
       {progress && progress.stage_total > 0 && (
         <Link to={href} className="pcard-next">
           <span className="pcard-bar"><i style={{ width: `${Math.round((100 * progress.stage_done) / progress.stage_total)}%` }} /></span>
