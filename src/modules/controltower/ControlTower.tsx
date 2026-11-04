@@ -45,6 +45,14 @@ const actionFor = (f: Flag): { to: string; label: string } => {
     case 'nacalculatie': return { to: f.project_code ? `/projecten/${encodeURIComponent(f.project_code)}?tab=nacalculatie` : '/projecten', label: 'Nacalculatie' }
     case 'capaciteit': return { to: '/capaciteit', label: 'Capaciteit bekijken' }
     case 'factuur': return { to: f.project_code ? `/projecten/${encodeURIComponent(f.project_code)}?tab=facturen` : '/facturen', label: f.title.startsWith('Onbetaald') ? 'Opvolgen' : 'Factuur maken' }
+    case 'controle': {
+      const pc = f.project_code ? `/projecten/${encodeURIComponent(f.project_code)}` : null
+      if (f.title.startsWith('Aankoop')) return { to: '/facturen?tab=aankoop', label: 'Bekijken' }
+      if (f.title.startsWith('Offerte')) return { to: pc ? pc + '?tab=offerte' : '/projecten', label: 'Offerte openen' }
+      if (f.title.startsWith('Bestelling')) return { to: pc ? pc + '?tab=bestellingen' : '/bestellingen', label: 'Bestelling bekijken' }
+      if (f.title.startsWith('Klant')) return { to: pc ?? '/relaties', label: 'Klant aanvullen' }
+      return { to: pc ? pc + '?tab=facturen' : '/facturen', label: 'Bekijken' }
+    }
     case 'aankoopfactuur': return { to: '/facturen?tab=aankoop', label: 'Bekijken' }
     case 'offerte': return { to: f.project_code ? `/projecten/${encodeURIComponent(f.project_code)}?tab=offerte` : '/projecten', label: 'Offerte openen' }
     case 'bestelling': return { to: f.project_code ? `/projecten/${encodeURIComponent(f.project_code)}?tab=bestellingen` : '/projecten', label: 'Bestelling bekijken' }
