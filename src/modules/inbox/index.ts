@@ -3,11 +3,12 @@ import type { AppModule } from '../../core/module'
 import { INBOX, Section } from '../../core/Section'
 import { Inbox } from './Inbox'
 
-/** Inbox: mails (info@) en VON-voorstellen samen. /von hoort er als tab bij (module von). */
+/** Alle mails (info@ en olivier@). Niet in het menu (sinds 4 nov 2026): wat een antwoord nodig heeft staat in Vandaag, mails per project bij het project; bereikbaar via Zoeken, "Antwoorden" en het menu onder je initialen. */
 const inbox: AppModule = {
   id: 'inbox',
   label: 'Inbox',
   path: '/inbox',
-  routes: [{ path: '/inbox', element: createElement(Section, { title: 'Inbox', tabs: INBOX, children: createElement(Inbox) }) }],
+  inMenu: false,
+  routes: [{ path: '/inbox', element: createElement(Section, { title: 'Mails', tabs: INBOX, children: createElement(Inbox) }) }],
 }
 export default inbox

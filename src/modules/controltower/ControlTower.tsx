@@ -256,7 +256,7 @@ function NewMail() {
   const list = q.data ?? []
   return (
     <section className="panel vd-panel">
-      <div className="vd-h"><h2>Nieuw in je mailbox</h2><Link to="/inbox" className="vd-more">Inbox</Link></div>
+      <div className="vd-h"><h2>Nieuw in je mailbox</h2><Link to="/inbox" className="vd-more">alle mails</Link></div>
       {q.loading ? <p className="muted small vd-pad">Laden…</p> : list.length === 0 ? <p className="muted small vd-pad">Geen nieuwe mails van de laatste dagen.</p> : list.map((m) => (
         <button key={m.id} className="vd-mail" onClick={() => nav(`/inbox?focus=${m.id}`)}>
           <span className="vd-av">{initials(m.party_name ?? m.from_name ?? m.from_email)}</span>

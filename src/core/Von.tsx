@@ -224,7 +224,7 @@ export function Von({ embedded = false }: { embedded?: boolean } = {}) {
                   </span>
                 )}
               </span>
-              {!embedded && <a className="v2-ib" href="#/von" title="Open de VON-pagina" onClick={() => setOpen(false)}><Ico d={I.expand} /></a>}
+              {!embedded && <a className="v2-ib" href="#/von?tab=gesprek" title="Gesprek groot openen" onClick={() => setOpen(false)}><Ico d={I.expand} /></a>}
               {!embedded && <button className="v2-ib" onClick={() => { setOpen(false); hush(); stopListening() }} aria-label="Sluiten" title="Sluiten"><Ico d={I.close} /></button>}
             </span>
           </header>

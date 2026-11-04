@@ -7,15 +7,15 @@ import { Von } from './Von'
 import { SearchButton } from './Search'
 import { ToastHost } from './toast'
 
-/** Aantal dingen in de Inbox: mails die op antwoord wachten + open VON-voorstellen. */
+/** Teller op Vandaag: mails die op antwoord wachten + open VON-voorstellen (alles wat jou nodig heeft staat in Vandaag). */
 function useCounts() {
-  const [n, setN] = useState({ inbox: 0, von: 0 })
+  const [n, setN] = useState({ inbox: 0, von: 0, controltower: 0 })
   const loc = useLocation()
   useEffect(() => {
     Promise.all([
       supabase.from('app_mail_messages').select('id', { count: 'exact', head: true }).eq('direction', 'in').eq('needs_reply', true).eq('replied', false).is('dismissed_at', null).eq('is_bulk', false).is('proposal_status', null).gt('at', new Date(Date.now() - 30 * 864e5).toISOString()),
       supabase.from('von_proposals').select('id', { count: 'exact', head: true }).eq('status', 'voorstel'),
-    ]).then(([a, b]) => setN({ inbox: a.count ?? 0, von: b.count ?? 0 }))
+    ]).then(([a, b]) => setN({ inbox: a.count ?? 0, von: b.count ?? 0, controltower: (a.count ?? 0) + (b.count ?? 0) }))
   }, [loc.pathname])
   return n
 }
@@ -63,6 +63,8 @@ export function Layout() {
             <div className="tb-menu" role="menu">
               <div className="tb-menu-head"><b>Olivier Van Dyck</b><span>info@vonstruct.com</span><span className="tb-version">Versie {__BUILD__}</span></div>
               <Link to="/instellingen" role="menuitem">Instellingen</Link>
+              <Link to="/von?tab=gedaan" role="menuitem">VON: team en logboek</Link>
+              <Link to="/inbox" role="menuitem">Alle mails</Link>
               <Link to="/regels" role="menuitem">Rekenregels</Link>
               <Link to="/mails" role="menuitem">Verstuurd door de app</Link>
               <Link to="/portaal" role="menuitem">Portaal bekijken als …</Link>

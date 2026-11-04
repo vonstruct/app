@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { supabase } from '../../core/supabase'
-import { Tasks } from '../../core/Tasks'
 import { Von } from '../../core/Von'
 import { toast } from '../../core/toast'
 
@@ -260,7 +259,8 @@ function Watching() {
   )
 }
 
-const TABS: [string, string][] = [['wacht', 'Wacht op jou'], ['gesprek', 'Gesprek'], ['gedaan', 'Wat VON deed'], ['team', 'Team'], ['oog', 'In het oog'], ['taken', 'Taken']]
+// VON-instellingen (niet in het menu, sinds 4 nov 2026): beslissen gebeurt in Vandaag; hier controle, logboek en ongedaan maken.
+const TABS: [string, string][] = [['wacht', 'Wacht op jou'], ['gedaan', 'Wat VON deed'], ['oog', 'In het oog'], ['team', 'Team'], ['gesprek', 'Gesprek']]
 
 export function VonPage() {
   const [params, setParams] = useSearchParams()
@@ -273,8 +273,8 @@ export function VonPage() {
         <span className="vonp-mark">V</span>
         <div>
           <div className="vd-date">{new Date().toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
-          <h1>VON</h1>
-          <p className="muted">Je assistent voor de hele app. VON leest alles, stelt voor en voert pas uit na jouw goedkeuring.</p>
+          <h1>VON: team en logboek</h1>
+          <p className="muted">Beslissen doe je in <Link to="/overzicht">Vandaag</Link>. Hier zie je wat VON en de agents deden (en maak je iets ongedaan), wat ze opvolgen, en stel je het team in.</p>
         </div>
       </header>
       <nav className="pd-tabs">
@@ -285,7 +285,6 @@ export function VonPage() {
       {tab === 'gedaan' && <Done />}
       {tab === 'oog' && <Watching />}
       {tab === 'team' && <Team />}
-      {tab === 'taken' && <Tasks title="Taken" />}
     </section>
   )
 }
