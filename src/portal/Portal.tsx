@@ -18,7 +18,9 @@ type Project = { project_code: string; title: string | null; phase: string | nul
 const CONTACT_PHONE = '+32 493 47 27 51'
 const CONTACT_WA = '32493472751'
 
-const STEPS = ['design', 'quote', 'production', 'installation', 'closed']
+const STEPS = ['design', 'quote', 'signed', 'production', 'installation', 'closed']
+// tussenfases tonen als hun hoofdfase (stage gate)
+const STEP_OF: Record<string, string> = { final_measure: 'signed', ordering: 'signed', handover: 'installation', aftercare: 'closed' }
 
 /** Portaal voor klanten, de productiepartner en onderaannemers. `preview` = beheerder bekijkt het als voorbeeld. */
 export function Portal({ role, preview = false, viewAs = null }: { role: PortalRole; preview?: boolean; viewAs?: ViewAs | null }) {
@@ -131,7 +133,7 @@ function ClientProjects({ preview, lang, onSurvey }: { preview: boolean; lang: L
   return (
     <div className="portal-projects">
       {rows.map((p) => {
-        const idx = p.phase === 'lead' ? -1 : STEPS.indexOf(p.phase ?? '')
+        const idx = STEPS.indexOf(STEP_OF[p.phase ?? ''] ?? p.phase ?? '')
         return (
           <article key={p.project_code} className="portal-project">
             <div className="portal-project-head">

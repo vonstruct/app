@@ -90,7 +90,7 @@ const nl = {
   } as Record<string, [string, string][]>,
   phases: {
     lead: 'Aanvraag', intake: 'Kennismaking', survey: 'Vragenlijst', measuring: 'Opmeting', design: 'Ontwerp', quote: 'Offerte',
-    signed: 'Getekend', final_measure: 'Eindopmeting', ordering: 'Bestellingen', production: 'Productie', installation: 'Plaatsing',
+    signed: 'Voorbereiding', final_measure: 'Eindopmeting', ordering: 'Bestellingen', production: 'Productie', installation: 'Plaatsing',
     handover: 'Oplevering', aftercare: 'Nazorg', closed: 'Afgerond', on_hold: 'Gepauzeerd', declined: 'Niet doorgegaan',
   } as Record<string, string>,
   preparing: 'Je project wordt klaargezet',
@@ -218,7 +218,7 @@ const en: Dict = {
   },
   phases: {
     lead: 'Request', intake: 'Introduction', survey: 'Questionnaire', measuring: 'Measuring', design: 'Design', quote: 'Quote',
-    signed: 'Signed', final_measure: 'Final measuring', ordering: 'Ordering', production: 'Production', installation: 'Installation',
+    signed: 'Preparation', final_measure: 'Final measuring', ordering: 'Ordering', production: 'Production', installation: 'Installation',
     handover: 'Handover', aftercare: 'Aftercare', closed: 'Completed', on_hold: 'Paused', declined: 'Not proceeding',
   },
   preparing: 'Your project is being set up',
@@ -344,7 +344,7 @@ const de: Dict = {
   },
   phases: {
     lead: 'Anfrage', intake: 'Kennenlernen', survey: 'Fragebogen', measuring: 'Aufmaß', design: 'Entwurf', quote: 'Angebot',
-    signed: 'Unterzeichnet', final_measure: 'Endaufmaß', ordering: 'Bestellungen', production: 'Produktion', installation: 'Montage',
+    signed: 'Vorbereitung', final_measure: 'Endaufmaß', ordering: 'Bestellungen', production: 'Produktion', installation: 'Montage',
     handover: 'Übergabe', aftercare: 'Nachbetreuung', closed: 'Abgeschlossen', on_hold: 'Pausiert', declined: 'Nicht weitergeführt',
   },
   preparing: 'Ihr Projekt wird vorbereitet',

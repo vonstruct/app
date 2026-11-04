@@ -4,7 +4,7 @@ import { supabase } from '../../core/supabase'
 
 type Client = { id: string; first_name: string | null; last_name: string | null; company: string | null; email: string | null }
 const label = (c: Client) => [c.company, [c.first_name, c.last_name].filter(Boolean).join(' ')].filter(Boolean).join(' · ') + (c.email ? ` (${c.email})` : '')
-const PHASES: [string, string][] = [['design', 'Ontwerp'], ['lead', 'Aanvraag'], ['quote', 'Offerte'], ['production', 'Productie'], ['installation', 'Plaatsing']]
+const PHASES: [string, string][] = [['design', 'Ontwerp'], ['lead', 'Aanvraag'], ['quote', 'Offerte'], ['signed', 'Voorbereiding'], ['production', 'Productie'], ['installation', 'Plaatsing']]
 
 /** Project met de hand aanmaken (bestaande of nieuwe klant, eigen fase en eventueel eigen projectcode). RPC create_project. */
 export function NewProject({ onClose, initialClient }: { onClose: () => void; initialClient?: string }) {
