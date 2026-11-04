@@ -1,3 +1,4 @@
+import { Link } from 'react-router'
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../../core/supabase'
 import type { ProjectRow } from '../../core/projects'
@@ -20,6 +21,7 @@ const FIELDS: { key: keyof Client; label: string; type?: string; placeholder?: s
 export function ClientPanel({ project, focus, onSaved }: { project: ProjectRow; focus: string | null; onSaved: () => void }) {
   const q = useQuery<Client>(() => supabase.from('clients').select('id, first_name, last_name, company, email, phone, street, postal_code, city, language').eq('id', project.client_id).single(), [project.client_id])
   const [msg, setMsg] = useState<string | null>(null)
+  const [editing, setEditing] = useState(false)
   const box = useRef<HTMLDivElement>(null)
   useEffect(() => { if (focus && q.data) box.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }, [focus, q.data])
   if (!q.data) return null
@@ -31,6 +33,26 @@ export function ClientPanel({ project, focus, onSaved }: { project: ProjectRow; 
     setMsg(error ? 'Niet bewaard: ' + error.message : 'Bewaard')
     q.reload()
     onSaved()
+  }
+  // gewoon bekijken = korte kaart; volledige gegevens bij Relaties. Komt de gebruiker voor een ontbrekend veld (focus), dan het formulier.
+  if (!focus && !editing) {
+    const name = [c.first_name, c.last_name].filter(Boolean).join(' ') || c.company || '—'
+    const addr = [c.street, [c.postal_code, c.city].filter(Boolean).join(' ')].filter(Boolean).join(', ')
+    return (
+      <div className="panel client-panel compact">
+        <div className="tasks-head">
+          <h2>Klant {project.client_number != null && <span className="muted">nr. {project.client_number}</span>}</h2>
+          <span className="small"><button className="link small" onClick={() => setEditing(true)}>aanpassen</button> · <Link to={`/relaties?tab=klanten&focus=${c.id}:last_name`}>bij Relaties</Link></span>
+        </div>
+        <div className="cp-lines">
+          <b>{name}{c.company && (c.first_name || c.last_name) ? <span className="muted"> · {c.company}</span> : null}</b>
+          {c.email ? <a href={`mailto:${c.email}`}>{c.email}</a> : <button className="link small bad-txt" onClick={() => setEditing(true)}>geen e-mailadres: invullen</button>}
+          {c.phone && <a href={`tel:${c.phone}`}>{c.phone}</a>}
+          {addr && <span className="muted">{addr}</span>}
+          {c.language && c.language !== 'nl' && <span className="muted">Taal: {c.language === 'en' ? 'Engels' : 'Duits'}</span>}
+        </div>
+      </div>
+    )
   }
   return (
     <div ref={box} className={'panel client-panel' + (focus ? ' focus' : '')}>
@@ -62,6 +84,7 @@ export function ClientPanel({ project, focus, onSaved }: { project: ProjectRow; 
       </div>
       <p className="muted small">De taal bepaalt de mails, de berichten en het klantenportaal (de klant kan daar zelf ook wisselen).</p>
       {msg && <p className="muted small">{msg}</p>}
+      {editing && !focus && <button className="link small" onClick={() => setEditing(false)}>klaar</button>}
     </div>
   )
 }

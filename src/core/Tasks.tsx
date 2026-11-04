@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { supabase } from './supabase'
+import { useDictation, dueFromText } from './useDictation'
+import { toast } from './toast'
 import { NewEvent } from '../modules/agenda/Agenda'
 import { JobEditor } from '../modules/agenda/JobEditor'
 
@@ -20,6 +22,7 @@ const dueLabel = (d: string | null) => {
 export function Tasks({ project, limit, title = 'Mijn taken', showAdd = true }: { project?: string; limit?: number; title?: string; showAdd?: boolean }) {
   const [tasks, setTasks] = useState<Task[] | null>(null)
   const [text, setText] = useState('')
+  const dict = useDictation()
   const [due, setDue] = useState('')
   const [showDone, setShowDone] = useState(false)
   const [plan, setPlan] = useState<{ t: Task; kind: 'afspraak' | 'opdracht' } | null>(null)
@@ -66,12 +69,18 @@ export function Tasks({ project, limit, title = 'Mijn taken', showAdd = true }: 
       {showAdd && !showDone && (
         <form className="tasks-add" onSubmit={add}>
           <input value={text} onChange={(e) => setText(e.target.value)} placeholder={project ? 'Nieuwe taak voor dit project…' : 'Nieuwe taak…'} />
+          {dict.supported && (
+            <button type="button" className={'tasks-mic' + (dict.listening ? ' on' : '')} title="Taak inspreken (bv. &quot;offerte Sarah nakijken tegen vrijdag&quot;)"
+              onClick={() => dict.start((t, final) => { if (!final) return setText(t); const r = dueFromText(t); setText(r.text.charAt(0).toUpperCase() + r.text.slice(1)); if (r.due) setDue(r.due) }, (m) => toast(m, 'err'))}>
+              {dict.listening ? '■' : '🎤'}
+            </button>
+          )}
           <input type="date" value={due} onChange={(e) => setDue(e.target.value)} title="Tegen wanneer" />
           <button type="submit" disabled={!text.trim()}>+</button>
         </form>
       )}
       {shown === null ? <p className="muted small">Laden…</p> : shown.length === 0 ? (
-        <p className="muted small">{showDone ? 'Nog niets afgewerkt.' : 'Geen open taken. Zeg "Hey Siri, noteer taak" om er een in te spreken.'}</p>
+        <p className="muted small">{showDone ? 'Nog niets afgewerkt.' : 'Geen open taken. Tik op 🎤 om er een in te spreken (of "Hey Siri, noteer taak").'}</p>
       ) : (
         <ul className="tasks-list">
           {shown.map((t) => {

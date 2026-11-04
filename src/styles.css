@@ -1560,3 +1560,8 @@ summary.vd-h::-webkit-details-marker { display: none; }
 .kd-line li.done span { text-decoration: line-through; }
 .kd-line li span { color: var(--muted); }
 @media (max-width: 700px) { .kd-line { flex-direction: column; } .kd-line li { padding: 0 0 10px 22px; flex: none; } .kd-line li::before { top: 0; bottom: 0; left: 5px; right: auto; width: 2px; height: auto; } .kd-line .kd-dot { top: 2px; } }
+.client-panel.compact .cp-lines { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.client-panel.compact .cp-lines a { color: var(--accent); }
+.tasks-mic { min-width: 40px; }
+.tasks-mic.on { background: #b3261e; color: #fff; border-color: #b3261e; animation: mic-pulse 1.2s infinite; }
+@keyframes mic-pulse { 50% { opacity: .65; } }
