@@ -63,9 +63,11 @@ export function RelationCards({ table, onEdit }: { table: 'clients' | 'subcontra
                   {table === 'clients' && r.language && r.language !== 'nl' && <span className="rc-lang">{String(r.language).toUpperCase()}</span>}
                   {inactive && <span className="rc-lang">niet actief</span>}
                 </div>
-                {projs.length > 0 && (
+                {table === 'clients' && (
                   <div className="rc-projs">
-                    {projs.map((p) => <Link key={p.project_code} to={`/projecten/${encodeURIComponent(p.project_code)}`} className={'rc-proj' + (p.phase_active === false ? ' done' : '')}><b>{p.project_code}</b> {p.phase_label}</Link>)}
+                    {projs.map((p) => <Link key={p.project_code} to={`/projecten/${encodeURIComponent(p.project_code)}`} className={'rc-proj' + (p.phase_active === false ? ' done' : '')}><b>{p.project_code}</b> {p.title ? p.title + ' · ' : ''}{p.phase_label}</Link>)}
+                    {!projs.length && <span className="muted small">Nog geen project in de app.</span>}
+                    <Link to={`/projecten?nieuw=${r.id}`} className="rc-proj add">+ Nieuw project</Link>
                   </div>
                 )}
               </article>

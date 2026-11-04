@@ -7,11 +7,11 @@ const label = (c: Client) => [c.company, [c.first_name, c.last_name].filter(Bool
 const PHASES: [string, string][] = [['design', 'Ontwerp'], ['lead', 'Aanvraag'], ['quote', 'Offerte'], ['production', 'Productie'], ['installation', 'Plaatsing']]
 
 /** Project met de hand aanmaken (bestaande of nieuwe klant, eigen fase en eventueel eigen projectcode). RPC create_project. */
-export function NewProject({ onClose }: { onClose: () => void }) {
+export function NewProject({ onClose, initialClient }: { onClose: () => void; initialClient?: string }) {
   const nav = useNavigate()
   const [clients, setClients] = useState<Client[]>([])
   const [mode, setMode] = useState<'bestaand' | 'nieuw'>('bestaand')
-  const [f, setF] = useState({ client: '', name: '', email: '', phone: '', title: '', phase: 'design', code: '', notes: '' })
+  const [f, setF] = useState({ client: initialClient ?? '', name: '', email: '', phone: '', title: '', phase: 'design', code: '', notes: '' })
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   useEffect(() => {

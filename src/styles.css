@@ -1518,3 +1518,5 @@ summary.vd-h::-webkit-details-marker { display: none; }
   .order-head .order-amt { display: block; grid-column: 2; grid-row: 1; font-weight: 600; }
   .order-head .order-main { grid-column: 1 / -1; }
 }
+.rc-proj.add { background: transparent; border: 1px dashed var(--line); color: var(--accent) !important; }
+.rc-projs { align-items: center; }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { supabase } from '../../core/supabase'
 import { ErrorBox, Loading } from '../../core/ui'
 import { gatesOf, ProjectCard, usePhases, useProjects, type ProjectPlanning, type ProjectProgress } from '../../core/projects'
@@ -14,7 +15,10 @@ export function ProjectList() {
   const [filter, setFilter] = useState<Filter>('lopend')
   const [search, setSearch] = useState('')
   const [adding, setAdding] = useState(false)
-  const [addingProject, setAddingProject] = useState(false)
+  // ?nieuw=<client_id> (vanuit Relaties) opent meteen "Nieuw project" voor die klant
+  const [params, setParams] = useSearchParams()
+  const newFor = params.get('nieuw')
+  const [addingProject, setAddingProject] = useState(!!newFor)
   const [plan, setPlan] = useState<Record<string, ProjectPlanning>>({})
   const [prog, setProg] = useState<Record<string, ProjectProgress>>({})
   useEffect(() => { supabase.from('app_project_progress').select('*').then(({ data }) => setProg(Object.fromEntries(((data ?? []) as ProjectProgress[]).map((r) => [r.project_code, r])))) }, [])
@@ -29,7 +33,7 @@ export function ProjectList() {
   return (
     <section>
       {adding && <NewLead onClose={() => setAdding(false)} />}
-      {addingProject && <NewProject onClose={() => setAddingProject(false)} />}
+      {addingProject && <NewProject initialClient={newFor ?? undefined} onClose={() => { setAddingProject(false); if (newFor) setParams({}, { replace: true }) }} />}
       <div className="page-head vd-pagehead">
         <div>
           <div className="vd-date">{new Date().toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
