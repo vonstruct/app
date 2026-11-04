@@ -66,7 +66,7 @@ export function KeyDates({ code, onSaved }: { code: string; onSaved?: () => void
           <input type="date" defaultValue={t.install_start ?? ''} key={'is' + t.install_start} onBlur={(e) => (e.target.value || null) !== t.install_start && save({ install_start: e.target.value || null })} />
           {!t.install_start && t.target_install_week && <small className="muted">nu enkel week {t.target_install_week.split('-W')[1]}</small>}
         </label>
-        <label>Werkdagen plaatsing
+        <label>Dagen plaatsing (ook weekend)
           <input type="number" min={1} max={30} defaultValue={t.install_days ?? ''} key={'id' + t.install_days} placeholder="4" onBlur={(e) => (e.target.value ? Number(e.target.value) : null) !== t.install_days && save({ install_days: e.target.value ? Number(e.target.value) : null })} />
         </label>
       </div>

@@ -24,7 +24,7 @@ function useActionTypes() {
 }
 
 const FIELD: Record<string, string> = {
-  title: 'Titel', phase: 'Fase', target_install_week: 'Plaatsingsweek', deadline: 'Deadline klant', deadline_reason: 'Reden deadline', works_start: 'Start van de werken', install_start: 'Plaatsing vanaf', install_days: 'Werkdagen plaatsing', site_street: 'Straat', site_postal_code: 'Postcode', site_city: 'Gemeente', intro_at: 'Kennismaking', lead_source: 'Bron',
+  title: 'Titel', phase: 'Fase', target_install_week: 'Plaatsingsweek', deadline: 'Deadline klant', deadline_reason: 'Reden deadline', works_start: 'Start van de werken', install_start: 'Plaatsing vanaf', install_days: 'Dagen plaatsing', site_street: 'Straat', site_postal_code: 'Postcode', site_city: 'Gemeente', intro_at: 'Kennismaking', lead_source: 'Bron',
   first_name: 'Voornaam', last_name: 'Naam', company: 'Bedrijf', email: 'E-mail', phone: 'Telefoon', street: 'Straat', postal_code: 'Postcode', city: 'Gemeente', country: 'Land', language: 'Taal', notes: 'Notitie',
   name: 'Naam', trade: 'Vak', services: 'Diensten', contact_person: 'Contactpersoon', active: 'Actief',
   note: 'Omschrijving', supplier: 'Leverancier', reference: 'Bestelnummer', status: 'Status', expected_at: 'Verwacht op', ordered_at: 'Besteld op', delivered_at: 'Geleverd op',
