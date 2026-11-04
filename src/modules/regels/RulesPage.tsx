@@ -6,6 +6,7 @@ import { ErrorBox, Loading, Tabs } from '../../core/ui'
 import { toast } from '../../core/toast'
 import { RuleSentence, type Rule } from './RuleSentence'
 import { ruleTables } from './tables'
+import { PriceListUpload } from './PriceListUpload'
 
 const SECTIONS = ['Bestellen', 'Platen', 'Plaatoptimalisatie', 'Kanten', 'Lades', 'Productiekosten', 'Prijzen', 'Kasten', 'Offerte', 'Facturen', 'Oplevering', 'Nacalculatie', 'Brochure', 'Capaciteit', 'Meldingen', 'Berichten', 'Checklist']
 const REVIEW = 'Na te kijken'
@@ -41,6 +42,7 @@ export function RulesPage() {
           Deze waarden zijn voorlopig ingevuld (niet door jou). Zet ze juist, of klik <b>Klopt</b> als de waarde goed is. Een waarde wijzigen telt ook als nagekeken.
         </p>
       )}
+      {section === 'Prijzen' && <PriceListUpload />}
       {q.loading ? <Loading /> : rules.map((r) => (
         <div key={r.key} className="rule-wrap">
           {section === REVIEW && <div className="small muted rule-sec">{r.section}</div>}
