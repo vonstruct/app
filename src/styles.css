@@ -1576,3 +1576,10 @@ summary.vd-h::-webkit-details-marker { display: none; }
 .tasks-add { flex-wrap: wrap; }
 @container (max-width: 460px) { .tasks-add input:first-child { flex: 1 1 100%; } .tasks-add input[type=date] { flex: 1; width: auto; } }
 .tasks-von { display: block; margin-top: 4px; padding: 6px 8px; border-radius: 6px; background: var(--gold-soft, #f6efdc); color: var(--text, #1d1d1b); }
+.yuki-hist { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 6px; }
+.yuki-hist ul { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
+.yuki-hist li { display: grid; grid-template-columns: 88px 1fr auto; gap: 8px; align-items: baseline; }
+.yuki-hist li.yh-betaling { color: var(--muted); }
+.yuki-hist .yh-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.yuki-hist .yh-a { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ok-txt { color: #2e7d4f; }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { supabase } from '../../core/supabase'
 import { tradeLabel } from './NewRelation'
+import { YukiHistory } from '../../core/YukiHistory'
 
 /** Relaties als contactkaarten: naam, wat ze doen, contact (mail, bel, WhatsApp) en hun projecten. Bewerken gebeurt in de tabel. */
 type Row = Record<string, any>
@@ -63,6 +64,7 @@ export function RelationCards({ table, onEdit }: { table: 'clients' | 'subcontra
                   {table === 'clients' && r.language && r.language !== 'nl' && <span className="rc-lang">{String(r.language).toUpperCase()}</span>}
                   {inactive && <span className="rc-lang">niet actief</span>}
                 </div>
+                {table === 'clients' && <YukiHistory clientId={r.id} compact />}
                 {table === 'clients' && (
                   <div className="rc-projs">
                     {projs.map((p) => <Link key={p.project_code} to={`/projecten/${encodeURIComponent(p.project_code)}`} className={'rc-proj' + (p.phase_active === false ? ' done' : '')}><b>{p.project_code}</b> {p.title ? p.title + ' · ' : ''}{p.phase_label}</Link>)}
