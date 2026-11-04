@@ -1509,3 +1509,12 @@ summary.vd-h::-webkit-details-marker { display: none; }
 .new-rel .row-actions { display: flex; gap: 8px; margin-top: 8px; }
 @media (max-width: 860px) { .new-rel-grid { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 480px) { .new-rel-grid { grid-template-columns: 1fr; } }
+.pi-link { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+.pi-link select { max-width: 100%; min-width: 0; font-size: 13px; }
+.pi-head { cursor: default; }
+/* gsm: bedrag rechts naast het statuslabel */
+@media (max-width: 860px) {
+  .order-head .jo-pill { grid-column: 1; grid-row: 1; }
+  .order-head .order-amt { display: block; grid-column: 2; grid-row: 1; font-weight: 600; }
+  .order-head .order-main { grid-column: 1 / -1; }
+}
