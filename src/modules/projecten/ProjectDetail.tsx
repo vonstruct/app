@@ -1,3 +1,4 @@
+import { KeyDates } from './KeyDates'
 import { BrochurePanel } from '../brochure/BrochurePanel'
 import { DocumentsPanel } from '../documenten/DocumentsPanel'
 import { NacalcPanel } from '../nacalculatie/NacalcPanel'
@@ -64,7 +65,7 @@ export function ProjectDetail() {
   const TABS: [string, string][] = [['overzicht', 'Overzicht'], ['planning', 'Planning'], ['mails', 'Mails'], ['ontwerp', `Ontwerp & kosten${versions.length ? ` (${versions.length})` : ''}`], ['documenten', 'Documenten'], ['brochure', 'Brochure'], ['vragenlijst', 'Vragenlijst'], ['offerte', 'Offerte'], ['bestellingen', 'Bestellingen'], ['facturen', 'Facturen'], ['oplevering', 'Oplevering'], ['nacalculatie', 'Nacalculatie'], ['tijdlijn', 'Tijdlijn']]
   let body: ReactNode = null
   if (project && ph.data) {
-    if (tab === 'planning') body = <PlanningPanel project={project} />
+    if (tab === 'planning') body = <><KeyDates code={code} onSaved={pq.reload} /><PlanningPanel project={project} /></>
     else if (tab === 'mails') body = <MailList project={code} title="Mails" limit={60} />
     else if (tab === 'brochure') body = <BrochurePanel project={code} />
     else if (tab === 'documenten') body = <DocumentsPanel project={code} />
@@ -115,6 +116,7 @@ export function ProjectDetail() {
           <ClientPanel project={project} focus={focus === 'fase' || focus === 'survey' ? null : focus} onSaved={pq.reload} />
         </div>
         <ProjectProposals code={code} />
+        <KeyDates code={code} onSaved={pq.reload} />
         <IntakeCard code={code} />
         <LeadActions p={project} onDone={pq.reload} />
         <ChecklistPanel code={code} currentStage={project.stage} />

@@ -121,6 +121,13 @@ function ClientProjects({ preview, lang, onSurvey }: { preview: boolean; lang: L
     if (preview) return setRows([{ project_code: '209901', title: 'Keuken en berging', phase: 'design', target_install_week: null, site_city: 'Geel', survey_status: 'submitted' }])
     supabase.rpc('portal_my_projects').then(({ data }) => setRows((data as Project[]) ?? []))
   }, [preview])
+  // geplande data voor de klant (start werken, plaatsing); geen interne data
+  const [dates, setDates] = useState<Record<string, { works_start: string | null; install_start: string | null; install_end: string | null }>>({})
+  useEffect(() => {
+    if (preview) return
+    supabase.rpc('portal_my_project_dates').then(({ data }) => setDates(Object.fromEntries(((data ?? []) as { project_code: string; works_start: string | null; install_start: string | null; install_end: string | null }[]).map((r) => [r.project_code, r]))))
+  }, [preview])
+  const fd = (v: string) => new Date(v + 'T12:00').toLocaleDateString(lang === 'en' ? 'en-GB' : lang === 'de' ? 'de-BE' : 'nl-BE', { weekday: 'long', day: 'numeric', month: 'long' })
 
   if (rows === null) return <p className="muted">{t.loading}</p>
   if (rows.length === 0)
@@ -153,7 +160,10 @@ function ClientProjects({ preview, lang, onSurvey }: { preview: boolean; lang: L
               ))}
             </ol>
             <Visits list={visits.filter((v) => v.project_code === p.project_code)} lang={lang} onChange={loadVisits} preview={preview} />
-            {p.target_install_week && <p className="muted">{t.plannedInstall(p.target_install_week)}</p>}
+            {dates[p.project_code]?.works_start && <p className="muted">{t.worksStart(fd(dates[p.project_code].works_start!))}</p>}
+            {dates[p.project_code]?.install_start
+              ? <p className="muted">{t.plannedInstallDate(fd(dates[p.project_code].install_start!), dates[p.project_code].install_end && dates[p.project_code].install_end !== dates[p.project_code].install_start ? fd(dates[p.project_code].install_end!) : null)}</p>
+              : p.target_install_week && <p className="muted">{t.plannedInstall(p.target_install_week)}</p>}
             {p.survey_status !== 'submitted' ? (
               <div className="portal-todo">
                 <div>
