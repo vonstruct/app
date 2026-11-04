@@ -12,10 +12,15 @@ type Info = {
   id: string; title: string; job_type: string | null; project_code: string | null; project_title: string | null; client: string | null
   start: string; end: string; slot: string | null; address: string | null; contact_name: string | null; contact_phone: string | null
   instructions: string | null; status: string; confirmed: boolean; who: string | null; teams_url: string | null
-  files: { name: string; url: string }[]; confirm_url: string
+  files: { name: string; url: string; kind?: string; mime?: string | null }[]; confirm_url: string
 }
 const PHONE = '+32 493 47 27 51'
 const SLOT: Record<string, string> = { dag: 'hele dag (8:00–16:30)', voormiddag: 'voormiddag (8:00–12:00)', namiddag: 'namiddag (12:30–16:30)' }
+
+type F = Info['files'][number]
+const ext = (n: string) => (n.match(/\.([a-z0-9]{2,4})$/i)?.[1] ?? '').toUpperCase()
+const isImg = (f: F) => /^image\//.test(f.mime ?? '') || /\.(jpe?g|png|webp|gif|heic)$/i.test(f.name)
+const isPdf = (f: F) => f.mime === 'application/pdf' || /\.pdf$/i.test(f.name)
 
 function when(i: Info) {
   const o: Intl.DateTimeFormatOptions = { timeZone: 'Europe/Brussels' }
@@ -67,12 +72,23 @@ export function JobPublic() {
               {info.who && <><dt>Voor</dt><dd>{info.who}</dd></>}
             </dl>
             {info.instructions && <><h2>Wat</h2><p className="jp-text">{info.instructions}</p></>}
-            {info.files.length > 0 && (
-              <>
-                <h2>Plannen en bestanden</h2>
-                <ul className="jp-files">{info.files.map((f) => <li key={f.url}><a href={f.url} target="_blank" rel="noreferrer">{f.name}</a></li>)}</ul>
-              </>
-            )}
+            <h2>Plannen en documenten</h2>
+            {info.files.length ? (
+              <ul className="jp-docs">
+                {info.files.map((f) => {
+                  const img = isImg(f)
+                  return (
+                    <li key={f.url}>
+                      <a href={f.url} target="_blank" rel="noreferrer" className="jp-doc">
+                        {img ? <img src={f.url} alt="" loading="lazy" /> : <span className="jp-ico">{isPdf(f) ? 'PDF' : ext(f.name) || 'DOC'}</span>}
+                        <span className="jp-doc-t"><b>{f.name}</b>{f.kind && <small>{f.kind}</small>}</span>
+                        <span className="jp-open">Openen</span>
+                      </a>
+                    </li>
+                  )
+                })}
+              </ul>
+            ) : <p className="muted small">Nog geen plannen of documenten toegevoegd. Heb je iets nodig? Bel Olivier.</p>}
             <div className="jp-actions">
               {!info.confirmed && info.status !== 'geannuleerd' && <a className="action-btn primary" href={info.confirm_url}>✓ Bevestigen</a>}
               {info.teams_url && <a className="action-btn" href={info.teams_url} target="_blank" rel="noreferrer">Overleg via Teams</a>}

@@ -95,6 +95,13 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
   const [tpl, setTpl] = useState<Record<string, string>>({})
   const isNew = !j.id
   const [asSub, setAsSub] = useState(false)
+  // projectdocumenten die de onderaannemer ook ziet (tab Documenten, vinkje "onderaannemers")
+  const [projDocs, setProjDocs] = useState<string[]>([])
+  useEffect(() => {
+    if (!j.project_code) { setProjDocs([]); return }
+    supabase.from('project_documents').select('title').eq('project_code', j.project_code).eq('show_sub', true).eq('archived', false)
+      .then(({ data }) => setProjDocs(((data as { title: string }[]) ?? []).map((d) => d.title)))
+  }, [j.project_code])
   const [log, setLog] = useState<{ at: string; actor: string | null; what: string }[]>([])
   useEffect(() => { if (j.id) supabase.from('job_log').select('at,actor,what').eq('job_id', j.id).order('at', { ascending: false }).then(({ data }) => setLog((data as typeof log) ?? [])) }, [j.id, j.status, j.start_at])
   const confirmFor = async (who: 'onderaannemer' | 'klant') => {
@@ -347,7 +354,13 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
               )}
             </div>
             <div className="q">
-              <div className="q-label"><span>Plannen, tekeningen en foto's</span><small>Zichtbaar voor de onderaannemer in het portaal. Foto's van de werf (van de onderaannemer) staan apart.</small></div>
+              <div className="q-label"><span>Plannen, tekeningen en foto's</span><small>Zichtbaar voor de onderaannemer via "Details en plannen" in de uitnodiging en in het portaal. Foto's van de werf (van de onderaannemer) staan apart.</small></div>
+              {j.project_code && assignee?.kind !== 'mezelf' && (
+                <p className="muted small" style={{ margin: '0 0 6px' }}>
+                  {projDocs.length ? <>Ziet ook {projDocs.length} document{projDocs.length === 1 ? '' : 'en'} van het project: {projDocs.slice(0, 4).join(', ')}{projDocs.length > 4 ? ' …' : ''}. </> : 'Nog geen projectdocumenten voor onderaannemers. '}
+                  <Link to={`/projecten/${j.project_code}?tab=documenten`}>Documenten van {j.project_code}</Link> (vinkje "onderaannemers").
+                </p>
+              )}
               <div className="uploads">
                 {files.map((f) => (
                   <div key={f.path} className="upl">
