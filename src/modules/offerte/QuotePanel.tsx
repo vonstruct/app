@@ -300,8 +300,13 @@ function ImportQuote({ project, onDone }: { project: string; onDone: (id: string
     const up = await supabase.storage.from('project-uploads').upload(p, file, { contentType: file.type || 'application/pdf' })
     if (up.error) { setScan('fail'); return toast('Uploaden mislukt: ' + up.error.message, 'err') }
     setPath(p)
-    const { data, error } = await supabase.functions.invoke('doc-scan', { body: { path: p } })
-    if (error || !data?.ok) { setScan('fail'); setNote('De app kon de pdf niet lezen; vul de gegevens zelf in.'); return }
+    let { data, error } = await supabase.functions.invoke('doc-scan', { body: { path: p } })
+    if (error || !data?.ok) ({ data, error } = await supabase.functions.invoke('doc-scan', { body: { path: p } })) // nog één keer
+    if (error || !data?.ok) {
+      let why = data?.error as string | undefined
+      try { why ??= (await (error as { context?: Response })?.context?.json())?.error } catch { /* */ }
+      setScan('fail'); setNote(`De app kon de pdf niet lezen${why ? ` (${why})` : ''}. Kies de pdf opnieuw, of vul de gegevens zelf in.`); return
+    }
     setScan('ok')
     setF((o) => ({ ...o, number: data.number ?? o.number, date: data.date ?? o.date, title: data.title ?? o.title }))
     if (Array.isArray(data.lines) && data.lines.length) setLines(data.lines.map((l: { vat_rate: number; excl: number }) => ({ vat_rate: Number(l.vat_rate), excl: String(l.excl).replace('.', ',') })))
