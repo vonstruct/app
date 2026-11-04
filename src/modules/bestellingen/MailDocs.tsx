@@ -58,7 +58,7 @@ export function MailDocs({ project }: { project?: string }) {
   const count = (f: (x: Doc) => boolean) => (q.data ?? []).filter(f).length
 
   const link = async (x: Doc, code: string | null) => {
-    const { error } = await supabase.rpc('mail_doc_link', { p_doc: x.id, p_project: code, p_source: 'hand' })
+    const { error } = await supabase.rpc('mail_doc_link_all', { p_doc: x.id, p_project: code, p_source: 'hand' })
     if (error) toast(error.message, 'err'); else { toast(code ? `Gekoppeld aan ${code}` : 'Geen project'); q.reload() }
   }
   const ignore = async (x: Doc) => {
