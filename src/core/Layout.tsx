@@ -61,11 +61,12 @@ export function Layout() {
           <button className="tb-avatar" onClick={() => setMenu((x) => !x)} aria-haspopup="menu" aria-expanded={menu} title="Menu">OV</button>
           {menu && (
             <div className="tb-menu" role="menu">
-              <div className="tb-menu-head"><b>Olivier Van Dyck</b><span>info@vonstruct.com</span></div>
+              <div className="tb-menu-head"><b>Olivier Van Dyck</b><span>info@vonstruct.com</span><span className="tb-version">Versie {__BUILD__}</span></div>
               <Link to="/instellingen" role="menuitem">Instellingen</Link>
               <Link to="/regels" role="menuitem">Rekenregels</Link>
               <Link to="/mails" role="menuitem">Verstuurd door de app</Link>
               <Link to="/portaal" role="menuitem">Portaal bekijken als …</Link>
+              <button role="menuitem" className="tb-reload" onClick={() => window.location.reload()}>App vernieuwen</button>
               <button role="menuitem" onClick={() => supabase.auth.signOut()}>Afmelden</button>
             </div>
           )}
