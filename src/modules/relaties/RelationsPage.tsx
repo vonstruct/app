@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { useSearchParams } from 'react-router'
+import { NewRelation, type RelTable } from './NewRelation'
 import { RelationCards } from './RelationCards'
 import { EditableTable, type EditCol } from '../../core/EditableTable'
 import { Tabs } from '../../core/ui'
@@ -36,7 +38,7 @@ const SECTIONS: Section[] = [
     ],
   },
   {
-    id: 'onderaannemers', label: 'Onderaannemers', table: 'subcontractors', orderBy: 'name', newRow: { name: 'Nieuwe onderaannemer', active: true }, canDelete: true,
+    id: 'onderaannemers', label: 'Onderaannemers', table: 'subcontractors', orderBy: 'name', newRow: { name: 'Nieuwe onderaannemer', trade: 'contractor', active: true }, canDelete: true,
     intro: 'Plaatsers, elektricien, schilder … Met een e-mailadres krijgen ze toegang tot hun jobs in het portaal.',
     columns: [
       { key: 'name', label: 'Naam' },
@@ -57,6 +59,9 @@ export function RelationsPage() {
   const [fid, fkey] = (params.get('focus') ?? '').split(':')
   // focus (vanuit de control tower of het zoeken) opent meteen de tabel
   const view = params.get('view') === 'tabel' || (fid && fkey) ? 'tabel' : 'kaarten'
+  const [adding, setAdding] = useState(false)
+  const [ver, setVer] = useState(0)
+  const NEW: Record<string, string> = { klanten: '+ Nieuwe klant', partners: '+ Nieuwe partner', onderaannemers: '+ Nieuwe onderaannemer' }
   return (
     <section>
       <div className="page-head">
@@ -64,19 +69,23 @@ export function RelationsPage() {
           <h1>Relaties</h1>
           <p className="muted">{sec.intro}</p>
         </div>
+        <div className="rel-head-acts">
+        <button className="primary" onClick={() => setAdding(true)}>{NEW[sec.id]}</button>
         <div className="segmented small">
           <button className={view === 'kaarten' ? 'on' : ''} onClick={() => setParams({ tab: sec.id }, { replace: true })}>Kaarten</button>
           <button className={view === 'tabel' ? 'on' : ''} onClick={() => setParams({ tab: sec.id, view: 'tabel' }, { replace: true })}>Bewerken (tabel)</button>
         </div>
+        </div>
       </div>
-      <Tabs tabs={SECTIONS.map((s) => ({ id: s.id, label: s.label }))} active={sec.id} onChange={(id) => setParams(view === 'tabel' ? { tab: id, view: 'tabel' } : { tab: id }, { replace: true })} />
+      <Tabs tabs={SECTIONS.map((s) => ({ id: s.id, label: s.label }))} active={sec.id} onChange={(id) => { setAdding(false); setParams(view === 'tabel' ? { tab: id, view: 'tabel' } : { tab: id }, { replace: true }) }} />
+      {adding && <NewRelation key={sec.id} table={sec.table as RelTable} onCancel={() => setAdding(false)} onDone={() => { setAdding(false); setVer((v) => v + 1) }} />}
       {view === 'kaarten' ? (
-        <RelationCards table={sec.table as 'clients' | 'subcontractors' | 'partners'} onEdit={(id) => setParams({ tab: sec.id, view: 'tabel', focus: `${id}:${sec.table === 'clients' ? 'last_name' : 'name'}` }, { replace: true })} />
+        <RelationCards key={sec.table + ver} table={sec.table as 'clients' | 'subcontractors' | 'partners'} onEdit={(id) => setParams({ tab: sec.id, view: 'tabel', focus: `${id}:${sec.table === 'clients' ? 'last_name' : 'name'}` }, { replace: true })} />
       ) : (<>
       <p className="muted small">Klik in een cel om te wijzigen. Alles wordt meteen bewaard.</p>
       {fid && fkey && <p className="notice">Vul het gemarkeerde veld in en druk op Enter.</p>}
       <EditableTable
-        key={sec.id}
+        key={sec.id + ver}
         table={sec.table}
         columns={sec.columns}
         orderBy={sec.orderBy}

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { supabase } from '../../core/supabase'
+import { tradeLabel } from './NewRelation'
 
 /** Relaties als contactkaarten: naam, wat ze doen, contact (mail, bel, WhatsApp) en hun projecten. Bewerken gebeurt in de tabel. */
 type Row = Record<string, any>
@@ -24,7 +25,7 @@ export function RelationCards({ table, onEdit }: { table: 'clients' | 'subcontra
     const n = search.trim().toLowerCase()
     return (rows ?? [])
       .map((r) => ({ r, name: name(r) }))
-      .filter(({ r, name }) => !n || [name, r.company, r.email, r.phone, r.city, r.trade, r.services, r.contact_person].some((v) => String(v ?? '').toLowerCase().includes(n)))
+      .filter(({ r, name }) => !n || [name, r.company, r.email, r.phone, r.city, r.trade, tradeLabel(r.trade), r.services, r.contact_person].some((v) => String(v ?? '').toLowerCase().includes(n)))
       .sort((a, b) => a.name.localeCompare(b.name, 'nl'))
   }, [rows, search, table])
 
@@ -38,7 +39,7 @@ export function RelationCards({ table, onEdit }: { table: 'clients' | 'subcontra
       {list.length === 0 ? <p className="muted">Niemand gevonden.</p> : (
         <div className="rc-grid">
           {list.map(({ r, name }) => {
-            const sub = table === 'clients' ? [r.company, r.city].filter(Boolean).join(' · ') : [r.trade ?? r.services, r.contact_person, r.city].filter(Boolean).join(' · ')
+            const sub = table === 'clients' ? [r.company, r.city].filter(Boolean).join(' · ') : [tradeLabel(r.trade) ?? r.services, r.contact_person, r.city].filter(Boolean).join(' · ')
             const projs = table === 'clients' ? projects.filter((p) => p.client_id === r.id) : []
             const inactive = r.active === false
             return (
