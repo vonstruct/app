@@ -17,6 +17,7 @@ type Order = {
   order_by: string | null; ordered_at: string | null; expected_at: string | null; delivered_at: string | null
   reference: string | null; amount: number | null; n_lines: number; note: string | null; urgency: string; manual?: boolean
   client_name: string | null; project_title: string | null
+  shipped_at?: string | null; actual_amount?: number | null; n_docs?: number
 }
 type Line = { id: string; category: string | null; description: string | null; article_no: string | null; qty: number | null; unit: string | null; total: number | null }
 
@@ -95,7 +96,7 @@ export function Orders({ project }: { project?: string }) {
                 </div>
               </div>
               <div className="order-dates small">
-                {o.status === 'te bestellen' ? <>bestellen vóór <strong>{d(o.order_by)}</strong></> : <>{o.status}{o.expected_at ? ' · verwacht ' + d(o.expected_at) : ''}</>}
+                {o.status === 'te bestellen' ? <>bestellen vóór <strong>{d(o.order_by)}</strong></> : <Stages o={o} />}
                 <div className="muted">nodig op {d(o.needed_by)} · {o.lead_days_eff} wd levertijd</div>
               </div>
               <div className="order-amt">{fmtEur(o.amount)}</div>
@@ -191,6 +192,7 @@ function OrderDetail({ o, onSave, onStatus }: { o: Order; onSave: (p: Partial<Or
         {field('Nodig op', 'needed_by')}
         {field('Levertermijn (werkdagen)', 'lead_days', 'number')}
         {field('Besteld op', 'ordered_at')}
+        {field('Verzonden op', 'shipped_at' as keyof Order)}
         {field('Verwacht op', 'expected_at')}
         {field('Geleverd op', 'delivered_at')}
         {field('Bestelnummer', 'reference', 'text')}
@@ -201,6 +203,7 @@ function OrderDetail({ o, onSave, onStatus }: { o: Order; onSave: (p: Partial<Or
         <button onClick={() => printList(o, lines.data ?? [])}>Afdrukken / PDF</button>
         <span className="muted small">Bestellen doe je zelf bij de leverancier; zet daarna de status op "besteld".</span>
       </div>
+      <OrderMails orderId={o.id} />
       {o.needed_by_manual && <p className="muted small">Datum "nodig op" met de hand gezet (leeg maken = weer automatisch uit de planning).</p>}
       {lines.loading ? <Loading /> : (
         <table className="order-lines">
@@ -213,6 +216,44 @@ function OrderDetail({ o, onSave, onStatus }: { o: Order; onSave: (p: Partial<Or
           </tbody>
         </table>
       )}
+    </div>
+  )
+}
+
+/** Waar de bestelling staat: besteld → verzonden → geleverd, met datums (ook uit de mailbox). */
+function Stages({ o }: { o: Order }) {
+  const st = [
+    o.ordered_at && `besteld ${d(o.ordered_at)}`,
+    o.shipped_at && `verzonden ${d(o.shipped_at)}`,
+    o.delivered_at ? `geleverd ${d(o.delivered_at)}` : o.expected_at && `verwacht ${d(o.expected_at)}`,
+  ].filter(Boolean)
+  return <>{st.length ? st.join(' → ') : o.status}{o.n_docs ? <span className="muted" title="mails en bijlagen uit de mailbox"> · ✉ {o.n_docs}</span> : null}</>
+}
+
+/** Mails en bijlagen uit de mailbox die bij deze bestelling horen (mail_documents.order_id). */
+function OrderMails({ orderId }: { orderId: string }) {
+  type Md = { id: string; kind: string | null; stage: string | null; doc_number: string | null; storage_path: string | null; name: string | null; total_excl: number | null; total_incl: number | null; mail_messages: { subject: string | null; at: string; web_link: string | null } | null }
+  const q = useQuery<Md[]>(() => supabase.from('mail_documents').select('id,kind,stage,doc_number,storage_path,name,total_excl,total_incl,mail_messages(subject,at,web_link)').eq('order_id', orderId) as never, [orderId])
+  const rows = (q.data ?? []).sort((a, b) => (a.mail_messages?.at ?? '').localeCompare(b.mail_messages?.at ?? ''))
+  if (!rows.length) return null
+  const open = async (x: Md) => {
+    if (!x.storage_path) { if (x.mail_messages?.web_link) window.open(x.mail_messages.web_link, '_blank'); return }
+    const w = window.open('', '_blank')
+    const { data } = await supabase.functions.invoke('mail-docs', { body: { action: 'url', doc_id: x.id } })
+    if (data?.url && w) w.location.href = data.url; else w?.close()
+  }
+  return (
+    <div className="order-mails small">
+      <div className="muted">Uit de mailbox</div>
+      {rows.map((x) => (
+        <div key={x.id} className="order-mail">
+          <span>{d(x.mail_messages?.at?.slice(0, 10) ?? null)}</span>
+          <span className="jo-pill">{x.stage ?? x.kind}</span>
+          <span className="om-subj">{x.mail_messages?.subject}</span>
+          {(x.total_excl ?? x.total_incl) != null && <span>{fmtEur(x.total_excl ?? x.total_incl)}</span>}
+          <button className="link small" onClick={() => open(x)}>{x.storage_path ? 'bijlage' : 'mail'}</button>
+        </div>
+      ))}
     </div>
   )
 }
