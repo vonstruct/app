@@ -277,21 +277,40 @@ function QuoteEditor({ q, company, btw6, onChange, onGenerate, busy }: { q: Quot
   )
 }
 
-/** Bestaande offerte (bv. gemaakt in Yuki) toevoegen: pdf + nummer + bedrag + status. Maakt geen betalingsschijven of bestellingen (RPC quote_import_external). */
+/** Bestaande offerte (bv. gemaakt in Yuki) toevoegen: pdf kiezen → de app leest ze (Edge Function doc-scan: nummer, datum, bedragen per btw-tarief),
+ *  jij kijkt na → RPC quote_import_pdf. Maakt geen betalingsschijven of bestellingen. */
+type VatLine = { vat_rate: number; excl: string }
 function ImportQuote({ project, onDone }: { project: string; onDone: (id: string | null) => void }) {
-  const [f, setF] = useState({ number: '', date: new Date().toLocaleDateString('sv-SE'), excl: '', vat: '6', status: 'aanvaard', accepted: '' })
-  const [file, setFile] = useState<File | null>(null)
+  const [f, setF] = useState({ number: '', date: new Date().toLocaleDateString('sv-SE'), status: 'aanvaard', accepted: '', title: '' })
+  const [lines, setLines] = useState<VatLine[]>([{ vat_rate: 6, excl: '' }])
+  const [path, setPath] = useState<string | null>(null)
+  const [scan, setScan] = useState<'idle' | 'busy' | 'ok' | 'fail'>('idle')
+  const [note, setNote] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value })
-  const amount = Number(f.excl.replace(/\./g, '').replace(',', '.'))
-  const ok = f.number.trim() && amount > 0 && file
+  const num = (v: string) => Number(String(v).replace(/\s/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.')) || 0
+  const totExcl = lines.reduce((a, l) => a + num(l.excl), 0)
+  const totIncl = lines.reduce((a, l) => a + num(l.excl) * (1 + l.vat_rate / 100), 0)
+  const ok = f.number.trim() && totExcl > 0 && path
+
+  const pick = async (file: File | null) => {
+    if (!file) return
+    setScan('busy'); setNote(null)
+    const p = `${project}/documenten/offerte-${Date.now()}-${file.name.replace(/[^\w.-]+/g, '_')}`
+    const up = await supabase.storage.from('project-uploads').upload(p, file, { contentType: file.type || 'application/pdf' })
+    if (up.error) { setScan('fail'); return toast('Uploaden mislukt: ' + up.error.message, 'err') }
+    setPath(p)
+    const { data, error } = await supabase.functions.invoke('doc-scan', { body: { path: p } })
+    if (error || !data?.ok) { setScan('fail'); setNote('De app kon de pdf niet lezen; vul de gegevens zelf in.'); return }
+    setScan('ok')
+    setF((o) => ({ ...o, number: data.number ?? o.number, date: data.date ?? o.date, title: data.title ?? o.title }))
+    if (Array.isArray(data.lines) && data.lines.length) setLines(data.lines.map((l: { vat_rate: number; excl: number }) => ({ vat_rate: Number(l.vat_rate), excl: String(l.excl).replace('.', ',') })))
+    setNote([data.type && data.type !== 'offerte' ? `Let op: dit lijkt een ${data.type}.` : null, data.client ? `Klant op de pdf: ${data.client}.` : null, data.notes, data.warning ? `Controle: ${data.warning}.` : null].filter(Boolean).join(' '))
+  }
   const save = async () => {
-    if (!ok || !file) return
+    if (!ok) return
     setBusy(true)
-    const path = `${project}/documenten/offerte-${f.number.trim().replace(/[^\w.-]+/g, '_')}-${Date.now()}.pdf`
-    const up = await supabase.storage.from('project-uploads').upload(path, file, { contentType: file.type || 'application/pdf' })
-    if (up.error) { setBusy(false); return toast('Uploaden mislukt: ' + up.error.message, 'err') }
-    const { data, error } = await supabase.rpc('quote_import_external', { p_code: project, p_number: f.number.trim().toUpperCase(), p_doc_date: f.date, p_total_excl: amount, p_vat: Number(f.vat), p_status: f.status, p_pdf_path: path, p_title: null, p_accepted_at: f.accepted || null })
+    const { data, error } = await supabase.rpc('quote_import_pdf', { p_code: project, p_number: f.number.trim().toUpperCase(), p_doc_date: f.date, p_status: f.status, p_pdf_path: path, p_lines: lines.filter((l) => num(l.excl) > 0).map((l) => ({ vat_rate: l.vat_rate, excl: num(l.excl) })), p_title: f.title || null, p_accepted_at: f.accepted || null })
     setBusy(false)
     if (error) return toast(error.message, 'err')
     toast('Offerte toegevoegd'); onDone(data as string)
@@ -299,18 +318,31 @@ function ImportQuote({ project, onDone }: { project: string; onDone: (id: string
   return (
     <div className="panel import-quote">
       <h3>Bestaande offerte toevoegen</h3>
-      <p className="muted small">Voor offertes die je in Yuki (of elders) maakte. De pdf komt ook bij Documenten. Er worden geen betalingsschijven of bestellingen aangemaakt.</p>
+      <p className="muted small">Kies de pdf (bv. uit Yuki): de app leest nummer, datum en bedragen per btw-tarief. Jij kijkt na en bewaart. De pdf komt ook bij Documenten; er worden geen betalingsschijven of bestellingen aangemaakt.</p>
+      <label className="iq-file">Pdf of foto<input type="file" accept="application/pdf,image/*" onChange={(e) => pick(e.target.files?.[0] ?? null)} /></label>
+      {scan === 'busy' && <p className="small">De app leest de offerte… (± 10 seconden)</p>}
+      {scan === 'ok' && <p className="small ok-txt">Gelezen ✓ Kijk de gegevens na.</p>}
+      {note && <p className="small muted">{note}</p>}
       <div className="new-rel-grid">
-        <label>Pdf<input type="file" accept="application/pdf,image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></label>
         <label>Nummer<input value={f.number} onChange={set('number')} placeholder="bv. OFF00" /></label>
         <label>Datum<input type="date" value={f.date} onChange={set('date')} /></label>
-        <label>Bedrag excl. btw (€)<input inputMode="decimal" value={f.excl} onChange={set('excl')} placeholder="bv. 20000" /></label>
-        <label>Btw<select value={f.vat} onChange={set('vat')}><option value="6">6 %</option><option value="21">21 %</option><option value="0">0 %</option></select></label>
+        <label>Omschrijving<input value={f.title} onChange={set('title')} placeholder="bv. Keuken" /></label>
         <label>Status<select value={f.status} onChange={set('status')}><option value="aanvaard">Aanvaard</option><option value="verstuurd">Verstuurd (wacht op antwoord)</option><option value="geweigerd">Geweigerd</option></select></label>
         {f.status === 'aanvaard' && <label>Aanvaard op (optioneel)<input type="date" value={f.accepted} onChange={set('accepted')} /></label>}
       </div>
-      {amount > 0 && <p className="small muted">Incl. btw: {fmtEur(Math.round(amount * (1 + Number(f.vat) / 100) * 100) / 100)}</p>}
-      <div className="row-actions"><button className="primary" disabled={!ok || busy} onClick={save}>{busy ? 'Bezig…' : 'Toevoegen'}</button><button onClick={() => onDone(null)}>Annuleren</button></div>
+      <div className="iq-lines">
+        <b className="small">Bedragen excl. btw per tarief</b>
+        {lines.map((l, i) => (
+          <div key={i} className="iq-line">
+            <select value={l.vat_rate} onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, vat_rate: Number(e.target.value) } : x)))}><option value={6}>6 %</option><option value={21}>21 %</option><option value={12}>12 %</option><option value={0}>0 %</option></select>
+            <input inputMode="decimal" value={l.excl} placeholder="bedrag excl. btw" onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, excl: e.target.value } : x)))} />
+            {lines.length > 1 && <button className="link small" onClick={() => setLines(lines.filter((_, j) => j !== i))}>✕</button>}
+          </div>
+        ))}
+        <button className="link small" onClick={() => setLines([...lines, { vat_rate: 21, excl: '' }])}>+ ander btw-tarief</button>
+        {totExcl > 0 && <p className="small muted">Totaal: {fmtEur(totExcl)} excl. · {fmtEur(Math.round(totIncl * 100) / 100)} incl. btw</p>}
+      </div>
+      <div className="row-actions"><button className="primary" disabled={!ok || busy || scan === 'busy'} onClick={save}>{busy ? 'Bezig…' : 'Toevoegen'}</button><button onClick={() => onDone(null)}>Annuleren</button></div>
     </div>
   )
 }
