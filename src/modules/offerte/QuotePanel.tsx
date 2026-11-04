@@ -16,6 +16,7 @@ type Quote = {
   sent_at: string | null; sent_to: string | null; accepted_at: string | null; accepted_name: string | null; declined_at: string | null; declined_reason: string | null
   total_excl: number; total_incl: number; cost: number | null; margin_eur: number; n_zero: number; created_at: string
   included: string | null; excluded: string | null; planning: string | null; payment: string | null; warranty: string | null; show_groups: boolean; project_title: string | null; site: string | null
+  external?: boolean; pdf_path?: string | null
 }
 type Line = { id: string; quote_id: string; sort: number; title: string; description: string | null; qty: number; unit_price: number; discount_pct: number; vat_rate: number; kind: string | null; source: string | null; cost_basis: number | null; opt_kind: 'optie' | 'keuze' | null; opt_group: string | null; opt_default: boolean; selected: boolean | null; supplier: string | null; order_needed: boolean | null }
 type Sig = { id: string; signer_name: string; signer_email: string | null; signed_at: string; ip: string | null; user_agent: string | null; signature_png: string | null; doc_hash: string; vat6_confirmed: boolean | null; consent_text: string | null; confirmation_sent_at: string | null }
@@ -31,6 +32,7 @@ export function QuotePanel({ project }: { project: string }) {
   const terms = useQuery<{ value: { btw6?: string } } | null>(() => supabase.from('rule_settings').select('value').eq('key', 'offerte_voorwaarden').maybeSingle(), [])
   const [sel, setSel] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [importing, setImporting] = useState(false)
   const current = (list.data ?? []).find((q) => q.id === sel) ?? (list.data ?? [])[0] ?? null
 
   const generate = async (margin?: number | null) => {
@@ -53,9 +55,12 @@ export function QuotePanel({ project }: { project: string }) {
         )}
         {!current && <span className="muted">Nog geen offerte voor dit project.</span>}
         {(!current || current.status !== 'concept') && <button className="primary" disabled={busy} onClick={() => generate()}>{busy ? 'Bezig…' : current ? 'Nieuwe offerte' : 'Offerte opbouwen uit de kosten'}</button>}
+        <button onClick={() => setImporting((x) => !x)}>Bestaande offerte toevoegen (pdf)</button>
       </div>
       <ErrorBox error={list.error} />
-      {current && <QuoteEditor key={current.id} q={current} company={company.data?.value ?? {}} btw6={terms.data?.value?.btw6 ?? null} onChange={list.reload} onGenerate={generate} busy={busy} />}
+      {importing && <ImportQuote project={project} onDone={(id) => { setImporting(false); if (id) { setSel(id); list.reload() } }} />}
+      {current?.external && <ExternalQuote key={current.id} q={current} onChange={list.reload} />}
+      {current && !current.external && <QuoteEditor key={current.id} q={current} company={company.data?.value ?? {}} btw6={terms.data?.value?.btw6 ?? null} onChange={list.reload} onGenerate={generate} busy={busy} />}
     </div>
   )
 }
@@ -268,6 +273,66 @@ function QuoteEditor({ q, company, btw6, onChange, onGenerate, busy }: { q: Quot
         </>}
         {['verstuurd', 'geweigerd', 'vervallen', 'aanvaard'].includes(q.status) && <button onClick={newVersion}>Nieuwe versie</button>}
       </div>
+    </div>
+  )
+}
+
+/** Bestaande offerte (bv. gemaakt in Yuki) toevoegen: pdf + nummer + bedrag + status. Maakt geen betalingsschijven of bestellingen (RPC quote_import_external). */
+function ImportQuote({ project, onDone }: { project: string; onDone: (id: string | null) => void }) {
+  const [f, setF] = useState({ number: '', date: new Date().toLocaleDateString('sv-SE'), excl: '', vat: '6', status: 'aanvaard', accepted: '' })
+  const [file, setFile] = useState<File | null>(null)
+  const [busy, setBusy] = useState(false)
+  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value })
+  const amount = Number(f.excl.replace(/\./g, '').replace(',', '.'))
+  const ok = f.number.trim() && amount > 0 && file
+  const save = async () => {
+    if (!ok || !file) return
+    setBusy(true)
+    const path = `${project}/documenten/offerte-${f.number.trim().replace(/[^\w.-]+/g, '_')}-${Date.now()}.pdf`
+    const up = await supabase.storage.from('project-uploads').upload(path, file, { contentType: file.type || 'application/pdf' })
+    if (up.error) { setBusy(false); return toast('Uploaden mislukt: ' + up.error.message, 'err') }
+    const { data, error } = await supabase.rpc('quote_import_external', { p_code: project, p_number: f.number.trim().toUpperCase(), p_doc_date: f.date, p_total_excl: amount, p_vat: Number(f.vat), p_status: f.status, p_pdf_path: path, p_title: null, p_accepted_at: f.accepted || null })
+    setBusy(false)
+    if (error) return toast(error.message, 'err')
+    toast('Offerte toegevoegd'); onDone(data as string)
+  }
+  return (
+    <div className="panel import-quote">
+      <h3>Bestaande offerte toevoegen</h3>
+      <p className="muted small">Voor offertes die je in Yuki (of elders) maakte. De pdf komt ook bij Documenten. Er worden geen betalingsschijven of bestellingen aangemaakt.</p>
+      <div className="new-rel-grid">
+        <label>Pdf<input type="file" accept="application/pdf,image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></label>
+        <label>Nummer<input value={f.number} onChange={set('number')} placeholder="bv. OFF00" /></label>
+        <label>Datum<input type="date" value={f.date} onChange={set('date')} /></label>
+        <label>Bedrag excl. btw (€)<input inputMode="decimal" value={f.excl} onChange={set('excl')} placeholder="bv. 20000" /></label>
+        <label>Btw<select value={f.vat} onChange={set('vat')}><option value="6">6 %</option><option value="21">21 %</option><option value="0">0 %</option></select></label>
+        <label>Status<select value={f.status} onChange={set('status')}><option value="aanvaard">Aanvaard</option><option value="verstuurd">Verstuurd (wacht op antwoord)</option><option value="geweigerd">Geweigerd</option></select></label>
+        {f.status === 'aanvaard' && <label>Aanvaard op (optioneel)<input type="date" value={f.accepted} onChange={set('accepted')} /></label>}
+      </div>
+      {amount > 0 && <p className="small muted">Incl. btw: {fmtEur(Math.round(amount * (1 + Number(f.vat) / 100) * 100) / 100)}</p>}
+      <div className="row-actions"><button className="primary" disabled={!ok || busy} onClick={save}>{busy ? 'Bezig…' : 'Toevoegen'}</button><button onClick={() => onDone(null)}>Annuleren</button></div>
+    </div>
+  )
+}
+
+/** Weergave van een toegevoegde (externe) offerte: pdf openen, bedrag, status wijzigen. */
+function ExternalQuote({ q, onChange }: { q: Quote; onChange: () => void }) {
+  const [lbl, cls] = STATUS[q.status] ?? [q.status, '']
+  const open = async () => { if (!q.pdf_path) return; const { data } = await supabase.storage.from('project-uploads').createSignedUrl(q.pdf_path, 600); if (data?.signedUrl) window.open(data.signedUrl, '_blank') }
+  const setStatus = async (status: string) => {
+    const { error } = await supabase.from('quotes').update({ status, ...(status === 'aanvaard' ? { accepted_at: new Date().toISOString() } : {}) }).eq('id', q.id)
+    if (error) toast(error.message, 'err'); else { toast('Bewaard'); onChange() }
+  }
+  return (
+    <div className="panel">
+      <div className="tasks-head"><h2>{q.number} <span className={'jo-pill ' + cls}>{lbl}</span></h2>{q.pdf_path && <button className="primary" onClick={open}>Pdf openen</button>}</div>
+      <p className="muted small">Toegevoegd als pdf (gemaakt buiten de app). Telt mee voor de omzet en de nacalculatie; betalingsschijven en bestellingen maak je zelf aan.</p>
+      <div className="quote-intern">
+        <span><small>Datum</small><b>{q.doc_date ? new Date(q.doc_date + 'T12:00').toLocaleDateString('nl-BE') : '—'}</b></span>
+        <span><small>Excl. btw</small><b>{fmtEur(q.total_excl)}</b></span>
+        <span><small>Incl. btw</small><b>{fmtEur(q.total_incl)}</b></span>
+      </div>
+      <div className="seg">{['verstuurd', 'aanvaard', 'geweigerd'].map((s) => <button key={s} className={q.status === s ? 'on' : ''} onClick={() => setStatus(s)}>{STATUS[s][0]}</button>)}</div>
     </div>
   )
 }

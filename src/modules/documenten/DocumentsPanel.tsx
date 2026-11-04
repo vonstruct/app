@@ -6,7 +6,7 @@ import { toast } from '../../core/toast'
 
 /** Tab "Documenten": plannen, renders, attesten … per project (Storage project-uploads/<code>/documenten/), per document zichtbaar voor de klant of niet. */
 type Doc = { id: string; kind: string; title: string; path: string; size_bytes: number | null; mime: string | null; show_client: boolean; archived: boolean; created_at: string }
-const KINDS = ['Plan', 'Render', 'Technische tekening', 'Attest', 'Foto', 'Contract', 'Andere']
+const KINDS = ['Plan', 'Render', 'Technische tekening', 'Attest', 'Foto', 'Contract', 'Offerte', 'Factuur', 'Andere']
 const size = (b: number | null) => (b == null ? '' : b > 1e6 ? (b / 1e6).toFixed(1) + ' MB' : Math.round(b / 1e3) + ' kB')
 
 export function DocumentsPanel({ project }: { project: string }) {
