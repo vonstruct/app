@@ -2,14 +2,15 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../core/supabase'
 
 /**
- * Checklist van het project per fase (view app_project_checklist). Standaardpunten staan in checklist_template
- * (aanpasbaar), een deel wordt automatisch afgevinkt uit de gegevens (vragenlijst, ontwerpversie, kosten, opdrachten).
+ * Checklist van het project als bord: één kolom per fase (Aanvraag → Plaatsing), alle fases altijd zichtbaar.
+ * Standaardpunten in checklist_template (Rekenregels → Checklist); punten met een auto_rule vinken vanzelf af
+ * uit de gegevens (view app_project_checklist: vragenlijst, ontwerp, kosten, offerte, voorschot, bestellingen, opdrachten, PV, werkpunten, eindfactuur, review).
  */
 type Item = { project_code: string; stage: string; stage_label: string; stage_sort: number; sort: number; template_id: number; label: string; automatic: boolean; done: boolean; done_at: string | null; done_by: string | null }
+const day = (v: string) => new Date(v).toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' })
 
 export function ChecklistPanel({ code, currentStage }: { code: string; currentStage?: string | null }) {
   const [items, setItems] = useState<Item[] | null>(null)
-  const [openAll, setOpenAll] = useState(false)
   const load = useCallback(async () => {
     const { data } = await supabase.from('app_project_checklist').select('*').eq('project_code', code).order('stage_sort').order('sort')
     setItems((data as Item[]) ?? [])
@@ -31,34 +32,38 @@ export function ChecklistPanel({ code, currentStage }: { code: string; currentSt
     <div className="panel checklist">
       <div className="tasks-head">
         <h2>Checklist</h2>
-        <span className="muted small">{done}/{items.length} gedaan · <button className="link small" onClick={() => setOpenAll((x) => !x)}>{openAll ? 'enkel huidige fase' : 'alle fases'}</button></span>
+        <span className="muted small">{done}/{items.length} gedaan · ⚙ = vinkt vanzelf af</span>
       </div>
-      <div className="cl-stages">
+      <div className="cl-board" style={{ '--cl-n': stages.length } as React.CSSProperties}>
         {stages.map((s) => {
           const its = items.filter((i) => i.stage === s.stage)
           const n = its.filter((i) => i.done).length
           const cls = s.sort < curSort ? 'past' : s.sort === curSort ? 'now' : 'next'
-          return <span key={s.stage} className={'cl-step ' + cls + (n === its.length ? ' full' : '')}>{s.label} <b>{n}/{its.length}</b></span>
+          const open = s.sort < curSort ? its.filter((i) => !i.done).length : 0
+          return (
+            <section key={s.stage} className={'cl-col ' + cls + (n === its.length ? ' full' : '')}>
+              <header>
+                <b>{s.label}</b>
+                {s.sort === curSort && <span className="cl-now">nu</span>}
+                <span className="cl-count">{n}/{its.length}</span>
+              </header>
+              <div className="cl-bar"><span style={{ width: (its.length ? (n / its.length) * 100 : 0) + '%' }} /></div>
+              {open > 0 && <div className="cl-warn">{open} nog open</div>}
+              <ul>
+                {its.map((i) => (
+                  <li key={i.template_id} className={i.done ? 'done' : ''}>
+                    <label>
+                      <input type="checkbox" checked={i.done} disabled={i.done && i.done_by === 'automatisch'} onChange={() => toggle(i)} />
+                      <span>{i.label}</span>
+                    </label>
+                    <small className="muted">{i.done ? `${i.done_by === 'automatisch' ? '⚙' : '✓'} ${day(i.done_at!)}` : i.automatic ? '⚙' : ''}</small>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )
         })}
       </div>
-      {stages.filter((s) => openAll || s.sort === curSort || (s.sort < curSort && items.some((i) => i.stage === s.stage && !i.done))).map((s) => (
-        <div key={s.stage} className="cl-group">
-          <h4>{s.label}{s.sort < curSort ? <span className="muted small"> · nog open uit een vorige fase</span> : null}</h4>
-          <ul>
-            {items.filter((i) => i.stage === s.stage && (openAll || s.sort === curSort || !i.done)).map((i) => (
-              <li key={i.template_id} className={i.done ? 'done' : ''}>
-                <label>
-                  <input type="checkbox" checked={i.done} disabled={i.done && i.done_by === 'automatisch'} onChange={() => toggle(i)} />
-                  <span>{i.label}</span>
-                </label>
-                <span className="muted small">
-                  {i.done ? `${i.done_by === 'automatisch' ? '⚙ automatisch' : '✓'} · ${new Date(i.done_at!).toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' })}` : i.automatic ? '⚙ vinkt vanzelf af' : ''}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
     </div>
   )
 }

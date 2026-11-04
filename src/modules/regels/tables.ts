@@ -51,12 +51,12 @@ export const ruleTables: RuleTable[] = [
     table: 'checklist_template',
     title: 'Projectchecklist',
     explanation:
-      'De standaardpunten per fase die je bij elk project ziet. Fase: lead = Aanvraag, design = Ontwerp, quote = Offerte, production = Productie, installation = Plaatsing. Punten met een automatische regel vinken vanzelf af (intro_done, survey_submitted, go_given, design_version, costs_done, prices_complete, jobs_confirmed, jobs_done); laat dat veld leeg om met de hand af te vinken. Zet Actief uit om een punt niet meer te tonen.',
+      'De standaardpunten per fase die je bij elk project ziet. Fase: lead = Aanvraag, design = Ontwerp, quote = Offerte, production = Productie, installation = Plaatsing. Punten met een automatische regel vinken vanzelf af (kennismaking, vragenlijst, go, ontwerpversie, kosten, prijzen, offerte verstuurd/getekend, voorschot betaald, bestellingen geplaatst/ontvangen, opdrachten bevestigd/klaar, PV getekend, werkpunten af, eindfactuur, review gevraagd); laat dat veld leeg om met de hand af te vinken. Zet Actief uit om een punt niet meer te tonen.',
     columns: [
       { key: 'stage', label: 'Fase', type: 'select', options: ['lead', 'design', 'quote', 'production', 'installation'], width: 120 },
       { key: 'sort', label: 'Volgorde', type: 'number', width: 90 },
       { key: 'label', label: 'Punt' },
-      { key: 'auto_rule', label: 'Automatisch', type: 'select', options: ['', 'intro_done', 'survey_submitted', 'go_given', 'design_version', 'costs_done', 'prices_complete', 'jobs_confirmed', 'jobs_done'], width: 150 },
+      { key: 'auto_rule', label: 'Automatisch', type: 'select', options: ['', 'intro_done', 'survey_submitted', 'go_given', 'design_version', 'costs_done', 'prices_complete', 'quote_sent', 'quote_signed', 'deposit_paid', 'orders_placed', 'orders_received', 'jobs_confirmed', 'jobs_done', 'handover_signed', 'punch_done', 'final_invoice', 'review_requested'], width: 150 },
       { key: 'active', label: 'Actief', type: 'bool', width: 70 },
     ],
     orderBy: 'stage',
