@@ -139,7 +139,8 @@ export function ProjectDetail() {
             {project.client_email && <a className="pd-q" href={`mailto:${project.client_email}?subject=${encodeURIComponent(`Je project bij Vonstruct (${code})`)}`}>Mail</a>}
             {project.client_phone && <a className="pd-q" href={`tel:${project.client_phone}`}>Bel</a>}
             {project.client_phone && wa && <a className="pd-q" href={`https://wa.me/${wa}`} target="_blank" rel="noreferrer">WhatsApp</a>}
-            <button className="pd-q gold" onClick={() => setTab('planning')}>+ Opdracht of afspraak</button>
+            <button className="pd-q gold" onClick={() => setParams({ tab: 'planning', nieuw: 'opdracht' }, { replace: true })}>+ Opdracht</button>
+            <button className="pd-q" onClick={() => setParams({ tab: 'planning', nieuw: 'afspraak' }, { replace: true })}>+ Afspraak</button>
           </div>
         )}
       </header>

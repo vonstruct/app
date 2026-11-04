@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { supabase } from '../../core/supabase'
 import type { ProjectRow } from '../../core/projects'
 import { RouteLinks } from '../../core/address'
@@ -63,6 +63,16 @@ export function PlanningPanel({ project }: { project: ProjectRow }) {
   }, [code])
 
   useEffect(() => { loadJobs(); loadEvents() }, [loadJobs, loadEvents])
+  // ?nieuw=opdracht|afspraak (knoppen bovenaan de projectpagina): meteen het formulier openen
+  const [params, setParams] = useSearchParams()
+  const nieuw = params.get('nieuw')
+  useEffect(() => {
+    if (!nieuw) return
+    if (nieuw === 'opdracht') setOpen(newJob())
+    if (nieuw === 'afspraak') setNewEv(true)
+    const next = new URLSearchParams(params); next.delete('nieuw'); setParams(next, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nieuw])
 
   const items = useMemo(() => {
     const out: Item[] = []
