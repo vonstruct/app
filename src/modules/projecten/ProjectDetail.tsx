@@ -7,6 +7,7 @@ import { HandoverPanel } from '../oplevering/HandoverPanel'
 import { Invoices } from '../facturen/Invoices'
 import { QuotePanel } from '../offerte/QuotePanel'
 import { Orders } from '../bestellingen/Orders'
+import { MailDocs } from '../bestellingen/MailDocs'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { supabase } from '../../core/supabase'
@@ -74,7 +75,7 @@ export function ProjectDetail() {
     else if (tab === 'oplevering') body = <HandoverPanel project={code} />
     else if (tab === 'facturen') body = <><Invoices project={code} /><div className="panel"><h2>In Yuki</h2><p className="muted small">Alle facturen en betalingen van deze klant in de boekhouding (ook van vóór de app), met de pdf.</p><YukiHistory clientId={project.client_id} /></div></>
     else if (tab === 'offerte') body = <QuotePanel project={code} />
-    else if (tab === 'bestellingen') body = <Orders project={code} />
+    else if (tab === 'bestellingen') body = <><Orders project={code} /><div className="panel"><h2>Uit de mailbox</h2><p className="muted small">Orderbevestigingen, facturen en leveringsbons van leveranciers die aan dit project gekoppeld zijn (bijlage gelezen). Na te kijken: Planning → Bestellingen → Uit je mailbox.</p><MailDocs project={code} /></div></>
     else if (tab === 'vragenlijst') body = <>{!['lead', 'intake', 'survey'].includes(project.phase) && <LeadActions p={project} onDone={pq.reload} />}<SurveyPanel code={code} focus={focus === 'survey'} /></>
     else if (tab === 'tijdlijn') body = <EventFeed project={code} title="Tijdlijn" limit={40} />
     else if (tab === 'ontwerp') body = q.loading ? <Loading /> : (

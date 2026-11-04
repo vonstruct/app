@@ -5,7 +5,7 @@ import { Agenda } from '../agenda/Agenda'
 import { JobsOverview } from '../opdrachten/JobsOverview'
 import { Capacity } from '../capaciteit/Capacity'
 import { FacturenPage } from '../facturen/PurchaseInvoices'
-import { Orders } from '../bestellingen/Orders'
+import { OrdersPage } from '../bestellingen/MailDocs'
 import { Tasks } from '../../core/Tasks'
 
 /** Planning = afspraken (Agenda), opdrachten (werk door iemand) en taken (wat jij moet doen). */
@@ -19,7 +19,7 @@ const planning: AppModule = {
   routes: [
     { path: '/agenda', element: wrap(createElement(Agenda)) },
     { path: '/opdrachten', element: wrap(createElement(JobsOverview)) },
-    { path: '/bestellingen', element: wrap(createElement(Orders)) },
+    { path: '/bestellingen', element: wrap(createElement(OrdersPage)) },
     { path: '/facturen', element: wrap(createElement(FacturenPage)) },
     { path: '/capaciteit', element: wrap(createElement(Capacity)) },
     { path: '/taken', element: wrap(createElement(Tasks, { title: 'Taken' })) },

@@ -1619,3 +1619,9 @@ summary.vd-h::-webkit-details-marker { display: none; }
 .jp-ico { width: 56px; height: 42px; flex: none; display: grid; place-items: center; border-radius: 4px; background: #16233a; color: #f3e3a0; font-size: 11px; font-weight: 700; letter-spacing: .05em; }
 .jp-doc-t { flex: 1; min-width: 0; display: flex; flex-direction: column; } .jp-doc-t b { font-weight: 600; overflow-wrap: anywhere; } .jp-doc-t small { color: #8a867e; }
 .jp-open { flex: none; font-size: 13px; font-weight: 600; color: #16233a; }
+/* Bestellingen uit de mailbox */
+.maildocs .md-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 0 12px 10px; }
+.maildocs .md-actions select { max-width: 240px; }
+.md-cand { display: inline-flex; gap: 6px; align-items: baseline; border: 1px dashed var(--accent); background: transparent; color: var(--accent); }
+.md-cand small { color: var(--muted); font-size: 11px; }
+.md-lines { width: 100%; border-collapse: collapse; margin: 6px 0; } .md-lines td { padding: 2px 6px; border-bottom: 1px solid var(--line); vertical-align: top; } .md-lines td.num { text-align: right; white-space: nowrap; }
