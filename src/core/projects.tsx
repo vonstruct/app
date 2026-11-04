@@ -14,6 +14,8 @@ export type ProjectRow = {
   phase_sort: number | null
   phase_active: boolean | null
   target_install_week: string | null
+  install_start?: string | null
+  install_end?: string | null
   site_street: string | null
   site_postal_code: string | null
   site_city: string | null
@@ -193,11 +195,27 @@ export function ProjectCard({ p, phases, onSaved, planning, progress }: { p: Pro
         {p.target_install_week && (
           <div>
             <dt>Plaatsing</dt>
-            <dd>week {p.target_install_week}</dd>
+            <dd>{installLabel(p)}</dd>
           </div>
         )}
       </dl>
       <StatusChips p={p} />
     </article>
   )
+}
+
+/** Plaatsing leesbaar: "vr 13 nov → ma 16 nov" (met datum) of "wk 46 · 9–15 nov" (enkel week). */
+const shortD = (d: Date) => d.toLocaleDateString('nl-BE', { weekday: 'short', day: 'numeric', month: 'short' })
+export function installLabel(p: { target_install_week: string | null; install_start?: string | null; install_end?: string | null }) {
+  if (p.install_start) {
+    const a = new Date(p.install_start + 'T12:00'), b = p.install_end ? new Date(p.install_end + 'T12:00') : null
+    return shortD(a) + (b && p.install_end !== p.install_start ? ' → ' + shortD(b) : '')
+  }
+  const m = p.target_install_week?.match(/^(\d{4})-W(\d{1,2})$/)
+  if (!m) return p.target_install_week ? 'week ' + p.target_install_week : '—'
+  const y = Number(m[1]), w = Number(m[2])
+  const jan4 = new Date(y, 0, 4, 12); const mon = new Date(jan4); mon.setDate(jan4.getDate() - ((jan4.getDay() + 6) % 7) + (w - 1) * 7)
+  const sun = new Date(mon); sun.setDate(mon.getDate() + 6)
+  const f = (d: Date) => d.toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' })
+  return `wk ${w} · ${mon.getMonth() === sun.getMonth() ? mon.getDate() : f(mon)}–${f(sun)}`
 }

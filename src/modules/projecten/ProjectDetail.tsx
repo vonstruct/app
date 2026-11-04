@@ -74,7 +74,7 @@ export function ProjectDetail() {
     else if (tab === 'facturen') body = <Invoices project={code} />
     else if (tab === 'offerte') body = <QuotePanel project={code} />
     else if (tab === 'bestellingen') body = <Orders project={code} />
-    else if (tab === 'vragenlijst') body = <SurveyPanel code={code} focus={focus === 'survey'} />
+    else if (tab === 'vragenlijst') body = <>{!['lead', 'intake', 'survey'].includes(project.phase) && <LeadActions p={project} onDone={pq.reload} />}<SurveyPanel code={code} focus={focus === 'survey'} /></>
     else if (tab === 'tijdlijn') body = <EventFeed project={code} title="Tijdlijn" limit={40} />
     else if (tab === 'ontwerp') body = q.loading ? <Loading /> : (
       <>
@@ -118,7 +118,7 @@ export function ProjectDetail() {
         <ProjectProposals code={code} />
         <KeyDates code={code} onSaved={pq.reload} />
         <IntakeCard code={code} />
-        <LeadActions p={project} onDone={pq.reload} />
+        {['lead', 'intake', 'survey'].includes(project.phase) && <LeadActions p={project} onDone={pq.reload} />}
         <ChecklistPanel code={code} currentStage={project.stage} />
         <Tasks project={code} title="Taken" />
       </>
