@@ -31,7 +31,7 @@ export function InstallPrompt() {
 
   useEffect(() => {
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {})
-    if (standalone() || !mobile() || snoozed() || location.hash.startsWith('#/actie')) return
+    if (standalone() || !mobile() || snoozed() || location.hash.startsWith('#/actie') || location.hash.startsWith('#/opdracht?')) return
     const onBip = (e: Event) => { e.preventDefault(); setBip(e as BIP); setShow('android') }
     window.addEventListener('beforeinstallprompt', onBip)
     let timer: number | undefined

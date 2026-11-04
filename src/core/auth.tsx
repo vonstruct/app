@@ -4,6 +4,7 @@ import { supabase } from './supabase'
 import logo from '../assets/vonstruct-logo.webp'
 import { LangPicker, Portal, type PortalRole } from '../portal/Portal'
 import { ActionResult } from '../portal/ActionResult'
+import { JobPublic } from '../portal/JobPublic'
 import { MfaGate } from './Mfa'
 import { storeLang, storedLang, tr, type Lang } from '../portal/i18n'
 
@@ -16,6 +17,8 @@ type Role = 'beheerder' | PortalRole
 export function AuthGate({ children }: { children: ReactNode }) {
   // bevestiging via een link in de mail: publiek, zonder inloggen
   if (window.location.hash.startsWith('#/actie')) return <ActionResult />
+  // details en plannen van een opdracht (link in de agenda-uitnodiging), ook zonder inloggen
+  if (window.location.hash.startsWith('#/opdracht?')) return <JobPublic />
   const [session, setSession] = useState<Session | null | undefined>(undefined)
   const [role, setRole] = useState<Role | null | undefined>(undefined)
   const [recovery, setRecovery] = useState(false)

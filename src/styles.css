@@ -1592,3 +1592,23 @@ summary.vd-h::-webkit-details-marker { display: none; }
 .rule-wrap .rule-sec { margin: 14px 0 -6px; text-transform: uppercase; letter-spacing: .06em; font-size: 11px; }
 .rule-review { display: flex; gap: 10px; align-items: center; justify-content: flex-end; margin: -6px 2px 8px; }
 .rule-review .muted { color: #b7791f; }
+/* Publieke pagina "Details en plannen" van een opdracht (#/opdracht, zonder inloggen) */
+.jp { min-height: 100vh; background: #f4f3ef; color: #1f1e1c; }
+.jp-head { background: linear-gradient(165deg, #1a2a45 0%, #0e1729 55%, #05070c 100%); border-bottom: 2px solid #c9a24a; padding: 18px 16px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.jp-head img { width: 140px; height: auto; }
+.jp-head span { color: #c9a24a; font-size: 9px; letter-spacing: 4px; text-transform: uppercase; }
+.jp-main { max-width: 620px; margin: 0 auto; padding: 20px 16px 40px; }
+.jp-card { background: #fff; border-radius: 12px; padding: 22px 22px 18px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+.jp-card h1 { font-family: Jost, sans-serif; font-size: 22px; margin: 2px 0 8px; color: #0d1626; }
+.jp-card h2 { font-family: Jost, sans-serif; font-size: 15px; margin: 18px 0 6px; color: #0d1626; }
+.jp-kicker { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #8a867e; }
+.jp-state { display: inline-block; margin: 0 0 12px; padding: 3px 10px; border-radius: 99px; background: #f6efd9; color: #8a6a1f; font-size: 13px; }
+.jp-state.ok { background: #e5f2ea; color: #2e7d4f; } .jp-state.bad { background: #fbe7e5; color: #b3261e; }
+.jp-dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 6px 0 4px; font-size: 15px; }
+.jp-dl dt { color: #8a867e; } .jp-dl dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.jp-route { display: flex; gap: 12px; font-size: 13px; margin-top: 2px; }
+.jp-text { white-space: pre-wrap; margin: 0; line-height: 1.55; }
+.jp-files { margin: 0; padding-left: 18px; } .jp-files li { margin: 3px 0; overflow-wrap: anywhere; }
+.jp-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 18px 0 12px; }
+.jp-actions:has(> :only-child) { grid-template-columns: 1fr; }
+@media (max-width: 460px) { .jp-dl { grid-template-columns: 1fr; gap: 0 0; } .jp-dl dd { margin-bottom: 8px; } .jp-actions { grid-template-columns: 1fr; } }

@@ -32,6 +32,8 @@ export type Job = {
   sub_note: string | null
   confirmed_at: string | null
   outlook_event_id?: string | null
+  teams?: boolean
+  teams_url?: string | null
   client_confirmed_at?: string | null
   prev_start?: string | null
   prev_end?: string | null
@@ -160,7 +162,7 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
     const row = {
       project_code: j.project_code || null, for_me: assignee.kind === 'mezelf', show_client: j.show_client ?? true, notify_client: !!(j.notify_client && (j.show_client ?? true)), subcontractor_id: assignee.kind === 'onderaannemer' ? assignee.id : null, partner_id: assignee.kind === 'partner' ? assignee.id : null,
       title: j.title.trim(), start_at: j.start_at, end_at: j.end_at, address: j.address || null, contact_name: j.contact_name || null, contact_phone: j.contact_phone || null,
-      instructions: j.instructions || null, status: j.status ?? 'gepland', job_type: j.job_type || null, slot: j.slot || null, updated_at: new Date().toISOString(),
+      instructions: j.instructions || null, status: j.status ?? 'gepland', job_type: j.job_type || null, slot: j.slot || null, teams: j.teams ?? true, updated_at: new Date().toISOString(),
     }
     const res = isNew ? await supabase.from('jobs').insert(row).select('*').single() : await supabase.from('jobs').update(row).eq('id', j.id!).select('*').single()
     if (res.error) { setBusy(false); return setErr(res.error.message) }
@@ -241,7 +243,7 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
         <h2>{isNew ? 'Nieuwe opdracht' : j.title}</h2>
         {sent ? (
           <div className="msg-box">
-            <p className="notice">Opdracht bewaard{files.length ? ` met ${files.length} bestand(en)` : ''}. {sent.to.name} ziet ze nu in het portaal. Laat het hem/haar ook even weten:</p>
+            <p className="notice">Opdracht bewaard{files.length ? ` met ${files.length} bestand(en)` : ''}. {sent.to.name} krijgt een uitnodiging in zijn agenda (vanuit info@) en ziet de opdracht in het portaal. Wil je ook een berichtje sturen?</p>
             <textarea readOnly rows={9} value={sent.text} />
             <div className="toolbar">
               {waNumber(sent.to.phone) ? <a className="btn-wa" href={`https://wa.me/${waNumber(sent.to.phone)}?text=${encodeURIComponent(sent.text)}`} target="_blank" rel="noreferrer">Versturen via WhatsApp</a> : <span className="muted small">Geen telefoonnummer bij Relaties.</span>}
@@ -315,6 +317,13 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
                   {JOB_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
               </label>
+              {assignee?.kind !== 'mezelf' && (
+                <label className="wide check">
+                  <input type="checkbox" checked={j.teams ?? true} onChange={(e) => set({ teams: e.target.checked })} />
+                  {' '}Teams-link in de uitnodiging{j.teams_url && (j.teams ?? true) ? <> · <a href={j.teams_url} target="_blank" rel="noreferrer">vergadering openen</a></> : null}
+                  <small className="muted"> {assignee?.name ?? 'De onderaannemer'} krijgt een uitnodiging in zijn agenda vanuit info@ (met link naar de details en plannen). Accepteren = bevestigd.</small>
+                </label>
+              )}
               <label className="wide check">
                 <input type="checkbox" checked={j.show_client ?? true} onChange={(e) => set({ show_client: e.target.checked })} disabled={!j.project_code} />
                 {' '}Klant ziet dit in zijn portaal: datum, {assignee?.kind === 'mezelf' ? 'Vonstruct' : 'wie er komt'} en het werk (zonder instructies){!j.project_code && ' – kies eerst een project'}
