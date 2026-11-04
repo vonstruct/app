@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { NewRelation, type RelTable } from './NewRelation'
+import { supabase } from '../../core/supabase'
+import { toast } from '../../core/toast'
 import { RelationCards } from './RelationCards'
 import { EditableTable, type EditCol } from '../../core/EditableTable'
 import { Tabs } from '../../core/ui'
@@ -10,7 +12,7 @@ type Section = { id: string; label: string; table: string; intro: string; column
 const SECTIONS: Section[] = [
   {
     id: 'klanten', label: 'Klanten', table: 'clients', orderBy: 'client_number', newRow: { last_name: 'Nieuwe klant' }, canDelete: false,
-    intro: 'Klanten worden automatisch aangemaakt bij de eerste upload uit PaletteCAD. Met een e-mailadres kan je de klant uitnodigen voor het klantenportaal.',
+    intro: 'Klanten komen vanzelf binnen: elke nacht uit Yuki, bij een nieuwe aanvraag (Bookings) en bij de eerste upload uit PaletteCAD. Bestaande gegevens in de app worden nooit overschreven door Yuki, enkel lege velden aangevuld.',
     columns: [
       { key: 'client_number', label: 'Nr', type: 'number', width: 60 },
       { key: 'first_name', label: 'Voornaam' },
@@ -71,6 +73,7 @@ export function RelationsPage() {
         </div>
         <div className="rel-head-acts">
         <button className="primary" onClick={() => setAdding(true)}>{NEW[sec.id]}</button>
+        {sec.id === 'klanten' && <YukiClients onDone={() => setVer((v) => v + 1)} />}
         <div className="segmented small">
           <button className={view === 'kaarten' ? 'on' : ''} onClick={() => setParams({ tab: sec.id }, { replace: true })}>Kaarten</button>
           <button className={view === 'tabel' ? 'on' : ''} onClick={() => setParams({ tab: sec.id, view: 'tabel' }, { replace: true })}>Bewerken (tabel)</button>
@@ -96,4 +99,17 @@ export function RelationsPage() {
       </>)}
     </section>
   )
+}
+
+/** Klanten nu ophalen uit Yuki (gebeurt ook elke nacht). Enkel klanten, geen leveranciers; nooit iets overschrijven. */
+function YukiClients({ onDone }: { onDone: () => void }) {
+  const [busy, setBusy] = useState(false)
+  return <button disabled={busy} onClick={async () => {
+    setBusy(true)
+    const { data, error } = await supabase.functions.invoke('yuki', { body: { action: 'sync_clients' } })
+    setBusy(false)
+    if (error || data?.error) { toast(error?.message ?? data.error, 'err'); return }
+    toast(data.created ? `${data.created} nieuwe klant(en) uit Yuki` : 'Alles al bijgewerkt')
+    onDone()
+  }}>{busy ? 'Ophalen…' : 'Klanten ophalen uit Yuki'}</button>
 }
