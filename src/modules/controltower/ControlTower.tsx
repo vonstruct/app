@@ -34,7 +34,7 @@ const actionFor = (f: Flag): { to: string; label: string } => {
     case 'stilstand': return { to: `${proj}?focus=fase`, label: 'Fase aanpassen' }
     case 'survey_nieuw': return { to: `${proj}?focus=survey`, label: 'Vragenlijst bekijken' }
     case 'survey_open': return { to: `${proj}?focus=survey`, label: 'Klant contacteren' }
-    case 'leverancier': return { to: '/regels', label: 'Regels' }
+    case 'leverancier': return { to: '/regels?sectie=Prijzen', label: 'Regels' }
     case 'aanvraag_nieuw': return { to: proj, label: 'Aanvraag openen' }
     case 'opdracht': return { to: `/opdrachten?focus=${f.ref}`, label: 'Opdracht openen' }
     case 'mail': return { to: '/mails?tab=app', label: 'Mails bekijken' }

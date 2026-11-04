@@ -6,6 +6,7 @@ import { ErrorBox, Loading } from '../../core/ui'
 import { fmtEur } from '../../core/format'
 import { toast } from '../../core/toast'
 import { Invoices } from './Invoices'
+import { RuleLink } from '../../core/RuleLink'
 
 /**
  * Planning → Facturen: tab Verkoop (schijven, `Invoices`) en Aankoop (openstaande leveranciersfacturen uit Yuki, view `app_purchase_invoices`).
@@ -81,7 +82,7 @@ export function PurchaseInvoices() {
         </div>
         <button disabled={busy} onClick={sync}>{busy ? 'Ophalen…' : 'Ophalen uit Yuki'}</button>
       </div>
-      <p className="muted small">Uit Yuki (Aankoop → Onbetaalde facturen), elk uur bijgewerkt. Betalen doe je zelf via je bank of Yuki; domiciliëring en kaartbetalingen staan apart (lijst in Rekenregels → Facturen). Koppel een factuur aan een bestelling, dan komt het werkelijke bedrag in de nacalculatie (excl. btw, geschat: Belgische leverancier 21 %, buitenland 0 %).</p>
+      <p className="muted small">Uit Yuki (Aankoop → Onbetaalde facturen), elk uur bijgewerkt. Betalen doe je zelf via je bank of Yuki; domiciliëring en kaartbetalingen staan apart (lijst in <RuleLink s="Facturen" />). Koppel een factuur aan een bestelling, dan komt het werkelijke bedrag in de nacalculatie (excl. btw, geschat: Belgische leverancier 21 %, buitenland 0 %).</p>
       <ErrorBox error={q.error} />
       {!rows.length && <p className="muted">Geen openstaande leveranciersfacturen.</p>}
       {rows.map((r) => {

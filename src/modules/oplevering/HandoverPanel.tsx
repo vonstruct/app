@@ -6,6 +6,7 @@ import { toast } from '../../core/toast'
 import { SignaturePad } from '../../core/SignaturePad'
 import { HandoverDoc } from '../../core/HandoverDoc'
 import { printQuote, type Company } from '../../core/QuoteDoc'
+import { RuleLink } from '../../core/RuleLink'
 
 /**
  * Tab "Oplevering" op de projectpagina: werkpunten (wie, tegen wanneer, foto's, klaar), proces-verbaal van oplevering
@@ -65,7 +66,7 @@ export function HandoverPanel({ project }: { project: string }) {
             await supabase.from('projects').update({ review_requested_at: new Date().toISOString() }).eq('project_code', project)
             toast('Tekst gekopieerd; review staat als gevraagd'); reload()
           }}>Review vragen (tekst kopiëren)</button>
-          {!rule('review_link').link && <span className="muted small">Tip: zet je reviewlink in Rekenregels → Oplevering.</span>}
+          {!rule('review_link').link && <span className="muted small">Tip: zet je reviewlink in <RuleLink s="Oplevering" />.</span>}
         </div>
       )}
     </div>

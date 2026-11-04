@@ -1587,3 +1587,8 @@ summary.vd-h::-webkit-details-marker { display: none; }
 .import-quote .iq-file { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); margin: 8px 0; }
 .iq-lines { margin: 10px 0; display: flex; flex-direction: column; gap: 6px; }
 .iq-line { display: flex; gap: 8px; align-items: center; } .iq-line input { flex: 1; min-width: 0; max-width: 220px; }
+/* Rekenregels: voorlopige waarden (tab Na te kijken) */
+.rule-wrap { position: relative; }
+.rule-wrap .rule-sec { margin: 14px 0 -6px; text-transform: uppercase; letter-spacing: .06em; font-size: 11px; }
+.rule-review { display: flex; gap: 10px; align-items: center; justify-content: flex-end; margin: -6px 2px 8px; }
+.rule-review .muted { color: #b7791f; }

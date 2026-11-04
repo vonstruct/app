@@ -4,6 +4,7 @@ import { useQuery } from '../../core/useQuery'
 import { ErrorBox, Loading } from '../../core/ui'
 import { fmtEur } from '../../core/format'
 import { toast } from '../../core/toast'
+import { RuleLink } from '../../core/RuleLink'
 
 /**
  * Tab "Nacalculatie" op de projectpagina: offerte (omzet) tegenover werkelijke kosten (bestellingen met werkelijk factuurbedrag,
@@ -100,7 +101,7 @@ export function NacalcPanel({ project }: { project: string }) {
         <input placeholder="Uren" inputMode="decimal" value={h.hours} onChange={(e) => setH({ ...h, hours: e.target.value })} />
         <button className="primary" onClick={addHours}>+ Uren</button>
       </div>
-      <p className="muted small">Tip: zeg tegen VON of Siri "noteer 4 uur plaatsing op 209901". Uurkost aanpassen: Rekenregels → Nacalculatie.</p>
+      <p className="muted small">Tip: zeg tegen VON of Siri "noteer 4 uur plaatsing op 209901". Uurkost aanpassen: <RuleLink s="Nacalculatie" />.</p>
     </div>
   )
 }

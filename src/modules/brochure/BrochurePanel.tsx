@@ -30,7 +30,7 @@ export function BrochurePanel({ project }: { project: string }) {
             <label>Inleiding (optioneel)<textarea rows={3} defaultValue={b.intro ?? ''} onChange={(e) => setIntro(e.target.value)} onBlur={() => intro !== null && intro !== (b.intro ?? '') && save({ brochure_intro: intro || null })} /></label>
             <div className="muted small">
               <p>Renders: laad ze op in het tabblad Documenten als soort "Render" (vink "klant" aan).</p>
-              <p>Publieke namen, uitleg, onderhoud en decorbeelden per materiaal: <Link to="/regels">Rekenregels → Brochure</Link>.</p>
+              <p>Publieke namen, uitleg, onderhoud en decorbeelden per materiaal: <Link to="/regels?sectie=Brochure">Rekenregels → Brochure</Link>.</p>
               <p>Kastfoto's volgen zodra PaletteCAD ze meestuurt.</p>
             </div>
           </div>

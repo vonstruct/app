@@ -5,6 +5,7 @@ import { ErrorBox, Loading } from '../../core/ui'
 import { fmtEur } from '../../core/format'
 import { toast } from '../../core/toast'
 import { QuoteDoc, printQuote, lineAmount, quoteTotals, lineOn, type Company, type QLang, type QSignature } from '../../core/QuoteDoc'
+import { RuleLink } from '../../core/RuleLink'
 
 /**
  * Tab "Offerte" op de projectpagina. Opbouwen uit de kosten = RPC quote_generate (kasten, lades, werkblad + vaste regels),
@@ -198,7 +199,7 @@ function QuoteEditor({ q, company, btw6, onChange, onGenerate, busy }: { q: Quot
                 ))}
                 <label className="qcheck"><input type="checkbox" checked={q.show_groups} onChange={(e) => saveQ({ show_groups: e.target.checked })} /> Regels per rubriek met subtotalen</label>
               </div>
-              <p className="muted small">Standaardteksten aanpassen: Rekenregels → Offerte. Leeg = blok niet tonen.</p>
+              <p className="muted small">Standaardteksten aanpassen: <RuleLink s="Offerte" />. Leeg = blok niet tonen.</p>
             </details>
           )}
           {ls.map((l, i) => (
