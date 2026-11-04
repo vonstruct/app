@@ -7,7 +7,7 @@ import { NewEvent } from '../modules/agenda/Agenda'
 import { JobEditor } from '../modules/agenda/JobEditor'
 
 /** Takenlijst van Olivier (tabel `tasks`): ingesproken via Siri/VON of hier getypt. Overal dezelfde component. */
-export type Task = { id: string; text: string; project_code: string | null; due_date: string | null; done_at: string | null; source: string; created_at: string }
+export type Task = { id: string; text: string; project_code: string | null; due_date: string | null; done_at: string | null; source: string; created_at: string; proposal_ids?: string[] | null }
 
 const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Brussels' })
 const dueLabel = (d: string | null) => {
@@ -57,6 +57,23 @@ export function Tasks({ project, limit, title = 'Mijn taken', showAdd = true }: 
     await supabase.from('tasks').update({ done_at: t.done_at ? null : new Date().toISOString() }).eq('id', t.id)
     load()
   }
+  // "Laat VON dit doen": VON zet de taak om in voorstel(len); goedgekeurd + uitgevoerd = taak vanzelf af (trigger trg_tasks_follow_proposal)
+  const [vonBusy, setVonBusy] = useState<string | null>(null)
+  const [vonSaid, setVonSaid] = useState<Record<string, string>>({})
+  const askVon = async (t: Task) => {
+    setMenu(null); setVonBusy(t.id)
+    const since = new Date(Date.now() - 5000).toISOString()
+    const { data, error } = await supabase.functions.invoke('von', { body: { message: `Doe deze taak voor mij${t.project_code ? ` (project ${t.project_code})` : ''}: "${t.text}". Zet ze om in voorstel(len) die ik kan goedkeuren. Kan het niet in de app, zeg dan in één zin waarom en wat ik zelf moet doen.` } })
+    const { data: props } = await supabase.from('von_proposals').select('id').eq('status', 'voorstel').gte('created_at', since)
+    setVonBusy(null)
+    if (error) return toast('VON kon het niet: ' + error.message, 'err')
+    const ids = (props ?? []).map((p: { id: string }) => p.id)
+    if (ids.length) {
+      await supabase.from('tasks').update({ proposal_ids: [...(t.proposal_ids ?? []), ...ids] }).eq('id', t.id)
+      toast(`VON maakte ${ids.length} voorstel${ids.length > 1 ? 'len' : ''}: goedkeuren in Vandaag`)
+    } else setVonSaid((x) => ({ ...x, [t.id]: String((data as { answer?: string })?.answer ?? 'Geen voorstel.') }))
+    load()
+  }
   const remove = async (t: Task) => { if (confirm('Taak verwijderen?')) { await supabase.from('tasks').delete().eq('id', t.id); load() } }
   const shown = limit && tasks ? tasks.slice(0, limit) : tasks
 
@@ -94,15 +111,19 @@ export function Tasks({ project, limit, title = 'Mijn taken', showAdd = true }: 
                     {d && <span className={d.cls}>{d.text}</span>}
                     {!project && t.project_code && <> {d ? '· ' : ''}<Link to={`/projecten/${encodeURIComponent(t.project_code)}`}>{t.project_code}</Link></>}
                     {t.source === 'siri' && <span className="muted"> · 🎙</span>}
+                    {!t.done_at && !!t.proposal_ids?.length && <> · <Link to="/overzicht" className="chip gold">✨ voorstel klaar</Link></>}
+                    {vonBusy === t.id && <span className="muted"> · VON is bezig…</span>}
                   </span>
+                  {vonSaid[t.id] && <span className="small tasks-von">VON: {vonSaid[t.id]}</span>}
                 </span>
                 {!t.done_at && (
                   <span className="tasks-plan">
-                    <button className="link small" onClick={() => setMenu(menu === t.id ? null : t.id)} title="Inplannen als afspraak of opdracht">📅</button>
+                    <button className="link small" onClick={() => setMenu(menu === t.id ? null : t.id)} title="Inplannen als afspraak of opdracht, of laten doen door VON">📅</button>
                     {menu === t.id && (
                       <span className="tasks-menu">
                         <button onClick={() => startPlan(t, 'afspraak')}>Afspraak maken</button>
                         <button onClick={() => startPlan(t, 'opdracht')}>Opdracht maken</button>
+                        <button onClick={() => askVon(t)}>✨ Laat VON dit doen</button>
                       </span>
                     )}
                   </span>
