@@ -1,8 +1,8 @@
-import { fmtEur, fmtNum } from './format'
+import { fmtNum } from './format'
 
 /**
  * Inhoud van een productiepakket zoals de partner (partner) het ziet: opmerkingen, restplaten/kantenband meegeven, bestanden,
- * opmerkingen per kast (nerf laten doorlopen, speciale frezing, andere), platen en kantenband (zonder prijs), productiekost met bedragen. Gedeeld door het partnerportaal en het voorbeeld voor de beheerder.
+ * opmerkingen per kast, platen en kantenband die de partner bestelt (zonder prijs; wat Vonstruct zelf bestelt niet), productie in aantallen (geen prijzen, geen bestelkost of vracht). Gedeeld door het partnerportaal en het voorbeeld voor de beheerder.
  * Gegevens = package_json() in Supabase.
  */
 export type PkgFile = { id: string; kind: string; name: string; size: number | null; storage: string; downloaded_at: string | null; downloads: number }
@@ -11,7 +11,7 @@ export type Pkg = {
   title: string | null; client: string | null
   sheets: { material: string; article_no: string | null; thickness: number | null; length: number | null; width: number | null; qty: number; supplier: string | null; ordered_by: string | null }[] | null
   edges: { description: string; product: string | null; article_no: string | null; qty: number; unit: string | null; supplier: string | null; ordered_by: string | null }[] | null
-  production: { description: string; qty: number | null; unit: string | null; unit_price: number | null; total: number }[] | null
+  production: { description: string; qty: number | null; unit: string | null }[] | null
   files: PkgFile[] | null
   cabinets: { name: string; tags: string[]; note: string | null; width: number | null; height: number | null; depth: number | null }[] | null
 }
@@ -20,7 +20,6 @@ export const fileSize = (n: number | null) => (n == null ? '' : n > 1e6 ? `${fmt
 const day = (d: string | null) => (d ? new Date(d).toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '')
 
 export function PackageView({ p, onDownload, admin }: { p: Pkg; onDownload: (f: PkgFile) => void; admin?: boolean }) {
-  const prodTotal = (p.production ?? []).reduce((a, l) => a + Number(l.total), 0)
   return (
     <div className="pkg">
       {(p.note || (p.cabinets ?? []).length > 0) && (
@@ -73,13 +72,12 @@ export function PackageView({ p, onDownload, admin }: { p: Pkg; onDownload: (f: 
         </table></div>
       )}
       <h3>Productie: zagen, afkanten, verlijmen</h3>
-      {(p.production ?? []).length === 0 ? <p className="muted small">Geen productiekost berekend.</p> : (
+      {(p.production ?? []).length === 0 ? <p className="muted small">Niets berekend.</p> : (
         <div className="table-wrap"><table>
-          <thead><tr><th>Wat</th><th className="num">Aantal</th><th className="num">Per eenheid</th><th className="num">Bedrag</th></tr></thead>
+          <thead><tr><th>Wat</th><th className="num">Aantal</th></tr></thead>
           <tbody>{(p.production ?? []).map((l, i) => (
-            <tr key={i}><td>{l.description}</td><td className="num">{l.qty == null ? '' : `${fmtNum(l.qty, 2)} ${l.unit ?? ''}`}</td><td className="num">{l.unit_price == null ? '' : fmtEur(l.unit_price)}</td><td className="num">{fmtEur(l.total)}</td></tr>
+            <tr key={i}><td>{l.description}</td><td className="num">{l.qty == null ? '' : `${fmtNum(l.qty, l.unit === 'm' ? 1 : 0)} ${l.unit ?? ''}`}</td></tr>
           ))}</tbody>
-          <tfoot><tr><td colSpan={3}>Totaal excl. btw</td><td className="num">{fmtEur(prodTotal)}</td></tr></tfoot>
         </table></div>
       )}
     </div>
