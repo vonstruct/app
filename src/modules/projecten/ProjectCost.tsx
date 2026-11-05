@@ -28,13 +28,13 @@ const num = (s: string) => { const v = Number(String(s).trim().replace(/\./g, ''
 export function ProjectCost({ project, onQuote }: { project: string; onQuote: () => void }) {
   const gq = useQuery<Group[]>(() => supabase.from('app_project_cost_groups').select('*').eq('project_code', project).order('sort').order('group_name'), [project])
   const lq = useQuery<Line[]>(() => supabase.from('app_project_cost').select('*').eq('project_code', project).order('sort').order('description'), [project])
-  const mq = useQuery<{ markup_pct: number | null; vat_pct: number | null; new_build: boolean; rule: number }>(async () => {
+  const mq = useQuery<{ markup_pct: number | null; vat_pct: number | null; vat_reason: string | null; new_build: boolean; rule: number }>(async () => {
     const [{ data: p }, { data: r }] = await Promise.all([
-      supabase.from('projects').select('markup_pct,vat_pct,new_build').eq('project_code', project).maybeSingle(),
+      supabase.from('projects').select('markup_pct,vat_pct,vat_reason,new_build').eq('project_code', project).maybeSingle(),
       supabase.from('rule_settings').select('value').eq('key', 'projectmarge').maybeSingle(),
     ])
-    const pp = p as { markup_pct: number | null; vat_pct: number | null; new_build: boolean } | null
-    return { data: { markup_pct: pp?.markup_pct ?? null, vat_pct: pp?.vat_pct ?? null, new_build: !!pp?.new_build, rule: Number((r as { value: { pct?: number } } | null)?.value?.pct ?? 30) }, error: null }
+    const pp = p as { markup_pct: number | null; vat_pct: number | null; vat_reason: string | null; new_build: boolean } | null
+    return { data: { markup_pct: pp?.markup_pct ?? null, vat_pct: pp?.vat_pct ?? null, vat_reason: pp?.vat_reason ?? null, new_build: !!pp?.new_build, rule: Number((r as { value: { pct?: number } } | null)?.value?.pct ?? 30) }, error: null }
   }, [project])
   const vq = useQuery<{ rate: number; reason: string; appliance_rate: number; mention: string | null; automatic: boolean } | null>(async () => {
     const { data, error } = await supabase.rpc('project_vat', { p_code: project })
@@ -98,8 +98,10 @@ export function ProjectCost({ project, onQuote }: { project: string; onQuote: ()
     const { error } = await supabase.from('project_cost_items').delete().eq('id', l.id)
     if (error) toast(error.message, 'err'); else { toast('Weggehaald'); reload() }
   }
+  const vatChoice = mq.data?.vat_pct == null ? '' : Number(mq.data.vat_pct) === 0 ? `0:${mq.data.vat_reason === 'buitenland' ? 'buitenland' : 'verlegd'}` : String(Number(mq.data.vat_pct))
   const saveVat = async (v: string) => {
-    const { error } = await supabase.from('projects').update({ vat_pct: v === '' ? null : Number(v), vat_reason: v === '' ? null : 'zelf gekozen' }).eq('project_code', project)
+    const [pct, why] = v.split(':')
+    const { error } = await supabase.from('projects').update({ vat_pct: v === '' ? null : Number(pct), vat_reason: v === '' ? null : why ?? 'zelf gekozen' }).eq('project_code', project)
     if (error) toast(error.message, 'err'); else { toast('Btw bewaard'); mq.reload(); vq.reload(); gq.reload() }
   }
   const saveNewBuild = async (on: boolean) => {
@@ -124,10 +126,12 @@ export function ProjectCost({ project, onQuote }: { project: string; onQuote: ()
         <div><span className="lbl">Voor de klant (± {fmtNum(projectMargin, 0)} % marge)</span><b>{fmtEur(totSell)}</b><small className="muted">excl. btw, per groep afgerond in de offerte</small></div>
         {noPrice > 0 && <div className="warn"><span className="lbl">Zonder prijs</span><b>{noPrice}</b><small>open de groep en klik "prijs zoeken"</small></div>}
         <div className="pcost-vat"><span className="lbl">Btw</span>
-          <select value={mq.data?.vat_pct == null ? '' : String(Number(mq.data.vat_pct))} onChange={(e) => saveVat(e.target.value)} aria-label="Btw van het project">
-            <option value="">{vq.data ? `automatisch: ${fmtNum(vq.data.rate, 0)} %` : 'automatisch'}</option><option value="6">6 %</option><option value="21">21 %</option><option value="0">0 %</option>
+          <select value={vatChoice} onChange={(e) => saveVat(e.target.value)} aria-label="Btw van het project">
+            <option value="">{mq.data?.new_build ? 'standaard: 21 % (nieuwbouw)' : 'standaard: 6 % (renovatie)'}</option>
+            <option value="6">6 %</option><option value="21">21 %</option>
+            <option value="0:verlegd">0 % btw verlegd (bedrijf)</option><option value="0:buitenland">0 % klant in het buitenland</option>
           </select>
-          <small className="muted">{vq.data ? (vq.data.automatic ? vq.data.reason : 'zelf gekozen') + (vq.data.rate === 6 ? ' · toestellen 21 %' : '') : ''}</small>
+          <small className="muted">{vq.data ? `${fmtNum(vq.data.rate, 0)} % · ${vq.data.reason} · toestellen ${fmtNum(vq.data.appliance_rate, 0)} % (kraan, spoelbak, dampkap: ${fmtNum(vq.data.rate, 0)} %)` : ''}</small>
           <label className="small"><input type="checkbox" checked={!!mq.data?.new_build} onChange={(e) => saveNewBuild(e.target.checked)} /> nieuwbouw of woning jonger dan 10 jaar</label>
         </div>
         <div className="pcost-actions">
