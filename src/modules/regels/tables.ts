@@ -56,7 +56,7 @@ export const ruleTables: RuleTable[] = [
       { key: 'stage', label: 'Fase', type: 'select', options: ['lead', 'design', 'quote', 'signed', 'production', 'installation'], width: 120 },
       { key: 'sort', label: 'Volgorde', type: 'number', width: 90 },
       { key: 'label', label: 'Punt' },
-      { key: 'auto_rule', label: 'Automatisch', type: 'select', options: ['', 'intro_done', 'survey_submitted', 'go_given', 'design_version', 'costs_done', 'prices_complete', 'quote_sent', 'quote_signed', 'deposit_paid', 'orders_placed', 'orders_received', 'install_week_set', 'production_done', 'pickup_done', 'jobs_confirmed', 'jobs_done', 'handover_signed', 'punch_done', 'final_invoice', 'review_requested'], width: 150 },
+      { key: 'auto_rule', label: 'Automatisch', type: 'select', options: ['', 'intro_done', 'survey_submitted', 'go_given', 'design_version', 'costs_done', 'prices_complete', 'quote_sent', 'quote_signed', 'deposit_paid', 'orders_placed', 'orders_received', 'install_week_set', 'production_done', 'pickup_done', 'package_sent', 'jobs_confirmed', 'jobs_done', 'handover_signed', 'punch_done', 'final_invoice', 'review_requested'], width: 150 },
       { key: 'active', label: 'Actief', type: 'bool', width: 70 },
     ],
     orderBy: 'stage',

@@ -4,6 +4,7 @@ import logo from '../assets/vonstruct-logo.webp'
 import { Survey } from './Survey'
 import { Quotes } from './Quotes'
 import { Aftercare, MyPunch } from './Aftercare'
+import { Packages } from './Packages'
 import { Documents } from './Documents'
 import { BrochureList } from './BrochureList'
 import { Jobs, MomentForm, type ViewAs } from './Jobs'
@@ -87,6 +88,7 @@ export function Portal({ role, preview = false, viewAs = null }: { role: PortalR
           </>
         ) : (
           <>
+            {role === 'partner' && !viewAs && <Packages preview={preview} />}
             <MyPunch lang={lang} preview={preview || !!viewAs} />
             <Jobs lang={lang} preview={preview} viewAs={viewAs} empty={<EmptyWork role={role} lang={lang} />} />
           </>

@@ -1699,3 +1699,30 @@ summary.vd-h::-webkit-details-marker { display: none; }
 .pcost-vat { display: grid; gap: 3px; }
 .pcost-vat label { display: flex; gap: 6px; align-items: center; color: var(--muted); }
 .qdoc-vatnote { font-size: 11px; color: #555; margin: 6px 0 0; max-width: 70ch; }
+
+/* Productiepakket (tab Productie + partnerportaal) */
+.prodpkg { display: grid; gap: 12px; }
+.prodpkg-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.prodpkg-edit { display: grid; gap: 8px; margin: 12px 0; padding: 12px; border: 1px solid var(--line); border-radius: 8px; }
+.prodpkg-edit label.wide { display: grid; gap: 4px; font-size: 12.5px; color: var(--muted); }
+.prodpkg-edit textarea { width: 100%; font-family: inherit; font-size: 14px; }
+.prodpkg-edit label.check { display: flex; gap: 6px; align-items: center; }
+.prodpkg-up { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.prodpkg-up .btn { display: inline-block; padding: 7px 12px; border: 1px solid var(--line); border-radius: 6px; cursor: pointer; background: var(--panel); }
+.prodpkg-rm { margin: 0; padding-left: 18px; }
+.prodpkg-sub { margin: 14px 0 6px; }
+.pkg { display: grid; gap: 8px; }
+.pkg h3 { margin: 10px 0 2px; font-size: 15px; }
+.pkg-note { background: var(--accent-soft); border-radius: 8px; padding: 10px 12px; }
+.pkg-note p { margin: 4px 0 0; white-space: pre-wrap; }
+.pkg-flags { display: flex; flex-wrap: wrap; gap: 8px 18px; color: var(--muted); }
+.pkg-flags .on { color: var(--ink); font-weight: 600; }
+.pkg-files { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.pkg-files li { display: grid; grid-template-columns: 150px 1fr auto auto; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.pkg-kind { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.pkg-fname { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 640px) { .pkg-files li { grid-template-columns: 1fr auto; } .pkg-kind { grid-column: 1 / -1; } }
+.pkg-card { display: grid; gap: 8px; }
+.pkg-head { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
+.pkg-new { margin-left: 8px; background: #c9a24a; color: #111; border-radius: 999px; padding: 1px 8px; font-size: 11px; }
+.pkg-old { opacity: .75; }
