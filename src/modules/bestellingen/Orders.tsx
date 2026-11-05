@@ -174,6 +174,13 @@ ${lines.map((l) => `<tr><td class="n">${esc(qtyTxt(l))}</td><td>${esc(l.article_
 
 function OrderDetail({ o, onSave, onStatus }: { o: Order; onSave: (p: Partial<Order>) => void; onStatus: (s: string) => void }) {
   const lines = useQuery<Line[]>(() => supabase.from('order_lines').select('id,category,description,article_no,qty,unit,total').eq('order_id', o.id).eq('active', true).order('category'), [o.id])
+  // artikel dat je liggen hebt: op voorraad zetten → telt mee in de kost, de open bestellijsten worden vanzelf bijgewerkt
+  const canStock = o.status === 'te bestellen' && !o.manual
+  const toStock = async (l: Line) => {
+    const { error } = await supabase.rpc('stock_set', { p_article_no: l.article_no ?? '', p_description: l.description ?? '', p_supplier: o.supplier, p_active: true })
+    toast(error ? 'Niet gelukt: ' + error.message : `${l.description}: op voorraad. Telt mee in de kost, komt niet meer op een bestellijst (terugzetten: Rekenregels → Prijzen → Op voorraad).`, error ? 'err' : 'ok')
+    lines.reload()
+  }
   const field = (label: string, key: keyof Order, type = 'date') => (
     <label>
       {label}
@@ -214,11 +221,12 @@ function OrderDetail({ o, onSave, onStatus }: { o: Order; onSave: (p: Partial<Or
       {o.needed_by_manual && <p className="muted small">Datum "nodig op" met de hand gezet (leeg maken = weer automatisch uit de planning).</p>}
       {lines.loading ? <Loading /> : (
         <table className="order-lines">
-          <thead><tr><th className="hide-sm">Rubriek</th><th>Artikel</th><th className="hide-sm">Art.nr</th><th className="num">Aantal</th><th className="num">Totaal</th></tr></thead>
+          <thead><tr><th className="hide-sm">Rubriek</th><th>Artikel</th><th className="hide-sm">Art.nr</th><th className="num">Aantal</th><th className="num">Totaal</th>{canStock && <th />}</tr></thead>
           <tbody>
             {(lines.data ?? []).map((l) => (
               <tr key={l.id}><td className="hide-sm">{l.category}</td><td>{l.description}</td><td className="muted hide-sm">{l.article_no}</td>
-                <td className="num">{l.qty != null ? Number(l.qty).toLocaleString('nl-BE', { maximumFractionDigits: 2 }) : ''} {l.unit}</td><td className="num">{fmtEur(l.total)}</td></tr>
+                <td className="num">{l.qty != null ? Number(l.qty).toLocaleString('nl-BE', { maximumFractionDigits: 2 }) : ''} {l.unit}</td><td className="num">{fmtEur(l.total)}</td>
+                {canStock && <td><button className="link small" title="Heb ik liggen: telt mee in de kost, niet meer bestellen (ook in volgende projecten)" onClick={() => toStock(l)}>op voorraad</button></td>}</tr>
             ))}
           </tbody>
         </table>

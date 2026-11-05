@@ -8,6 +8,9 @@ export type RuleTable = {
   columns: EditCol[]
   orderBy?: string
   newRow?: Record<string, unknown>
+  keyField?: string
+  canAdd?: boolean
+  canDelete?: boolean
 }
 
 /** Regeltabellen per onderdeel. Nieuwe tabel: hier één blok toevoegen. */
@@ -93,6 +96,24 @@ export const ruleTables: RuleTable[] = [
     ],
     orderBy: 'description',
     newRow: { description: 'nieuw artikel', price: 0 },
+  },
+  {
+    section: 'Prijzen',
+    table: 'stock_articles',
+    title: 'Op voorraad',
+    explanation:
+      'Artikels die je liggen hebt. Ze tellen mee in de kostprijs (aan de prijs van de prijslijst) maar komen niet op een bestellijst, in alle projecten. Aanduiden doe je in Projectkost of bij een bestelling (knop "op voorraad" per artikel). Vinkje Op voorraad uit = weer gewoon bestellen.',
+    columns: [
+      { key: 'description', label: 'Omschrijving' },
+      { key: 'article_no', label: 'Artikelnummer', width: 150 },
+      { key: 'supplier', label: 'Leverancier', width: 160 },
+      { key: 'active', label: 'Op voorraad', type: 'bool', width: 100 },
+      { key: 'note', label: 'Opmerking' },
+    ],
+    orderBy: 'description',
+    keyField: 'price_key',
+    canAdd: false,
+    canDelete: false,
   },
   {
     section: 'Bestellen',

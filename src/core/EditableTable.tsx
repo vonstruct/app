@@ -22,10 +22,12 @@ type Props = {
   focus?: { id: string; key: string } // cel die meteen geselecteerd wordt (bv. vanuit de control tower)
   canAdd?: boolean
   canDelete?: boolean
+  /** sleutelkolom (standaard id) */
+  keyField?: string
 }
 
 /** Tabel die je bewerkt als in Excel: klik in een cel, wijzig, klaar. Elke wijziging wordt meteen bewaard. */
-export function EditableTable({ table, columns, orderBy = 'id', newRow = {}, empty = 'Nog niets ingevuld', focus, canAdd = true, canDelete = true }: Props) {
+export function EditableTable({ table, columns, orderBy = 'id', newRow = {}, empty = 'Nog niets ingevuld', focus, canAdd = true, canDelete = true, keyField = 'id' }: Props) {
   const q = useQuery<Record<string, unknown>[]>(() => supabase.from(table).select('*').order(orderBy), [table])
   const [msg, setMsg] = useState<string | null>(null)
   // bewaarde waarden meteen tonen (bv. vinkje Actief), zonder de hele tabel opnieuw te laden
@@ -34,7 +36,7 @@ export function EditableTable({ table, columns, orderBy = 'id', newRow = {}, emp
   const save = async (id: unknown, key: string, value: unknown) => {
     const k = `${String(id)}:${key}`
     setLocal((l) => ({ ...l, [k]: value }))
-    const { error } = await supabase.from(table).update({ [key]: value }).eq('id', id)
+    const { error } = await supabase.from(table).update({ [key]: value }).eq(keyField, id)
     if (error) setLocal((l) => { const n = { ...l }; delete n[k]; return n })
     setMsg(error ? error.message : 'Bewaard')
     toast(error ? 'Niet bewaard: ' + error.message : 'Bewaard', error ? 'err' : 'ok')
@@ -47,7 +49,7 @@ export function EditableTable({ table, columns, orderBy = 'id', newRow = {}, emp
   }
   const remove = async (id: unknown) => {
     if (!window.confirm('Deze regel verwijderen?')) return
-    const { error } = await supabase.from(table).delete().eq('id', id)
+    const { error } = await supabase.from(table).delete().eq(keyField, id)
     if (error) setMsg(error.message)
     q.reload()
   }
@@ -73,14 +75,14 @@ export function EditableTable({ table, columns, orderBy = 'id', newRow = {}, emp
             </tr>
           )}
           {rows.map((r) => (
-            <tr key={String(r.id)} className={focus && String(r.id) === focus.id ? 'focus-row' : undefined}>
+            <tr key={String(r[keyField])} className={focus && String(r[keyField]) === focus.id ? 'focus-row' : undefined}>
               {columns.map((c) => (
                 <td key={c.key}>
-                  <Cell col={c} value={`${String(r.id)}:${c.key}` in local ? local[`${String(r.id)}:${c.key}`] : r[c.key]} onSave={(v) => save(r.id, c.key, v)} autoFocus={!!focus && String(r.id) === focus.id && c.key === focus.key} />
+                  <Cell col={c} value={`${String(r[keyField])}:${c.key}` in local ? local[`${String(r[keyField])}:${c.key}`] : r[c.key]} onSave={(v) => save(r[keyField], c.key, v)} autoFocus={!!focus && String(r[keyField]) === focus.id && c.key === focus.key} />
                 </td>
               ))}
               <td>
-                {canDelete && <button className="link danger" title="Verwijderen" onClick={() => remove(r.id)}>✕</button>}
+                {canDelete && <button className="link danger" title="Verwijderen" onClick={() => remove(r[keyField])}>✕</button>}
               </td>
             </tr>
           ))}

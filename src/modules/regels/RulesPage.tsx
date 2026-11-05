@@ -59,7 +59,7 @@ export function RulesPage() {
         <div key={t.table}>
           <h2>{t.title}</h2>
           <p className="muted">{t.explanation}</p>
-          <EditableTable table={t.table} columns={t.columns} orderBy={t.orderBy} newRow={t.newRow} />
+          <EditableTable table={t.table} columns={t.columns} orderBy={t.orderBy} newRow={t.newRow} keyField={t.keyField} canAdd={t.canAdd} canDelete={t.canDelete} empty={t.table === 'stock_articles' ? 'Nog niets op voorraad gezet.' : undefined} />
         </div>
       ))}
     </section>
