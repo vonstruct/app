@@ -1727,3 +1727,8 @@ summary.vd-h::-webkit-details-marker { display: none; }
 .pkg-new { margin-left: 8px; background: #c9a24a; color: #111; border-radius: 999px; padding: 1px 8px; font-size: 11px; }
 .pkg-old { opacity: .75; }
 .prodpkg-folder { display: grid; gap: 4px; padding: 10px 12px; border: 1px dashed var(--line); border-radius: 8px; }
+.prodpkg-grain { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; }
+.prodpkg-grain .chips-pick button { padding: 4px 11px; font-size: 13px; }
+.pkg-grain { border-left: 3px solid var(--gold); padding: 8px 12px; background: color-mix(in srgb, var(--gold) 8%, transparent); border-radius: 0 8px 8px 0; }
+.pkg-grain p { margin: 4px 0; white-space: pre-wrap; }
+.pkg-grain ul { margin: 4px 0 0; padding-left: 18px; }

@@ -7,11 +7,11 @@ import { PackageView, fileSize, type Pkg, type PkgFile } from '../../core/Packag
 
 /**
  * Tab "Productie" op de projectpagina: productiepakket voor partner (tabel production_packages, versies).
- * Concept: opmerkingen, restplaten/rest kantenband meegeven, bestanden = wat in de projectmap in OneDrive staat (regel productie_map,
+ * Concept: opmerkingen, restplaten/rest kantenband meegeven, kasten waarbij de nerf moet doorlopen (grain_cabinets = namen uit bom_cabinets), bestanden = wat in de projectmap in OneDrive staat (regel productie_map,
  * Edge Function productie actie folder) + zaagplan en gedeelde tekeningen. Testmodus (regel productie_testmodus): niets naar de partner. Versturen = mail aan partner + zichtbaar in het partnerportaal;
  * downloads worden bijgehouden. Nieuwe versie = package_new (neemt opmerkingen over, zaagplan + gedeelde tekeningen erbij).
  */
-type Row = { id: string; project_code: string; version: number; status: string; note: string | null; return_sheets: boolean; return_edges: boolean; sent_at: string | null; partner_id: string | null; created_at: string }
+type Row = { id: string; project_code: string; version: number; status: string; note: string | null; return_sheets: boolean; return_edges: boolean; sent_at: string | null; partner_id: string | null; created_at: string; design_version_id: string | null; grain_cabinets: string[]; grain_note: string | null }
 const STATUS: Record<string, string> = { concept: 'Concept', verstuurd: 'Verstuurd', vervangen: 'Vervangen' }
 
 export function ProductionPanel({ project }: { project: string }) {
@@ -50,6 +50,13 @@ export function ProductionPanel({ project }: { project: string }) {
     if (e) return toast(e, 'err')
     toast(`Uitnodiging voor het portaal verstuurd naar ${partner.data.email}`); login.reload()
   }
+  const cabs = useQuery<string[]>(async () => {
+    if (!cur?.design_version_id) return { data: [], error: null }
+    const { data, error } = await supabase.from('bom_cabinets').select('name').eq('design_version_id', cur.design_version_id)
+    const names = [...new Set(((data ?? []) as { name: string | null }[]).map((c) => c.name?.trim()).filter((n): n is string => !!n))]
+    const nr = (n: string) => { const m = n.match(/^\d+/); return m ? Number(m[0]) : 1e9 }
+    return { data: names.sort((a, b) => nr(a) - nr(b) || a.localeCompare(b, 'nl')), error }
+  }, [cur?.design_version_id])
   const reload = () => { q.reload(); pv.reload() }
   const editable = cur?.status === 'concept'
 
@@ -128,6 +135,18 @@ export function ProductionPanel({ project }: { project: string }) {
               </label>
               <label className="check"><input type="checkbox" checked={cur.return_sheets} onChange={(e) => save({ return_sheets: e.target.checked })} /> Restplaten meegeven</label>
               <label className="check"><input type="checkbox" checked={cur.return_edges} onChange={(e) => save({ return_edges: e.target.checked })} /> Rest kantenband meegeven (behalve wit)</label>
+              <div className="prodpkg-grain">
+                <div><b>Nerf laten doorlopen</b> <span className="small muted">bij welke kasten? (uit de tekening)</span></div>
+                {(cabs.data ?? []).length === 0 ? <span className="small muted">Geen kasten in de stuklijst van deze versie.</span> : (
+                  <div className="chips-pick">{(cabs.data ?? []).map((n) => {
+                    const on = cur.grain_cabinets.some((g) => g.trim() === n)
+                    return <button key={n} className={on ? 'on' : ''} onClick={() => save({ grain_cabinets: on ? cur.grain_cabinets.filter((g) => g.trim() !== n) : [...cur.grain_cabinets, n] })}>{on ? '✓ ' : ''}{n}</button>
+                  })}</div>
+                )}
+                {cur.grain_cabinets.length > 0 && (
+                  <input key={cur.id + 'g'} defaultValue={cur.grain_note ?? ''} placeholder="Hoe? bv. horizontaal doorlopend over de fronten van 14 tot 16" onBlur={(e) => e.target.value !== (cur.grain_note ?? '') && save({ grain_note: e.target.value || null })} />
+                )}
+              </div>
               <div className="prodpkg-folder">
                 <div><b>Map in je OneDrive:</b> {folder?.folder_path ?? (busy === 'folder' ? 'wordt klaargezet…' : '—')}
                   {folder?.folder_url && <> · <a href={folder.folder_url} target="_blank" rel="noreferrer">openen</a></>}

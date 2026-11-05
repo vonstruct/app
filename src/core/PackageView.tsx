@@ -2,7 +2,7 @@ import { fmtEur, fmtNum } from './format'
 
 /**
  * Inhoud van een productiepakket zoals de partner (partner) het ziet: opmerkingen, restplaten/kantenband meegeven, bestanden,
- * platen en kantenband (zonder prijs), productiekost met bedragen. Gedeeld door het partnerportaal en het voorbeeld voor de beheerder.
+ * kasten waarbij de nerf moet doorlopen, platen en kantenband (zonder prijs), productiekost met bedragen. Gedeeld door het partnerportaal en het voorbeeld voor de beheerder.
  * Gegevens = package_json() in Supabase.
  */
 export type PkgFile = { id: string; kind: string; name: string; size: number | null; storage: string; downloaded_at: string | null; downloads: number }
@@ -13,6 +13,7 @@ export type Pkg = {
   edges: { description: string; product: string | null; article_no: string | null; qty: number; unit: string | null; supplier: string | null; ordered_by: string | null }[] | null
   production: { description: string; qty: number | null; unit: string | null; unit_price: number | null; total: number }[] | null
   files: PkgFile[] | null
+  grain: { name: string; width: number | null; height: number | null; depth: number | null }[] | null; grain_note: string | null
 }
 const KIND: Record<string, string> = { palettecad: 'PaletteCAD-bestand', zaagplan: 'Zaagplan', tekening: 'Tekening', andere: 'Bestand' }
 export const fileSize = (n: number | null) => (n == null ? '' : n > 1e6 ? `${fmtNum(n / 1e6, 0)} MB` : `${fmtNum(n / 1e3, 0)} kB`)
@@ -27,6 +28,12 @@ export function PackageView({ p, onDownload, admin }: { p: Pkg; onDownload: (f: 
         <span className={p.return_sheets ? 'on' : ''}>{p.return_sheets ? '✓' : '–'} Restplaten meegeven</span>
         <span className={p.return_edges ? 'on' : ''}>{p.return_edges ? '✓' : '–'} Rest kantenband meegeven (behalve wit)</span>
       </div>
+      {(p.grain ?? []).length > 0 && (
+        <div className="pkg-grain"><b>Nerf laten doorlopen</b> <span className="small muted">bij deze kasten</span>
+          {p.grain_note && <p>{p.grain_note}</p>}
+          <ul>{(p.grain ?? []).map((c, i) => <li key={i}>{c.name}{c.width && c.height ? <small className="muted"> · {fmtNum(c.width, 0)} × {fmtNum(c.height, 0)}{c.depth ? ` × ${fmtNum(c.depth, 0)}` : ''} mm</small> : null}</li>)}</ul>
+        </div>
+      )}
       <h3>Bestanden</h3>
       {(p.files ?? []).length === 0 ? <p className="muted small">Nog geen bestanden.</p> : (
         <ul className="pkg-files">
