@@ -104,6 +104,7 @@ export const ruleTables: RuleTable[] = [
       { key: 'material', label: 'Materiaal' },
       { key: 'supplier', label: 'Leverancier', type: 'select', options: ['', 'Baars & Bloemhoff', 'Cras', 'Ostermann Belux', 'Rehau'] },
       { key: 'ordered_by', label: 'Besteld door', type: 'select', options: ['', 'partner', 'Vonstruct'], width: 120 },
+      { key: 'lead_days', label: 'Levertijd (dagen, 0 = voorraad)', type: 'number', width: 120 },
       { key: 'note', label: 'Opmerking' },
     ],
     orderBy: 'material',

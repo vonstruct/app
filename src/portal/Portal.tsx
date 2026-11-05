@@ -5,6 +5,7 @@ import { Survey } from './Survey'
 import { Quotes } from './Quotes'
 import { Aftercare, MyPunch } from './Aftercare'
 import { Packages } from './Packages'
+import { PartnerOrders } from './PartnerOrders'
 import { Documents } from './Documents'
 import { BrochureList } from './BrochureList'
 import { Jobs, MomentForm, type ViewAs } from './Jobs'
@@ -31,6 +32,7 @@ export function Portal({ role, preview = false, viewAs = null }: { role: PortalR
   const [initialQuote] = useState<string | null>(() => new URLSearchParams(window.location.search).get('offerte'))
   const [lang, setLang] = useState<Lang>(storedLang)
   const [pkgCount, setPkgCount] = useState(0)
+  const [poCount, setPoCount] = useState(0)
   const t = tr(lang)
   useEffect(() => {
     if (preview) return setName(null)
@@ -89,10 +91,11 @@ export function Portal({ role, preview = false, viewAs = null }: { role: PortalR
           </>
         ) : (
           <>
+            {role === 'partner' && <PartnerOrders preview={preview} viewAs={viewAs} onCount={setPoCount} />}
             {role === 'partner' && <Packages preview={preview} viewAs={viewAs} onCount={setPkgCount} />}
             <MyPunch lang={lang} preview={preview || !!viewAs} />
             {/* partner met productiepakketten: geen lege "nog geen opdrachten" eronder */}
-            <Jobs lang={lang} preview={preview} viewAs={viewAs} empty={role === 'partner' && pkgCount > 0 ? null : <EmptyWork role={role} lang={lang} />} />
+            <Jobs lang={lang} preview={preview} viewAs={viewAs} empty={role === 'partner' && pkgCount + poCount > 0 ? null : <EmptyWork role={role} lang={lang} />} />
           </>
         )}
         {!survey && role === 'klant' && <h2 className="portal-h">{t.coming}</h2>}

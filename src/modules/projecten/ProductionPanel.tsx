@@ -4,6 +4,7 @@ import { useQuery } from '../../core/useQuery'
 import { ErrorBox, Loading } from '../../core/ui'
 import { toast } from '../../core/toast'
 import { PackageView, fileSize, type Pkg, type PkgFile } from '../../core/PackageView'
+import { PartnerOrderPanel } from './PartnerOrderPanel'
 
 /**
  * Tab "Productie" op de projectpagina: productiepakket voor partner (tabel production_packages, versies).
@@ -124,6 +125,7 @@ export function ProductionPanel({ project }: { project: string }) {
   if (q.loading) return <Loading />
   return (
     <div className="prodpkg">
+      <PartnerOrderPanel project={project} test={test} />
       <ErrorBox error={q.error ?? pv.error} />
       <div className="orders-bar">
         {rows.length > 1 && (
