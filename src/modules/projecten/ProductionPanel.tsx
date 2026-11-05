@@ -31,6 +31,20 @@ export function ProductionPanel({ project }: { project: string }) {
     const { data, error } = await supabase.from('partners').select('name,email').eq('id', cur.partner_id).maybeSingle()
     return { data: data as { name: string; email: string | null } | null, error }
   }, [cur?.partner_id])
+  const login = useQuery<boolean | null>(async () => {
+    if (!partner.data?.email) return { data: null, error: null }
+    const { data, error } = await supabase.rpc('portal_has_login', { p_email: partner.data.email })
+    return { data: data as boolean, error }
+  }, [partner.data?.email])
+  const invite = async () => {
+    if (!partner.data?.email) return toast('Vul eerst het e-mailadres van de partner in bij Relaties', 'err')
+    setBusy('invite')
+    const { data, error } = await supabase.functions.invoke('invite-client', { body: { team_email: partner.data.email } })
+    setBusy(null)
+    const e = error ? (await (error as { context?: Response }).context?.json?.().catch(() => null))?.error ?? error.message : (data as { error?: string })?.error
+    if (e) return toast(e, 'err')
+    toast(`Uitnodiging voor het portaal verstuurd naar ${partner.data.email}`); login.reload()
+  }
   const reload = () => { q.reload(); pv.reload() }
   const editable = cur?.status === 'concept'
 
@@ -126,6 +140,10 @@ export function ProductionPanel({ project }: { project: string }) {
               <div className="small muted">voor {partner.data?.name ?? '—'}{cur.sent_at ? ` · verstuurd ${new Date(cur.sent_at).toLocaleString('nl-BE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}</div></div>
             {editable && <button className="primary" disabled={busy === 'send'} onClick={send}>{busy === 'send' ? 'Versturen…' : `Versturen naar ${partner.data?.name ?? 'partner'}`}</button>}
           </header>
+          {login.data === false && (
+            <p className="notice">{partner.data?.name ?? 'De partner'} heeft nog geen login voor het portaal ({partner.data?.email}). Zonder login kan hij het pakket niet openen.{' '}
+              <button className="link" disabled={busy === 'invite'} onClick={invite}>Nu uitnodigen</button></p>
+          )}
           {editable && (
             <div className="prodpkg-edit">
               <label className="wide">Opmerkingen voor {partner.data?.name ?? 'partner'}
