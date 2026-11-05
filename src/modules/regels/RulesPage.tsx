@@ -8,7 +8,7 @@ import { RuleSentence, type Rule } from './RuleSentence'
 import { ruleTables } from './tables'
 import { PriceListUpload } from './PriceListUpload'
 
-const SECTIONS = ['Bestellen', 'Platen', 'Plaatoptimalisatie', 'Kanten', 'Lades', 'Productiekosten', 'Prijzen', 'Kasten', 'Offerte', 'Facturen', 'Oplevering', 'Nacalculatie', 'Brochure', 'Capaciteit', 'Meldingen', 'Berichten', 'Checklist']
+const SECTIONS = ['Bestellen', 'Platen', 'Plaatoptimalisatie', 'Kanten', 'Lades', 'Productiekosten', 'Prijzen', 'Kasten', 'Offerte', 'Facturen', 'Oplevering', 'Nacalculatie', 'Brochure', 'Capaciteit', 'Productie', 'Meldingen', 'Berichten', 'Checklist']
 const REVIEW = 'Na te kijken'
 
 /**

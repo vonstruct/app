@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../../core/supabase'
 import { useQuery } from '../../core/useQuery'
 import { ErrorBox, Loading } from '../../core/ui'
@@ -7,18 +7,23 @@ import { PackageView, fileSize, type Pkg, type PkgFile } from '../../core/Packag
 
 /**
  * Tab "Productie" op de projectpagina: productiepakket voor partner (tabel production_packages, versies).
- * Concept: opmerkingen, restplaten/rest kantenband meegeven, bestanden (PaletteCAD-bestand groot → OneDrive via Edge Function productie,
- * andere bestanden → Storage project-uploads/<code>/productie/). Versturen = mail aan partner + zichtbaar in het partnerportaal;
+ * Concept: opmerkingen, restplaten/rest kantenband meegeven, bestanden = wat in de projectmap in OneDrive staat (regel productie_map,
+ * Edge Function productie actie folder) + zaagplan en gedeelde tekeningen. Testmodus (regel productie_testmodus): niets naar de partner. Versturen = mail aan partner + zichtbaar in het partnerportaal;
  * downloads worden bijgehouden. Nieuwe versie = package_new (neemt opmerkingen over, zaagplan + gedeelde tekeningen erbij).
  */
 type Row = { id: string; project_code: string; version: number; status: string; note: string | null; return_sheets: boolean; return_edges: boolean; sent_at: string | null; partner_id: string | null; created_at: string }
 const STATUS: Record<string, string> = { concept: 'Concept', verstuurd: 'Verstuurd', vervangen: 'Vervangen' }
-const CHUNK = 32 * 320 * 1024 // 10 MiB, veelvoud van 320 KiB (OneDrive)
 
 export function ProductionPanel({ project }: { project: string }) {
   const q = useQuery<Row[]>(() => supabase.from('production_packages').select('*').eq('project_code', project).order('version', { ascending: false }), [project])
   const [sel, setSel] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  const [folder, setFolder] = useState<{ folder_url: string; folder_path: string; n_files: number } | null>(null)
+  const tm = useQuery<boolean>(async () => {
+    const { data, error } = await supabase.from('rule_settings').select('value').eq('key', 'productie_testmodus').maybeSingle()
+    return { data: (data as { value: { aan?: boolean } } | null)?.value?.aan !== false, error }
+  }, [])
+  const test = tm.data !== false
   const rows = q.data ?? []
   const cur = rows.find((r) => r.id === sel) ?? rows[0] ?? null
   const pv = useQuery<Pkg | null>(async () => {
@@ -61,13 +66,13 @@ export function ProductionPanel({ project }: { project: string }) {
     if (error) toast(error.message, 'err'); else { toast('Bewaard'); reload() }
   }
   const send = async () => {
-    if (!cur || !confirm(`Productiepakket versie ${cur.version} versturen naar ${partner.data?.name ?? 'partner'}? Ze krijgen een mail en zien het in hun portaal.`)) return
+    if (!cur || !confirm(test ? `Testmodus: de mail gaat enkel naar info@ (niets naar ${partner.data?.name ?? 'partner'}). Doorgaan?` : `Productiepakket versie ${cur.version} versturen naar ${partner.data?.name ?? 'partner'}? Ze krijgen een mail en zien het in hun portaal.`)) return
     setBusy('send')
     const { data, error } = await supabase.functions.invoke('productie', { body: { action: 'send', package_id: cur.id } })
     setBusy(null)
     const msg = error ? (await (error as { context?: Response }).context?.json?.().catch(() => null))?.error ?? error.message : (data as { error?: string })?.error
     if (msg) return toast(msg, 'err')
-    toast(`Verstuurd naar ${partner.data?.name ?? 'partner'}`); reload()
+    toast(test ? 'Test: mail naar info@ gestuurd' : `Verstuurd naar ${partner.data?.name ?? 'partner'}`); reload()
   }
   const download = async (f: PkgFile) => {
     const w = window.open('', '_blank')
@@ -80,47 +85,18 @@ export function ProductionPanel({ project }: { project: string }) {
     const { error } = await supabase.from('production_package_files').delete().eq('id', f.id)
     if (error) toast(error.message, 'err'); else reload()
   }
-  /** groot bestand: in stukken rechtstreeks naar OneDrive (uploadsessie via Edge Function productie) */
-  const uploadBig = async (file: File) => {
+  /** projectmap in OneDrive aanmaken/uitlezen: wat erin staat, komt in het concept */
+  const syncFolder = async () => {
     if (!cur) return
-    setBusy('upload:0')
-    try {
-      const { data: s, error } = await supabase.functions.invoke('productie', { body: { action: 'upload_start', package_id: cur.id, name: file.name } })
-      if (error || !s?.uploadUrl) throw new Error((s as { error?: string })?.error ?? 'OneDrive niet bereikbaar')
-      let start = 0, last: { id?: string } | null = null
-      while (start < file.size) {
-        const end = Math.min(start + CHUNK, file.size)
-        let r: Response | null = null
-        for (let t = 0; t < 3; t++) {
-          r = await fetch(s.uploadUrl, { method: 'PUT', headers: { 'Content-Range': `bytes ${start}-${end - 1}/${file.size}` }, body: file.slice(start, end) }).catch(() => null)
-          if (r && (r.ok || r.status === 202)) break
-        }
-        if (!r || !(r.ok || r.status === 202)) throw new Error('Opladen onderbroken. Probeer opnieuw.')
-        last = await r.json().catch(() => null)
-        start = end
-        setBusy(`upload:${Math.round((end / file.size) * 100)}`)
-      }
-      if (!last?.id) throw new Error('OneDrive gaf geen bestand terug')
-      const { error: e2, data: d2 } = await supabase.functions.invoke('productie', { body: { action: 'upload_done', package_id: cur.id, item_id: last.id, kind: /\.(pdf|png|jpe?g)$/i.test(file.name) ? 'tekening' : 'palettecad' } })
-      if (e2 || (d2 as { error?: string })?.error) throw new Error((d2 as { error?: string })?.error ?? e2?.message)
-      toast(`${file.name} staat in het pakket`)
-      reload()
-    } catch (e) {
-      toast(String((e as Error).message ?? e), 'err')
-    } finally { setBusy(null) }
-  }
-  /** klein bestand (pdf, foto): in Storage */
-  const uploadSmall = async (file: File) => {
-    if (!cur) return
-    if (file.size > 50 * 1024 * 1024) return uploadBig(file)
-    setBusy('upload:0')
-    const path = `${project}/productie/v${cur.version}/${file.name.replace(/[^\w.\- ]+/g, '_')}`
-    const up = await supabase.storage.from('project-uploads').upload(path, file, { upsert: true })
-    if (up.error) { setBusy(null); return toast(up.error.message, 'err') }
-    const { error } = await supabase.from('production_package_files').insert({ package_id: cur.id, kind: /\.pdf$/i.test(file.name) ? 'tekening' : 'andere', name: file.name, storage: 'storage', bucket: 'project-uploads', path, size: file.size })
+    setBusy('folder')
+    const { data, error } = await supabase.functions.invoke('productie', { body: { action: 'folder', package_id: cur.id } })
     setBusy(null)
-    if (error) toast(error.message, 'err'); else { toast(`${file.name} staat in het pakket`); reload() }
+    const msg = error ? (await (error as { context?: Response }).context?.json?.().catch(() => null))?.error ?? error.message : (data as { error?: string })?.error
+    if (msg) return toast(msg, 'err')
+    setFolder(data as { folder_url: string; folder_path: string; n_files: number })
+    pv.reload()
   }
+  useEffect(() => { if (cur?.id) syncFolder() }, [cur?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (q.loading) return <Loading />
   return (
@@ -138,9 +114,10 @@ export function ProductionPanel({ project }: { project: string }) {
           <header className="prodpkg-head">
             <div><b>Productiepakket versie {cur.version}</b> <span className={'pill ' + (cur.status === 'verstuurd' ? 'ok' : 'muted')}>{STATUS[cur.status] ?? cur.status}</span>
               <div className="small muted">voor {partner.data?.name ?? '—'}{cur.sent_at ? ` · verstuurd ${new Date(cur.sent_at).toLocaleString('nl-BE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}</div></div>
-            {editable && <button className="primary" disabled={busy === 'send'} onClick={send}>{busy === 'send' ? 'Versturen…' : `Versturen naar ${partner.data?.name ?? 'partner'}`}</button>}
+            {editable && <button className="primary" disabled={busy === 'send'} onClick={send}>{busy === 'send' ? 'Versturen…' : test ? 'Versturen (test: enkel naar info@)' : `Versturen naar ${partner.data?.name ?? 'partner'}`}</button>}
           </header>
-          {login.data === false && (
+          {test && <p className="notice small">Testmodus: niets gaat naar {partner.data?.name ?? 'partner'}. Versturen mailt enkel naar info@. Uitzetten in Rekenregels → Productie.</p>}
+          {!test && login.data === false && (
             <p className="notice">{partner.data?.name ?? 'De partner'} heeft nog geen login voor het portaal ({partner.data?.email}). Zonder login kan hij het pakket niet openen.{' '}
               <button className="link" disabled={busy === 'invite'} onClick={invite}>Nu uitnodigen</button></p>
           )}
@@ -151,14 +128,14 @@ export function ProductionPanel({ project }: { project: string }) {
               </label>
               <label className="check"><input type="checkbox" checked={cur.return_sheets} onChange={(e) => save({ return_sheets: e.target.checked })} /> Restplaten meegeven</label>
               <label className="check"><input type="checkbox" checked={cur.return_edges} onChange={(e) => save({ return_edges: e.target.checked })} /> Rest kantenband meegeven (behalve wit)</label>
-              <div className="prodpkg-up">
-                <label className="btn">PaletteCAD-bestand opladen<input type="file" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) uploadBig(f) }} /></label>
-                <label className="btn">Pdf of ander bestand<input type="file" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) uploadSmall(f) }} /></label>
-                {busy?.startsWith('upload:') && <span className="small">Opladen… {busy.split(':')[1]} %</span>}
-                <span className="small muted">Groot PaletteCAD-bestand gaat naar je OneDrive (Vonstruct/Productie/{project}).</span>
+              <div className="prodpkg-folder">
+                <div><b>Map in je OneDrive:</b> {folder?.folder_path ?? (busy === 'folder' ? 'wordt klaargezet…' : '—')}
+                  {folder?.folder_url && <> · <a href={folder.folder_url} target="_blank" rel="noreferrer">openen</a></>}
+                  {' · '}<button className="link small" disabled={busy === 'folder'} onClick={syncFolder}>{busy === 'folder' ? 'bezig…' : 'vernieuwen'}</button></div>
+                <div className="small muted">Sleep je PaletteCAD-bestand en andere bestanden in deze map (via OneDrive op je pc) en klik op vernieuwen: wat in de map staat, komt in het pakket. Het zaagplan en de tekeningen die je deelt met onderaannemers zet de app er zelf bij.</div>
               </div>
               {(pv.data?.files ?? []).length > 0 && (
-                <ul className="small prodpkg-rm">{(pv.data?.files ?? []).map((f) => <li key={f.id}>{f.name} <span className="muted">{fileSize(f.size)}</span> <button className="link small" onClick={() => removeFile(f)}>weghalen</button></li>)}</ul>
+                <ul className="small prodpkg-rm">{(pv.data?.files ?? []).map((f) => <li key={f.id}>{f.name} <span className="muted">{fileSize(f.size)}{f.storage === 'onedrive' ? ' · uit de map' : ''}</span> {f.storage !== 'onedrive' && <button className="link small" onClick={() => removeFile(f)}>weghalen</button>}</li>)}</ul>
               )}
             </div>
           )}
