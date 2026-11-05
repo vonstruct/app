@@ -10,9 +10,12 @@ permissions:
   pages: write
   id-token: write
 
+# Eén publicatie tegelijk. Een lopende publicatie NOOIT afbreken (zoals GitHubs eigen Pages-voorbeeld):
+# een afgebroken Pages-deploy blijft bij GitHub soms "in progress" hangen en blokkeert dan elke volgende
+# ("Please cancel <commit> first"). Tussenliggende runs die nog wachten, vallen wel weg; de nieuwste blijft.
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -33,13 +36,12 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || 'https://app.vonstruct.com/' }}
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       # Ruwe antwoorden van de Pages-API bijhouden terwijl deploy-pages loopt (de actie toont enkel "Current status: …").
-      # Achtergrondproces: elke 15 s GET pages/deployments/<commit> naar een logbestand; de laatste stap toont alles.
       - name: Pages-API volgen (achtergrond)
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           nohup bash -c '
             for i in $(seq 1 120); do
@@ -50,12 +52,71 @@ jobs:
               sleep 15
             done' > "$RUNNER_TEMP/pages-raw.log" 2>&1 &
           echo "logboek: $RUNNER_TEMP/pages-raw.log"
+
+      # Een deploy van een vorige commit die bij GitHub nog "bezig" staat, blokkeert elke nieuwe. Er loopt nooit
+      # een andere publicatie tegelijk (concurrency), dus zo'n deploy hangt: afbreken.
+      - name: Vastgelopen Pages-deploys afbreken
+        run: |
+          API="https://api.github.com/repos/$GITHUB_REPOSITORY"
+          H=(-H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28")
+          for ver in $(curl -sS "${H[@]}" "$API/deployments?environment=github-pages&per_page=10" | jq -r '.[].sha' | sort -u); do
+            [ "$ver" = "$GITHUB_SHA" ] && continue
+            st=$(curl -sS "${H[@]}" "$API/pages/deployments/$ver" | jq -r '.status // "?"')
+            case "$st" in
+              succeed|deployment_cancelled|deployment_failed|deployment_content_failed|deployment_attempt_error|deployment_lost|"?") ;;
+              *) echo "Deploy $ver staat nog op '$st' → afbreken"
+                 curl -sS -X POST "${H[@]}" "$API/pages/deployments/$ver/cancel" -o /dev/null -w "  afbreken: HTTP %{http_code}\n" ;;
+            esac
+          done
+          echo "klaar"
+
       - id: deployment
         uses: actions/deploy-pages@v4
+        continue-on-error: true
+        with:
+          timeout: 900000
+
+      # Reserveweg als deploy-pages faalt (GitHub Pages hangt, of een vorige deploy blokkeert): zelf publiceren via de
+      # Pages-API met een eigen versienummer (commit-poging-n), zodat een geannuleerde deploy van dezelfde commit niet in de weg zit.
+      # Blijft GitHub "in progress deployment" antwoorden, dan die deploy afbreken en elke minuut opnieuw, tot 25 minuten.
+      - name: Opnieuw proberen (reserveweg)
+        if: steps.deployment.outcome == 'failure'
+        run: |
+          API="https://api.github.com/repos/$GITHUB_REPOSITORY"
+          H=(-H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28")
+          curl -sS -X POST "${H[@]}" "$API/pages/deployments/$GITHUB_SHA/cancel" -o /dev/null -w "eigen deploy afbreken: HTTP %{http_code}\n" || true
+          art=$(curl -sS "${H[@]}" "$API/actions/runs/$GITHUB_RUN_ID/artifacts" | jq -r '.artifacts[] | select(.name=="github-pages") | .id' | head -1)
+          echo "artefact github-pages: $art"
+          [ -n "$art" ] || { echo "geen artefact gevonden"; exit 1; }
+          stop=$((SECONDS + 1500)); try=0
+          while [ $SECONDS -lt $stop ]; do
+            try=$((try + 1)); ver="$GITHUB_SHA-r$GITHUB_RUN_ATTEMPT-$try"
+            oidc=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL" | jq -r .value)
+            body=$(jq -n --argjson a "$art" --arg v "$ver" --arg o "$oidc" '{artifact_id: $a, pages_build_version: $v, oidc_token: $o}')
+            code=$(curl -sS -o "$RUNNER_TEMP/resp.json" -w "%{http_code}" -X POST "${H[@]}" "$API/pages/deployments" -d "$body")
+            echo "=== $(date -u +%H:%M:%S) poging $try ($ver): HTTP $code"; cat "$RUNNER_TEMP/resp.json"; echo
+            if [ "$code" != 200 ] && [ "$code" != 201 ]; then
+              blk=$(jq -r '.message // ""' "$RUNNER_TEMP/resp.json" | sed -n 's/.*Please cancel \([^ ]*\) first.*/\1/p')
+              [ -n "$blk" ] && curl -sS -X POST "${H[@]}" "$API/pages/deployments/$blk/cancel" -o /dev/null -w "blokkerende deploy $blk afbreken: HTTP %{http_code}\n"
+              sleep 60; continue
+            fi
+            end=$((SECONDS + 600))
+            while [ $SECONDS -lt $end ]; do
+              st=$(curl -sS "${H[@]}" "$API/pages/deployments/$ver" | jq -r '.status // ""')
+              echo "$(date -u +%H:%M:%S) status: '$st'"
+              case "$st" in
+                succeed) echo "Gepubliceerd via de reserveweg ($ver)"; exit 0 ;;
+                deployment_failed|deployment_content_failed|deployment_cancelled|deployment_lost|deployment_attempt_error) break ;;
+              esac
+              sleep 10
+            done
+            curl -sS -X POST "${H[@]}" "$API/pages/deployments/$ver/cancel" -o /dev/null -w "deploy $ver afbreken: HTTP %{http_code}\n" || true
+            sleep 30
+          done
+          echo "Publiceren lukte niet binnen 25 minuten"; exit 1
+
       - name: Ruwe antwoorden van GitHub Pages
         if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           api() { curl -sS -i -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/$GITHUB_REPOSITORY/$1"; echo; }
           echo "##### Verloop tijdens de deploy (pages/deployments/$GITHUB_SHA, elke 15 s)"
