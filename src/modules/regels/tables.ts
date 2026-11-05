@@ -103,7 +103,7 @@ export const ruleTables: RuleTable[] = [
       { key: 'kind', label: 'Soort', type: 'select', options: ['plaat', 'kant'], width: 90 },
       { key: 'material', label: 'Materiaal' },
       { key: 'supplier', label: 'Leverancier', type: 'select', options: ['', 'Baars & Bloemhoff', 'Cras', 'Ostermann Belux', 'Rehau'] },
-      { key: 'ordered_by', label: 'Besteld door', type: 'select', options: ['', 'partner', 'Zelf'], width: 120 },
+      { key: 'ordered_by', label: 'Besteld door', type: 'select', options: ['', 'partner', 'Vonstruct'], width: 120 },
       { key: 'note', label: 'Opmerking' },
     ],
     orderBy: 'material',

@@ -71,7 +71,7 @@ export function NacalcPanel({ project }: { project: string }) {
         <table className="order-lines">
           <thead><tr><th>Leverancier</th><th className="num">Geschat</th><th className="num">Werkelijk (factuur, excl.)</th><th className="num">Verschil</th></tr></thead>
           <tbody>{(orders.data ?? []).map((o) => (
-            <tr key={o.id}><td>{o.supplier}{o.ordered_by && o.ordered_by !== 'Zelf' ? ' via ' + o.ordered_by : ''}</td><td className="num">{fmtEur(o.amount)}</td>
+            <tr key={o.id}><td>{o.supplier}{o.ordered_by && !['Zelf', 'Vonstruct'].includes(o.ordered_by) ? ' via ' + o.ordered_by : ''}</td><td className="num">{fmtEur(o.amount)}</td>
               <td className="num"><input className="inline num" defaultValue={o.actual_amount ?? ''} placeholder="factuurbedrag" onBlur={(e) => e.target.value !== String(o.actual_amount ?? '') && setActual(o, e.target.value)} /></td>
               <td className="num">{o.actual_amount != null ? fmtEur(Number(o.actual_amount) - Number(o.amount ?? 0)) : ''}</td></tr>
           ))}</tbody>

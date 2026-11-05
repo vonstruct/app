@@ -89,7 +89,7 @@ export function Orders({ project }: { project?: string }) {
             <div className="order-head" onClick={() => setOpen(isOpen ? null : o.id)}>
               <span className={'jo-pill ' + cls}>{lbl}</span>
               <div className="order-main">
-                <strong>{o.supplier}</strong>{o.ordered_by && o.ordered_by !== 'Zelf' && <span className="muted"> via {o.ordered_by}</span>}
+                <strong>{o.supplier}</strong>{o.ordered_by && !['Zelf', 'Vonstruct'].includes(o.ordered_by) && <span className="muted"> via {o.ordered_by}</span>}
                 <div className="muted small">
                   {!project && <><Link to={`/projecten/${o.project_code}?tab=bestellingen`} onClick={(e) => e.stopPropagation()}>{o.project_code}</Link>{o.client_name ? ' · ' + o.client_name : ''} · </>}
                   {o.manual ? (o.note || 'eigen bestelling') + (o.reference ? ' · ' + o.reference : '') : <>{(o.categories ?? []).join(', ')} · {o.n_lines} artikels</>}
@@ -117,7 +117,7 @@ function NewOrder({ project, onDone }: { project: string; onDone: () => void }) 
     if (!f.supplier.trim()) return toast('Leverancier ontbreekt', 'err')
     const { data: need } = await supabase.rpc('project_needed_by', { p_code: project })
     const { error } = await supabase.from('orders').insert({
-      project_code: project, supplier: f.supplier.trim(), ordered_by: 'Zelf', manual: true, status: f.status,
+      project_code: project, supplier: f.supplier.trim(), ordered_by: 'Vonstruct', manual: true, status: f.status,
       reference: f.reference || null, ordered_at: f.status === 'te bestellen' ? null : f.ordered_at || null, expected_at: f.expected_at || null,
       amount: f.amount ? Number(f.amount.replace(',', '.')) : null, note: f.note || null, needed_by: need ?? null, n_lines: 0,
     })
