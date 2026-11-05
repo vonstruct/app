@@ -30,6 +30,7 @@ export function Portal({ role, preview = false, viewAs = null }: { role: PortalR
   // link uit de offertemail: ?offerte=<id> opent meteen die offerte
   const [initialQuote] = useState<string | null>(() => new URLSearchParams(window.location.search).get('offerte'))
   const [lang, setLang] = useState<Lang>(storedLang)
+  const [pkgCount, setPkgCount] = useState(0)
   const t = tr(lang)
   useEffect(() => {
     if (preview) return setName(null)
@@ -88,13 +89,14 @@ export function Portal({ role, preview = false, viewAs = null }: { role: PortalR
           </>
         ) : (
           <>
-            {role === 'partner' && <Packages preview={preview} viewAs={viewAs} />}
+            {role === 'partner' && <Packages preview={preview} viewAs={viewAs} onCount={setPkgCount} />}
             <MyPunch lang={lang} preview={preview || !!viewAs} />
-            <Jobs lang={lang} preview={preview} viewAs={viewAs} empty={<EmptyWork role={role} lang={lang} />} />
+            {/* partner met productiepakketten: geen lege "nog geen opdrachten" eronder */}
+            <Jobs lang={lang} preview={preview} viewAs={viewAs} empty={role === 'partner' && pkgCount > 0 ? null : <EmptyWork role={role} lang={lang} />} />
           </>
         )}
-        {!survey && role !== 'onderaannemer' && <h2 className="portal-h">{t.coming}</h2>}
-        {!survey && role !== 'onderaannemer' && (
+        {!survey && role === 'klant' && <h2 className="portal-h">{t.coming}</h2>}
+        {!survey && role === 'klant' && (
           <div className="portal-grid">
             {t.comingTiles[role].map(([title, text]) => (
               <div key={title} className="portal-tile">

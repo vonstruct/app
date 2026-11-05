@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../core/supabase'
 import { useQuery } from '../core/useQuery'
 import { PackageView, type Pkg, type PkgFile } from '../core/PackageView'
 import type { ViewAs } from './Jobs'
 
 /** Partnerportaal (partner): productiepakketten die Olivier verstuurde. Nieuwste versie per project bovenaan; downloads worden bijgehouden. */
-export function Packages({ preview, viewAs }: { preview?: boolean; viewAs?: ViewAs | null }) {
+export function Packages({ preview, viewAs, onCount }: { preview?: boolean; viewAs?: ViewAs | null; onCount?: (n: number) => void }) {
   const q = useQuery<Pkg[]>(async () => {
     // beheerder bekijkt het portaal van de partner: zijn verstuurde pakketten
     if (viewAs?.kind === 'partner') {
@@ -16,6 +16,7 @@ export function Packages({ preview, viewAs }: { preview?: boolean; viewAs?: View
     const { data, error } = await supabase.rpc('portal_my_packages')
     return { data: (data ?? []) as Pkg[], error }
   }, [preview, viewAs?.id])
+  useEffect(() => { if (!q.loading) onCount?.((q.data ?? []).length) }, [q.loading, q.data]) // eslint-disable-line react-hooks/exhaustive-deps
   const [busy, setBusy] = useState<string | null>(null)
   const [old, setOld] = useState(false)
   const all = q.data ?? []
