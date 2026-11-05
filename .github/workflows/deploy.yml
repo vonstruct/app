@@ -77,45 +77,41 @@ jobs:
         with:
           timeout: 900000
 
-      # Reserveweg als deploy-pages faalt (GitHub Pages hangt, of een vorige deploy blokkeert): zelf publiceren via de
-      # Pages-API met een eigen versienummer (commit-poging-n), zodat een geannuleerde deploy van dezelfde commit niet in de weg zit.
-      # Blijft GitHub "in progress deployment" antwoorden, dan die deploy afbreken en elke minuut opnieuw, tot 25 minuten.
+      # Reserveweg als deploy-pages faalt omdat een vorige deploy bij GitHub nog "bezig" staat (400 "Please cancel <commit> first"):
+      # die deploy gericht afbreken en elke minuut opnieuw proberen, tot 25 minuten. Getest 5 nov 2026: het versienummer moet de
+      # commit zelf zijn (een eigen versienummer geeft 404). Is de deploy van deze commit zelf al afgebroken (time-out), dan kan
+      # dezelfde commit niet opnieuw: een nieuwe wijziging (of een lege commit) publiceert dan wel.
       - name: Opnieuw proberen (reserveweg)
         if: steps.deployment.outcome == 'failure' || inputs.reserveweg
         run: |
           API="https://api.github.com/repos/$GITHUB_REPOSITORY"
           H=(-H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" -H "Content-Type: application/json")
-          curl -sS -X POST "${H[@]}" "$API/pages/deployments/$GITHUB_SHA/cancel" -o /dev/null -w "eigen deploy afbreken: HTTP %{http_code}\n" || true
           art=$(curl -sS "${H[@]}" "$API/actions/runs/$GITHUB_RUN_ID/artifacts" | jq -r '.artifacts[] | select(.name=="github-pages") | .id' | head -1)
           echo "artefact github-pages: $art"
           [ -n "$art" ] || { echo "geen artefact gevonden"; exit 1; }
           stop=$((SECONDS + 1500)); try=0
           while [ $SECONDS -lt $stop ]; do
             try=$((try + 1))
-            # eerst met een eigen versienummer (een geannuleerde deploy van deze commit zit dan niet in de weg), anders met de commit zelf
-            for ver in "$GITHUB_SHA-r$GITHUB_RUN_ATTEMPT-$try" "$GITHUB_SHA"; do
-              oidc=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL" | jq -r .value)
-              body=$(jq -n --argjson a "$art" --arg v "$ver" --arg o "$oidc" '{artifact_id: $a, oidc_token: $o, pages_build_version: $v}')
-              code=$(curl -sS -o "$RUNNER_TEMP/resp.json" -w "%{http_code}" -X POST "${H[@]}" "$API/pages/deployments" -d "$body")
-              echo "=== $(date -u +%H:%M:%S) poging $try ($ver): HTTP $code"; cat "$RUNNER_TEMP/resp.json"; echo
-              [ "$code" = 200 ] || [ "$code" = 201 ] && break
-            done
+            oidc=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL" | jq -r .value)
+            body=$(jq -n --argjson a "$art" --arg v "$GITHUB_SHA" --arg o "$oidc" '{artifact_id: $a, oidc_token: $o, pages_build_version: $v}')
+            code=$(curl -sS -o "$RUNNER_TEMP/resp.json" -w "%{http_code}" -X POST "${H[@]}" "$API/pages/deployments" -d "$body")
+            echo "=== $(date -u +%H:%M:%S) poging $try: HTTP $code"; cat "$RUNNER_TEMP/resp.json"; echo
             if [ "$code" != 200 ] && [ "$code" != 201 ]; then
               blk=$(jq -r '.message // ""' "$RUNNER_TEMP/resp.json" | sed -n 's/.*Please cancel \([^ ]*\) first.*/\1/p')
               [ -n "$blk" ] && curl -sS -X POST "${H[@]}" "$API/pages/deployments/$blk/cancel" -o /dev/null -w "blokkerende deploy $blk afbreken: HTTP %{http_code}\n"
               sleep 60; continue
             fi
-            end=$((SECONDS + 600))
+            end=$((SECONDS + 900))
             while [ $SECONDS -lt $end ]; do
-              st=$(curl -sS "${H[@]}" "$API/pages/deployments/$ver" | jq -r '.status // ""')
+              st=$(curl -sS "${H[@]}" "$API/pages/deployments/$GITHUB_SHA" | jq -r '.status // ""')
               echo "$(date -u +%H:%M:%S) status: '$st'"
               case "$st" in
-                succeed) echo "Gepubliceerd via de reserveweg ($ver)"; exit 0 ;;
-                deployment_failed|deployment_content_failed|deployment_cancelled|deployment_lost|deployment_attempt_error) break ;;
+                succeed) echo "Gepubliceerd via de reserveweg"; exit 0 ;;
+                deployment_cancelled) echo "De deploy van deze commit werd al afgebroken; een nieuwe wijziging (of lege commit) publiceert opnieuw."; exit 1 ;;
+                deployment_failed|deployment_content_failed|deployment_lost|deployment_attempt_error) break ;;
               esac
               sleep 10
             done
-            curl -sS -X POST "${H[@]}" "$API/pages/deployments/$ver/cancel" -o /dev/null -w "deploy $ver afbreken: HTTP %{http_code}\n" || true
             sleep 30
           done
           echo "Publiceren lukte niet binnen 25 minuten"; exit 1
