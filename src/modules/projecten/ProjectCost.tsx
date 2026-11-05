@@ -28,12 +28,13 @@ const num = (s: string) => { const v = Number(String(s).trim().replace(/\./g, ''
 export function ProjectCost({ project, onQuote }: { project: string; onQuote: () => void }) {
   const gq = useQuery<Group[]>(() => supabase.from('app_project_cost_groups').select('*').eq('project_code', project).order('sort').order('group_name'), [project])
   const lq = useQuery<Line[]>(() => supabase.from('app_project_cost').select('*').eq('project_code', project).order('sort').order('description'), [project])
-  const mq = useQuery<{ markup_pct: number | null; rule: number }>(async () => {
+  const mq = useQuery<{ markup_pct: number | null; vat_pct: number | null; rule: number }>(async () => {
     const [{ data: p }, { data: r }] = await Promise.all([
-      supabase.from('projects').select('markup_pct').eq('project_code', project).maybeSingle(),
+      supabase.from('projects').select('markup_pct,vat_pct').eq('project_code', project).maybeSingle(),
       supabase.from('rule_settings').select('value').eq('key', 'projectmarge').maybeSingle(),
     ])
-    return { data: { markup_pct: (p as { markup_pct: number | null } | null)?.markup_pct ?? null, rule: Number((r as { value: { pct?: number } } | null)?.value?.pct ?? 30) }, error: null }
+    const pp = p as { markup_pct: number | null; vat_pct: number | null } | null
+    return { data: { markup_pct: pp?.markup_pct ?? null, vat_pct: pp?.vat_pct ?? null, rule: Number((r as { value: { pct?: number } } | null)?.value?.pct ?? 30) }, error: null }
   }, [project])
   const [open, setOpen] = useState<Record<string, boolean>>({})
   const [adding, setAdding] = useState<string | null>(null)
@@ -93,6 +94,10 @@ export function ProjectCost({ project, onQuote }: { project: string; onQuote: ()
     const { error } = await supabase.from('project_cost_items').delete().eq('id', l.id)
     if (error) toast(error.message, 'err'); else { toast('Weggehaald'); reload() }
   }
+  const saveVat = async (v: string) => {
+    const { error } = await supabase.from('projects').update({ vat_pct: v === '' ? null : Number(v) }).eq('project_code', project)
+    if (error) toast(error.message, 'err'); else { toast('Btw bewaard'); mq.reload() }
+  }
   const buildQuote = async () => {
     setBusy(true)
     const { error } = await supabase.rpc('quote_generate', { p_code: project, p_margin: null })
@@ -110,6 +115,11 @@ export function ProjectCost({ project, onQuote }: { project: string; onQuote: ()
         <div><span className="lbl">Kostprijs</span><b>{fmtEur(totCost)}</b><small className="muted">{version ? `stuklijst v${version} + eigen regels` : 'nog geen berekende stuklijst'}</small></div>
         <div><span className="lbl">Voor de klant (± {fmtNum(projectMargin, 0)} % marge)</span><b>{fmtEur(totSell)}</b><small className="muted">excl. btw, per groep afgerond in de offerte</small></div>
         {noPrice > 0 && <div className="warn"><span className="lbl">Zonder prijs</span><b>{noPrice}</b><small>open de groep en klik "prijs zoeken"</small></div>}
+        <div><span className="lbl">Btw van het project</span>
+          <select value={mq.data?.vat_pct == null ? '' : String(Number(mq.data.vat_pct))} onChange={(e) => saveVat(e.target.value)} aria-label="Btw van het project">
+            <option value="">volgens de regel (standaard 6 %)</option><option value="6">6 % (renovatie woning ouder dan 10 jaar)</option><option value="21">21 %</option>
+          </select>
+          <small className="muted">toestellen altijd 21 %</small></div>
         <div className="pcost-actions">
           <button onClick={() => setAdding('Varia')}>+ Regel</button>
           <button onClick={() => askNewGroup()}>+ Groep</button>
