@@ -7,11 +7,12 @@ import { PackageView, fileSize, type Pkg, type PkgFile } from '../../core/Packag
 
 /**
  * Tab "Productie" op de projectpagina: productiepakket voor partner (tabel production_packages, versies).
- * Concept: opmerkingen, restplaten/rest kantenband meegeven, kasten waarbij de nerf moet doorlopen (grain_cabinets = namen uit bom_cabinets), bestanden = wat in de projectmap in OneDrive staat (regel productie_map,
+ * Concept: opmerkingen, restplaten/rest kantenband meegeven, opmerkingen per kast (cabinet_notes: kasten uit bom_cabinets kiezen, per kast de keuzes uit regel productie_kast_opmerkingen of Andere met eigen tekst), bestanden = wat in de projectmap in OneDrive staat (regel productie_map,
  * Edge Function productie actie folder) + zaagplan en gedeelde tekeningen. Testmodus (regel productie_testmodus): niets naar de partner. Versturen = mail aan partner + zichtbaar in het partnerportaal;
  * downloads worden bijgehouden. Nieuwe versie = package_new (neemt opmerkingen over, zaagplan + gedeelde tekeningen erbij).
  */
-type Row = { id: string; project_code: string; version: number; status: string; note: string | null; return_sheets: boolean; return_edges: boolean; sent_at: string | null; partner_id: string | null; created_at: string; design_version_id: string | null; grain_cabinets: string[]; grain_note: string | null }
+type Row = { id: string; project_code: string; version: number; status: string; note: string | null; return_sheets: boolean; return_edges: boolean; sent_at: string | null; partner_id: string | null; created_at: string; design_version_id: string | null; cabinet_notes: Record<string, CabNote> | null }
+type CabNote = { tags?: string[]; other?: boolean; note?: string }
 const STATUS: Record<string, string> = { concept: 'Concept', verstuurd: 'Verstuurd', vervangen: 'Vervangen' }
 
 export function ProductionPanel({ project }: { project: string }) {
@@ -57,6 +58,21 @@ export function ProductionPanel({ project }: { project: string }) {
     const nr = (n: string) => { const m = n.match(/^\d+/); return m ? Number(m[0]) : 1e9 }
     return { data: names.sort((a, b) => nr(a) - nr(b) || a.localeCompare(b, 'nl')), error }
   }, [cur?.design_version_id])
+  /** keuzes per kast = regel productie_kast_opmerkingen (+ altijd Andere met eigen tekst) */
+  const opts = useQuery<string[]>(async () => {
+    const { data, error } = await supabase.from('rule_settings').select('value').eq('key', 'productie_kast_opmerkingen').maybeSingle()
+    const v = (data as { value: { opties?: string } } | null)?.value?.opties ?? 'Nerf laten doorlopen, Speciale frezing'
+    return { data: v.split(',').map((x) => x.trim()).filter(Boolean), error }
+  }, [])
+  // meteen tonen, daarna bewaren (de rij komt terug na het herladen)
+  const [local, setLocal] = useState<Record<string, CabNote> | null>(null)
+  useEffect(() => setLocal(null), [cur?.id, cur?.cabinet_notes])
+  const notes = local ?? cur?.cabinet_notes ?? {}
+  const setCab = (name: string, v: CabNote | null) => {
+    const next = { ...notes }
+    if (v) next[name] = v; else delete next[name]
+    setLocal(next); save({ cabinet_notes: next })
+  }
   const reload = () => { q.reload(); pv.reload() }
   const editable = cur?.status === 'concept'
 
@@ -129,28 +145,43 @@ export function ProductionPanel({ project }: { project: string }) {
               <button className="link" disabled={busy === 'invite'} onClick={invite}>Nu uitnodigen</button></p>
           )}
           {!editable && cur.id === rows[0]?.id && (
-            <p className="notice">Deze versie is {cur.status === 'verstuurd' ? (test ? 'verstuurd (test)' : 'verstuurd') : cur.status} en ligt vast. Iets aanpassen (opmerkingen, nerf laten doorlopen, vinkjes, bestanden)?{' '}
+            <p className="notice">Deze versie is {cur.status === 'verstuurd' ? (test ? 'verstuurd (test)' : 'verstuurd') : cur.status} en ligt vast. Iets aanpassen (opmerkingen, per kast, vinkjes, bestanden)?{' '}
               <button className="link" disabled={busy === 'new'} onClick={make}>Maak een nieuwe versie</button>: alles van deze versie gaat mee.</p>
           )}
           {editable && (
             <div className="prodpkg-edit">
-              <label className="wide">Opmerkingen voor {partner.data?.name ?? 'partner'}
-                <textarea key={cur.id} rows={3} defaultValue={cur.note ?? ''} placeholder="Waar moeten ze rekening mee houden?" onBlur={(e) => e.target.value !== (cur.note ?? '') && save({ note: e.target.value || null })} />
-              </label>
-              <label className="check"><input type="checkbox" checked={cur.return_sheets} onChange={(e) => save({ return_sheets: e.target.checked })} /> Restplaten meegeven</label>
-              <label className="check"><input type="checkbox" checked={cur.return_edges} onChange={(e) => save({ return_edges: e.target.checked })} /> Rest kantenband meegeven (behalve wit)</label>
-              <div className="prodpkg-grain">
-                <div><b>Nerf laten doorlopen</b> <span className="small muted">bij welke kasten? (uit de tekening)</span></div>
+              <div className="prodpkg-notes">
+                <b>Opmerkingen voor {partner.data?.name ?? 'partner'}</b>
+                <label className="wide">Algemeen
+                  <textarea key={cur.id} rows={3} defaultValue={cur.note ?? ''} placeholder="Waar moeten ze rekening mee houden?" onBlur={(e) => e.target.value !== (cur.note ?? '') && save({ note: e.target.value || null })} />
+                </label>
+                <div className="wide">Per kast: <span className="small muted">kies de kasten uit de tekening en vink aan wat er moet gebeuren</span></div>
                 {(cabs.data ?? []).length === 0 ? <span className="small muted">Geen kasten in de stuklijst van deze versie.</span> : (
                   <div className="chips-pick">{(cabs.data ?? []).map((n) => {
-                    const on = cur.grain_cabinets.some((g) => g.trim() === n)
-                    return <button key={n} className={on ? 'on' : ''} onClick={() => save({ grain_cabinets: on ? cur.grain_cabinets.filter((g) => g.trim() !== n) : [...cur.grain_cabinets, n] })}>{on ? '✓ ' : ''}{n}</button>
+                    const on = n in notes
+                    return <button key={n} className={on ? 'on' : ''} onClick={() => setCab(n, on ? null : {})}>{on ? '✓ ' : ''}{n}</button>
                   })}</div>
                 )}
-                {cur.grain_cabinets.length > 0 && (
-                  <input key={cur.id + 'g'} defaultValue={cur.grain_note ?? ''} placeholder="Hoe? bv. horizontaal doorlopend over de fronten van 14 tot 16" onBlur={(e) => e.target.value !== (cur.grain_note ?? '') && save({ grain_note: e.target.value || null })} />
+                {Object.keys(notes).length > 0 && (
+                  <ul className="prodpkg-cabs">{Object.keys(notes).sort((a, b) => (cabs.data ?? []).indexOf(a) - (cabs.data ?? []).indexOf(b)).map((n) => {
+                    const v = notes[n] ?? {}
+                    const tags = v.tags ?? []
+                    const tog = (t: string) => setCab(n, { ...v, tags: tags.includes(t) ? tags.filter((x) => x !== t) : [...tags, t] })
+                    return (
+                      <li key={n}>
+                        <div className="prodpkg-cab-head"><b>{n}</b> <button className="link small" onClick={() => setCab(n, null)}>weghalen</button></div>
+                        <div className="prodpkg-cab-opts">
+                          {(opts.data ?? []).map((t) => <label key={t} className="check"><input type="checkbox" checked={tags.includes(t)} onChange={() => tog(t)} /> {t}</label>)}
+                          <label className="check"><input type="checkbox" checked={!!v.other} onChange={(e) => setCab(n, { ...v, other: e.target.checked })} /> Andere</label>
+                        </div>
+                        {v.other && <input key={cur.id + n} defaultValue={v.note ?? ''} placeholder="Wat moet er gebeuren?" onBlur={(e) => e.target.value !== (v.note ?? '') && setCab(n, { ...v, note: e.target.value })} />}
+                      </li>
+                    )
+                  })}</ul>
                 )}
               </div>
+              <label className="check"><input type="checkbox" checked={cur.return_sheets} onChange={(e) => save({ return_sheets: e.target.checked })} /> Restplaten meegeven</label>
+              <label className="check"><input type="checkbox" checked={cur.return_edges} onChange={(e) => save({ return_edges: e.target.checked })} /> Rest kantenband meegeven (behalve wit)</label>
               <div className="prodpkg-folder">
                 <div><b>Map in je OneDrive:</b> {folder?.folder_path ?? (busy === 'folder' ? 'wordt klaargezet…' : '—')}
                   {folder?.folder_url && <> · <a href={folder.folder_url} target="_blank" rel="noreferrer">openen</a></>}
