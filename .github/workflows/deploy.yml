@@ -53,23 +53,17 @@ jobs:
             done' > "$RUNNER_TEMP/pages-raw.log" 2>&1 &
           echo "logboek: $RUNNER_TEMP/pages-raw.log"
 
-      # Een deploy van een vorige commit die bij GitHub nog "bezig" staat, blokkeert elke nieuwe. Er loopt nooit
-      # een andere publicatie tegelijk (concurrency), dus zo'n deploy hangt: afbreken.
-      - name: Vastgelopen Pages-deploys afbreken
+      # Enkel tonen (niets afbreken): de Pages-status van de deploys van de laatste 3 uur. Een vorige, al
+      # gepubliceerde versie staat soms nog even op purging_cdn; die afbreken is niet nodig. Een échte blokkade
+      # ("Please cancel <commit> first") breekt de reserveweg hieronder gericht af.
+      - name: Vorige Pages-deploys (status)
         run: |
           API="https://api.github.com/repos/$GITHUB_REPOSITORY"
           H=(-H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28")
-          since=$(date -u -d '-3 hours' +%Y-%m-%dT%H:%M:%SZ)   # enkel deploys van de laatste 3 uur bekijken
+          since=$(date -u -d '-3 hours' +%Y-%m-%dT%H:%M:%SZ)
           for ver in $(curl -sS "${H[@]}" "$API/deployments?environment=github-pages&per_page=20" | jq -r --arg s "$since" '.[] | select(.created_at > $s) | .sha' | sort -u); do
-            [ "$ver" = "$GITHUB_SHA" ] && continue
-            st=$(curl -sS "${H[@]}" "$API/pages/deployments/$ver" | jq -r '.status // "?"')
-            case "$st" in
-              succeed|deployment_cancelled|deployment_failed|deployment_content_failed|deployment_attempt_error|deployment_lost|"?") ;;
-              *) echo "Deploy $ver staat nog op '$st' → afbreken"
-                 curl -sS -X POST "${H[@]}" "$API/pages/deployments/$ver/cancel" -o /dev/null -w "  afbreken: HTTP %{http_code}\n" ;;
-            esac
+            echo "$ver: $(curl -sS "${H[@]}" "$API/pages/deployments/$ver" | jq -c .)"
           done
-          echo "klaar"
 
       - id: deployment
         uses: actions/deploy-pages@v4
