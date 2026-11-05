@@ -28,9 +28,14 @@ type Props = {
 export function EditableTable({ table, columns, orderBy = 'id', newRow = {}, empty = 'Nog niets ingevuld', focus, canAdd = true, canDelete = true }: Props) {
   const q = useQuery<Record<string, unknown>[]>(() => supabase.from(table).select('*').order(orderBy), [table])
   const [msg, setMsg] = useState<string | null>(null)
+  // bewaarde waarden meteen tonen (bv. vinkje Actief), zonder de hele tabel opnieuw te laden
+  const [local, setLocal] = useState<Record<string, unknown>>({})
 
   const save = async (id: unknown, key: string, value: unknown) => {
+    const k = `${String(id)}:${key}`
+    setLocal((l) => ({ ...l, [k]: value }))
     const { error } = await supabase.from(table).update({ [key]: value }).eq('id', id)
+    if (error) setLocal((l) => { const n = { ...l }; delete n[k]; return n })
     setMsg(error ? error.message : 'Bewaard')
     toast(error ? 'Niet bewaard: ' + error.message : 'Bewaard', error ? 'err' : 'ok')
     if (error) q.reload()
@@ -71,7 +76,7 @@ export function EditableTable({ table, columns, orderBy = 'id', newRow = {}, emp
             <tr key={String(r.id)} className={focus && String(r.id) === focus.id ? 'focus-row' : undefined}>
               {columns.map((c) => (
                 <td key={c.key}>
-                  <Cell col={c} value={r[c.key]} onSave={(v) => save(r.id, c.key, v)} autoFocus={!!focus && String(r.id) === focus.id && c.key === focus.key} />
+                  <Cell col={c} value={`${String(r.id)}:${c.key}` in local ? local[`${String(r.id)}:${c.key}`] : r[c.key]} onSave={(v) => save(r.id, c.key, v)} autoFocus={!!focus && String(r.id) === focus.id && c.key === focus.key} />
                 </td>
               ))}
               <td>
