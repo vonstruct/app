@@ -9,7 +9,7 @@ import { toast } from '../../core/toast'
  * In het oog (wat VON opvolgt), Taken. Voorstellen kunnen over alles gaan (soorten in tabel von_action_types).
  * Uitvoeren / weigeren / ongedaan maken via Edge Function von-action. Niets gebeurt zonder goedkeuring.
  */
-export type Proposal = { id: string; created_at: string; kind: string; project_code: string | null; title: string; summary: string | null; payload: any; before: any; plan: string | null; status: string; result: string | null; decided_at: string | null; source: string | null; undone_at: string | null; agent?: string | null; review?: { ok: boolean; issues: string[]; warnings?: string[]; by?: string } | null }
+export type Proposal = { id: string; created_at: string; kind: string; project_code: string | null; title: string; summary: string | null; context?: string | null; reason?: string | null; due_date?: string | null; due_reason?: string | null; category?: string | null; payload: any; before: any; plan: string | null; status: string; result: string | null; decided_at: string | null; source: string | null; undone_at: string | null; agent?: string | null; review?: { ok: boolean; issues: string[]; warnings?: string[]; by?: string } | null }
 type ActionType = { kind: string; area: string; label: string; outward: boolean; undoable: boolean }
 
 let typesCache: Record<string, ActionType> | null = null
@@ -33,9 +33,39 @@ const FIELD: Record<string, string> = {
 }
 /** Velden die het systeem zelf invult: niet tonen in een voorstel. */
 const HIDE = new Set(['manual', 'ordered_by', 'project_code', 'quote_id', 'quote_line_id', 'design_version_id', 'id', 'created_at', 'updated_at', 'needed_by_manual', 'auto_vervallen'])
-const AGENT_NAME: Record<string, string> = { inbox: 'Inbox', planning: 'Planning', nakijker: 'Nakijker', von_watch: 'Meedenken', inkoop: 'Inkoop' }
+const AGENT_NAME: Record<string, string> = { inbox: 'Inbox', planning: 'Planning', nakijker: 'Nakijker', von_watch: 'Meedenken', inkoop: 'Inkoop', intake: 'Intake', controle: 'Controle' }
 const show = (v: unknown) => v === null || v === undefined || v === '' ? '—' : typeof v === 'object' ? JSON.stringify(v) : String(v)
 const when = (iso?: string) => iso ? new Date(iso).toLocaleString('nl-BE', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'
+
+/** Aanleren: één zin wat er had moeten gebeuren of waar de agent voortaan op moet letten → les voor die agent (agent_lessons). */
+export function TeachBox({ agentId, kind, source, refId, example, onSaved, extra }: {
+  agentId: string | null; kind: string | null; source: string; refId: string; example: string
+  onSaved: (lesson: string) => void; extra?: { label: string; run: () => void | Promise<void> }
+}) {
+  const [text, setText] = useState('')
+  const [busy, setBusy] = useState(false)
+  const save = async (andExtra: boolean) => {
+    if (!text.trim()) return
+    setBusy(true)
+    const { data: a } = await supabase.from('agents').select('id').eq('id', agentId ?? '').maybeSingle()
+    const { error } = await supabase.from('agent_lessons').insert({ agent_id: a?.id ?? null, kind, source, ref: refId, example: example.slice(0, 300), lesson: text.trim().slice(0, 600), created_by: 'Olivier' })
+    if (!error && andExtra && extra) await extra.run()
+    setBusy(false)
+    toast(error ? 'Niet bewaard: ' + error.message : 'Aangeleerd: de agent leest dit voortaan elke keer', error ? 'err' : 'ok')
+    if (!error) onSaved(text.trim())
+  }
+  return (
+    <div className="teach">
+      <label className="small">Wat had er moeten gebeuren, of waar moet {AGENT_NAME[agentId ?? ''] ?? 'de agent'} voortaan op letten?
+        <textarea rows={2} value={text} onChange={(e) => setText(e.target.value)} placeholder="bv. Impermo-bestellingen zijn altijd voor de werkplaats, nooit voor een klant" autoFocus />
+      </label>
+      <span className="toolbar">
+        <button className="primary" disabled={busy || !text.trim()} onClick={() => save(false)}>Aanleren</button>
+        {extra && <button disabled={busy || !text.trim()} onClick={() => save(true)}>Aanleren en {extra.label.toLowerCase()}</button>}
+      </span>
+    </div>
+  )
+}
 
 export function ProposalCard({ p, onDone }: { p: Proposal; onDone: () => void }) {
   const types = useActionTypes()
@@ -49,6 +79,7 @@ export function ProposalCard({ p, onDone }: { p: Proposal; onDone: () => void })
   const [online, setOnline] = useState<boolean>(p.payload?.online !== false)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
+  const [teach, setTeach] = useState(false)
   const open = p.status === 'voorstel'
   const isMail = p.kind === 'mail' || p.kind === 'mail_reply'
   const hasDiff = p.kind === 'project_update' || p.kind === 'relation_update' || (p.kind === 'record' && p.payload?.action !== 'delete')
@@ -90,6 +121,14 @@ export function ProposalCard({ p, onDone }: { p: Proposal; onDone: () => void })
         {p.project_code && <Link className="small" to={`/projecten/${encodeURIComponent(p.project_code)}`}>{p.project_code}</Link>}
         <span className="muted small">{new Date(p.created_at).toLocaleString('nl-BE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}{p.source ? ` · via ${p.source}` : ''}</span>
       </div>
+      {(p.context || p.reason || p.due_date) && (
+        <dl className="prop-why">
+          {p.context && <><dt>Aanleiding</dt><dd>{p.context}</dd></>}
+          <dt>Voorstel</dt><dd>{p.title}</dd>
+          {p.reason && <><dt>Waarom</dt><dd>{p.reason}</dd></>}
+          {p.due_date && <><dt>Tegen</dt><dd>{new Date(p.due_date + 'T12:00:00').toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' })}{p.due_reason ? ` · ${p.due_reason}` : ''}</dd></>}
+        </dl>
+      )}
       {open && p.review && (p.review.issues.length > 0 || (p.review.warnings ?? []).length > 0) && (
         <div className={'prop-review' + (p.review.ok ? ' warn' : ' bad')}>
           <b>{p.review.ok ? 'Nakijker: let op' : 'Nakijker: niet in orde'}</b>
@@ -149,7 +188,10 @@ export function ProposalCard({ p, onDone }: { p: Proposal; onDone: () => void })
               </>
             ) : <button className="primary" disabled={busy} onClick={() => act('approve')}>{p.review?.ok === false ? 'Toch goedkeuren' : '✓ Goedkeuren'}</button>}
             <button disabled={busy} onClick={() => act('reject')}>Weigeren</button>
+            <button className="link" disabled={busy} onClick={() => setTeach((x) => !x)} title="Zeg in één zin wat er had moeten gebeuren; de agent onthoudt het">Aanleren</button>
           </div>
+          {teach && <TeachBox agentId={p.agent ?? null} kind={p.kind} source="proposal" refId={p.id} example={p.title}
+            extra={{ label: 'Weigeren', run: () => act('reject') }} onSaved={() => setTeach(false)} />}
         </>
       ) : (
         <div className="prop-done">
@@ -328,6 +370,7 @@ function Team() {
               </div>
               <p className="small muted">Vandaag: {a.runs_today}× · {usd(a.cost_today)} · 30 dagen: {a.runs_30d}× · {usd(a.cost_30d)}</p>
               {a.tools?.length ? <p className="small muted">Hulpmiddelen: {a.tools.length}</p> : <p className="small muted">Hulpmiddelen: alle</p>}
+              <AgentLearned agentId={a.id} />
               {edit === a.id ? (
                 <>
                   <textarea className="prop-body" rows={10} value={instr} onChange={(e) => setInstr(e.target.value)} />
@@ -353,6 +396,62 @@ function Team() {
           <p className="small muted">De Nakijker controleert elk voorstel. Bij een fout kan het pas uitgevoerd worden als jij het toch wilt.</p>
         </div>
       </section>
+    </div>
+  )
+}
+
+/** Wat Olivier deze agent leerde (agent_lessons) en wat hij zelf mag doen (agent_autonomy): aanpassen, uitzetten, terugdraaien. */
+type Lesson = { id: string; agent_id: string | null; kind: string | null; lesson: string; example: string | null; active: boolean; created_at: string }
+function AgentLearned({ agentId }: { agentId: string }) {
+  const [lessons, setLessons] = useState<Lesson[]>([])
+  const [auto, setAuto] = useState<{ kind: string; mode: string; decided_at: string }[]>([])
+  const [open, setOpen] = useState(false)
+  const [edit, setEdit] = useState<Record<string, string>>({})
+  const load = useCallback(async () => {
+    const [l, a] = await Promise.all([
+      supabase.from('agent_lessons').select('*').eq('agent_id', agentId).order('created_at', { ascending: false }),
+      supabase.from('agent_autonomy').select('kind,mode,decided_at').eq('agent_id', agentId),
+    ])
+    setLessons((l.data as Lesson[]) ?? []); setAuto((a.data as any[]) ?? [])
+  }, [agentId])
+  useEffect(() => { load() }, [load])
+  const types = useActionTypes()
+  const upd = async (id: string, patch: Partial<Lesson>) => {
+    const { error } = await supabase.from('agent_lessons').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id)
+    toast(error ? 'Niet bewaard: ' + error.message : 'Bewaard', error ? 'err' : 'ok'); load()
+  }
+  const setMode = async (kind: string, mode: string) => {
+    const { error } = await supabase.from('agent_autonomy').update({ mode, decided_at: new Date().toISOString(), decided_by: 'Team' }).eq('agent_id', agentId).eq('kind', kind)
+    toast(error ? 'Niet bewaard: ' + error.message : 'Bewaard', error ? 'err' : 'ok'); load()
+  }
+  const nOn = lessons.filter((l) => l.active).length
+  return (
+    <div className="team-learned">
+      <button className="link small" onClick={() => setOpen((x) => !x)}>Geleerd ({nOn}){auto.some((x) => x.mode === 'zelf') ? ` · doet ${auto.filter((x) => x.mode === 'zelf').length} soort(en) zelf` : ''} {open ? '▴' : '▾'}</button>
+      {open && (
+        <div className="small">
+          {lessons.length === 0 && <p className="muted">Nog niets aangeleerd. Gebruik "Aanleren" bij een voorstel of bij "Wat de agents deden" op Vandaag.</p>}
+          {lessons.map((l) => (
+            <div key={l.id} className={'team-lesson' + (l.active ? '' : ' off')}>
+              <textarea rows={2} value={edit[l.id] ?? l.lesson} onChange={(e) => setEdit({ ...edit, [l.id]: e.target.value })} />
+              <span className="toolbar">
+                {edit[l.id] !== undefined && edit[l.id] !== l.lesson && <button className="primary" onClick={() => upd(l.id, { lesson: edit[l.id] })}>Bewaren</button>}
+                <label className="check"><input type="checkbox" checked={l.active} onChange={(e) => upd(l.id, { active: e.target.checked })} /> {l.active ? 'actief' : 'uit'}</label>
+                <span className="muted">{l.kind ? `${types[l.kind]?.label ?? l.kind} · ` : ''}{new Date(l.created_at).toLocaleDateString('nl-BE')}{l.example ? ` · bij: ${l.example}` : ''}</span>
+              </span>
+            </div>
+          ))}
+          {auto.length > 0 && <p className="muted" style={{ marginTop: 8 }}>Zelf doen (enkel binnen de app):</p>}
+          {auto.map((x) => (
+            <div key={x.kind} className="team-route">
+              <span>{types[x.kind]?.label ?? x.kind}</span>
+              <select value={x.mode} onChange={(e) => setMode(x.kind, e.target.value)}>
+                <option value="zelf">zelf doen en melden</option><option value="vragen">eerst vragen</option>
+              </select>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

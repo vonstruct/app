@@ -7,7 +7,7 @@ import { NewEvent } from '../modules/agenda/Agenda'
 import { JobEditor } from '../modules/agenda/JobEditor'
 
 /** Takenlijst van Olivier (tabel `tasks`): ingesproken via Siri/VON of hier getypt. Overal dezelfde component. */
-export type Task = { id: string; text: string; project_code: string | null; due_date: string | null; done_at: string | null; source: string; created_at: string; proposal_ids?: string[] | null }
+export type Task = { id: string; text: string; project_code: string | null; due_date: string | null; done_at: string | null; source: string; created_at: string; proposal_ids?: string[] | null; kind?: 'buiten' | 'app'; link?: string | null }
 
 const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Brussels' })
 const dueLabel = (d: string | null) => {
@@ -19,7 +19,8 @@ const dueLabel = (d: string | null) => {
   return { text: new Date(d).toLocaleDateString('nl-BE', { weekday: 'short', day: 'numeric', month: 'short' }), cls: 'muted' }
 }
 
-export function Tasks({ project, limit, title = 'Mijn taken', showAdd = true }: { project?: string; limit?: number; title?: string; showAdd?: boolean }) {
+/** kind = 'buiten': enkel taken buiten de app (bellen, opmeten, ophalen); wat in de app moet, staat op Vandaag in de juiste categorie. */
+export function Tasks({ project, limit, title = 'Mijn taken', showAdd = true, kind }: { project?: string; limit?: number; title?: string; showAdd?: boolean; kind?: 'buiten' | 'app' }) {
   const [tasks, setTasks] = useState<Task[] | null>(null)
   const [text, setText] = useState('')
   const dict = useDictation()
@@ -28,6 +29,7 @@ export function Tasks({ project, limit, title = 'Mijn taken', showAdd = true }: 
   const [plan, setPlan] = useState<{ t: Task; kind: 'afspraak' | 'opdracht' } | null>(null)
   const [menu, setMenu] = useState<string | null>(null)
   const [projects, setProjects] = useState<any[]>([])
+  const [phones, setPhones] = useState<Record<string, { name: string | null; phone: string }>>({})
   const startPlan = async (t: Task, kind: 'afspraak' | 'opdracht') => {
     setMenu(null)
     if (kind === 'afspraak' && !projects.length) {
@@ -42,15 +44,23 @@ export function Tasks({ project, limit, title = 'Mijn taken', showAdd = true }: 
     let q = supabase.from('tasks').select('*').order('due_date', { ascending: true, nullsFirst: false }).order('created_at', { ascending: false })
     q = showDone ? q.not('done_at', 'is', null).order('done_at', { ascending: false }).limit(30) : q.is('done_at', null)
     if (project) q = q.eq('project_code', project)
+    if (kind) q = q.eq('kind', kind)
     const { data } = await q
-    setTasks((data as Task[]) ?? [])
-  }, [project, showDone])
+    const list = (data as Task[]) ?? []
+    setTasks(list)
+    // telefoon van de klant, om meteen te bellen
+    const codes = [...new Set(list.map((t) => t.project_code).filter(Boolean))] as string[]
+    if (codes.length) {
+      const { data: pr } = await supabase.from('app_projects').select('project_code,client_name,client_phone').in('project_code', codes)
+      setPhones(Object.fromEntries(((pr ?? []) as { project_code: string; client_name: string | null; client_phone: string | null }[]).filter((x) => x.client_phone).map((x) => [x.project_code, { name: x.client_name, phone: x.client_phone! }])))
+    }
+  }, [project, showDone, kind])
   useEffect(() => { load() }, [load])
 
   const add = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!text.trim()) return
-    await supabase.from('tasks').insert({ text: text.trim(), project_code: project ?? null, due_date: due || null, source: 'app' })
+    await supabase.from('tasks').insert({ text: text.trim(), project_code: project ?? null, due_date: due || null, source: 'app', kind: kind ?? 'buiten' })
     setText(''); setDue(''); load()
   }
   const toggle = async (t: Task) => {
@@ -110,6 +120,8 @@ export function Tasks({ project, limit, title = 'Mijn taken', showAdd = true }: 
                   <span className="small">
                     {d && <span className={d.cls}>{d.text}</span>}
                     {!project && t.project_code && <> {d ? '· ' : ''}<Link to={`/projecten/${encodeURIComponent(t.project_code)}`}>{t.project_code}</Link></>}
+                    {t.project_code && phones[t.project_code] && !t.done_at && <> · <a href={`tel:${phones[t.project_code].phone.replace(/[^+\d]/g, '')}`} title={`Bel ${phones[t.project_code].name ?? 'de klant'}`}>📞 {phones[t.project_code].name?.split(' ')[0] ?? 'bellen'}</a></>}
+                    {t.link && !t.done_at && <> · <Link to={t.link}>openen →</Link></>}
                     {t.source === 'siri' && <span className="muted"> · 🎙</span>}
                     {!t.done_at && !!t.proposal_ids?.length && <> · <Link to="/overzicht" className="chip gold">✨ voorstel klaar</Link></>}
                     {vonBusy === t.id && <span className="muted"> · VON is bezig…</span>}

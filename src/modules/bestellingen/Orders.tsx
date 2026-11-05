@@ -18,17 +18,24 @@ type Order = {
   reference: string | null; amount: number | null; n_lines: number; note: string | null; urgency: string; manual?: boolean
   client_name: string | null; project_title: string | null
   shipped_at?: string | null; actual_amount?: number | null; n_docs?: number
+  needed_src?: string | null; expected_src?: string | null; lead_src?: string | null
 }
 type Line = { id: string; category: string | null; description: string | null; article_no: string | null; qty: number | null; unit: string | null; total: number | null }
 
 const STATUSES = ['te bestellen', 'besteld', 'bevestigd', 'geleverd', 'geannuleerd']
 const URG: Record<string, [string, string]> = {
   'te laat': ['Te laat', 'bad'], 'nu bestellen': ['Nu bestellen', 'warn'], 'levering te laat': ['Levering te laat', 'bad'],
-  'komt te laat': ['Komt te laat', 'bad'], 'geen deadline': ['Geen deadline', 'muted'], later: ['Later', ''], onderweg: ['Onderweg', 'ok'], klaar: ['Klaar', 'ok'], vervallen: ['Vervallen', 'muted'],
+  'komt te laat': ['Komt te laat', 'bad'], 'geen deadline': ['Geen deadline', 'muted'], 'levertijd onbekend': ['Levertijd onbekend', 'warn'], later: ['Later', ''], onderweg: ['Onderweg', 'ok'], klaar: ['Klaar', 'ok'], vervallen: ['Vervallen', 'muted'],
 }
-const ORDER = ['te laat', 'levering te laat', 'komt te laat', 'nu bestellen', 'geen deadline', 'later', 'onderweg', 'klaar', 'vervallen']
+const ORDER = ['te laat', 'levering te laat', 'komt te laat', 'nu bestellen', 'levertijd onbekend', 'geen deadline', 'later', 'onderweg', 'klaar', 'vervallen']
 const d = (v: string | null) => (v ? new Date(v + 'T12:00').toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' }) : '—')
 const today = () => new Date().toLocaleDateString('sv-SE')
+/** Waar een datum vandaan komt: feit (uit mail, ingevuld, planning) of aanname (regel). */
+export function Src({ s }: { s?: string | null }) {
+  if (!s) return null
+  const assumed = s.startsWith('aanname')
+  return <span className={'src-tag' + (assumed ? ' assumed' : '')} title={assumed ? 'Berekend uit een regel (aanname), geen feit' : 'Feit'}>{s}</span>
+}
 
 export function Orders({ project }: { project?: string }) {
   const [filter, setFilter] = useState<'open' | 'alles'>('open')
@@ -96,8 +103,8 @@ export function Orders({ project }: { project?: string }) {
                 </div>
               </div>
               <div className="order-dates small">
-                {o.status === 'te bestellen' ? <>bestellen vóór <strong>{d(o.order_by)}</strong></> : <Stages o={o} />}
-                <div className="muted">nodig op {d(o.needed_by)} · {o.lead_days_eff} wd levertijd</div>
+                {o.status === 'te bestellen' ? (o.order_by ? <>bestellen vóór <strong>{d(o.order_by)}</strong> <Src s="aanname (levertijd)" /></> : <>bestellen vóór <strong>?</strong></>) : <><Stages o={o} />{o.expected_at && !o.delivered_at && <> <Src s={o.expected_src} /></>}</>}
+                <div className="muted">nodig op {d(o.needed_by)} <Src s={o.needed_src} /> · {o.lead_days_eff != null ? <>{o.lead_days_eff} wd levertijd <Src s={o.lead_src} /></> : 'levertijd onbekend'}</div>
               </div>
               <div className="order-amt">{fmtEur(o.amount)}</div>
             </div>

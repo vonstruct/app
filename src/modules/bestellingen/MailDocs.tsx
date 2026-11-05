@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { supabase } from '../../core/supabase'
 import { useQuery } from '../../core/useQuery'
@@ -43,9 +43,11 @@ export function OrdersPage() {
 }
 
 export function MailDocs({ project }: { project?: string }) {
+  const [params] = useSearchParams()
+  const focus = params.get('focus')
   const [filter, setFilter] = useState<'todo' | 'linked' | 'other'>(project ? 'linked' : 'todo')
   const [pick, setPick] = useState<Record<string, string>>({})
-  const [open, setOpen] = useState<string | null>(null)
+  const [open, setOpen] = useState<string | null>(focus)
   const q = useQuery<Doc[]>(() => {
     let r = supabase.from('mail_documents').select('*, mail_messages(subject,from_name,from_email,at,web_link,direction)').neq('kind', 'andere')
     if (project) r = r.eq('project_code', project)
@@ -73,6 +75,15 @@ export function MailDocs({ project }: { project?: string }) {
     if (w) w.location.href = data.url; else window.open(data.url, '_blank')
   }
 
+  // ?focus=<id> (vanuit "Wat de agents deden"): juiste filter, open en in beeld
+  useEffect(() => {
+    const x = focus ? (q.data ?? []).find((d) => d.id === focus) : null
+    if (!x) return
+    setFilter(['nieuw', 'gelezen'].includes(x.status) ? 'todo' : x.status === 'gekoppeld' ? 'linked' : 'other')
+    setOpen(x.id)
+    window.setTimeout(() => document.getElementById('md-' + x.id)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 50)
+  }, [focus, q.data])
+
   if (q.loading) return <Loading />
   return (
     <div className="orders maildocs">
@@ -93,7 +104,7 @@ export function MailDocs({ project }: { project?: string }) {
         const sel = pick[x.id] ?? x.project_code ?? cands[0]?.project_code ?? ''
         const isOpen = open === x.id
         return (
-          <div key={x.id} className={'order-row' + (isOpen ? ' open' : '')}>
+          <div key={x.id} id={'md-' + x.id} className={'order-row' + (isOpen ? ' open' : '') + (focus === x.id ? ' focus' : '')}>
             <div className="order-head" onClick={() => setOpen(isOpen ? null : x.id)}>
               <span className="jo-pill">{KIND[x.kind ?? ''] ?? x.kind ?? 'Document'}</span>
               <div className="order-main">
