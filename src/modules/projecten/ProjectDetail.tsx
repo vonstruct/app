@@ -6,6 +6,7 @@ import { NacalcPanel } from '../nacalculatie/NacalcPanel'
 import { HandoverPanel } from '../oplevering/HandoverPanel'
 import { Invoices } from '../facturen/Invoices'
 import { QuotePanel } from '../offerte/QuotePanel'
+import { ProjectCost } from './ProjectCost'
 import { Orders } from '../bestellingen/Orders'
 import { MailDocs } from '../bestellingen/MailDocs'
 import { useEffect, useState, type ReactNode } from 'react'
@@ -64,7 +65,7 @@ export function ProjectDetail() {
   const vb = versions.find((v) => v.version === (b ?? versions[0]?.version))
 
   const wa = (project?.client_phone ?? '').replace(/[^\d+]/g, '').replace(/^\+/, '').replace(/^00/, '').replace(/^0/, '32')
-  const TABS: [string, string][] = [['overzicht', 'Overzicht'], ['planning', 'Planning'], ['mails', 'Mails'], ['ontwerp', `Ontwerp & kosten${versions.length ? ` (${versions.length})` : ''}`], ['documenten', 'Documenten'], ['brochure', 'Brochure'], ['vragenlijst', 'Vragenlijst'], ['offerte', 'Offerte'], ['bestellingen', 'Bestellingen'], ['facturen', 'Facturen'], ['oplevering', 'Oplevering'], ['nacalculatie', 'Nacalculatie'], ['tijdlijn', 'Tijdlijn']]
+  const TABS: [string, string][] = [['overzicht', 'Overzicht'], ['planning', 'Planning'], ['mails', 'Mails'], ['ontwerp', `Ontwerp & kosten${versions.length ? ` (${versions.length})` : ''}`], ['kost', 'Projectkost'], ['documenten', 'Documenten'], ['brochure', 'Brochure'], ['vragenlijst', 'Vragenlijst'], ['offerte', 'Offerte'], ['bestellingen', 'Bestellingen'], ['facturen', 'Facturen'], ['oplevering', 'Oplevering'], ['nacalculatie', 'Nacalculatie'], ['tijdlijn', 'Tijdlijn']]
   let body: ReactNode = null
   if (project && ph.data) {
     if (tab === 'planning') body = <><KeyDates code={code} onSaved={pq.reload} /><PlanningPanel project={project} /></>
@@ -75,6 +76,7 @@ export function ProjectDetail() {
     else if (tab === 'oplevering') body = <HandoverPanel project={code} />
     else if (tab === 'facturen') body = <><Invoices project={code} /><div className="panel"><h2>In Yuki</h2><p className="muted small">Alle facturen en betalingen van deze klant in de boekhouding (ook van vóór de app), met de pdf.</p><YukiHistory clientId={project.client_id} /></div></>
     else if (tab === 'offerte') body = <QuotePanel project={code} />
+    else if (tab === 'kost') body = <ProjectCost project={code} onQuote={() => setTab('offerte')} />
     else if (tab === 'bestellingen') body = <><Orders project={code} /><div className="panel"><h2>Uit de mailbox</h2><p className="muted small">Orderbevestigingen, facturen en leveringsbons van leveranciers die aan dit project gekoppeld zijn (bijlage gelezen). Na te kijken: Planning → Bestellingen → Uit je mailbox.</p><MailDocs project={code} /></div></>
     else if (tab === 'vragenlijst') body = <>{!['lead', 'intake', 'survey'].includes(project.phase) && <LeadActions p={project} onDone={pq.reload} />}<SurveyPanel code={code} focus={focus === 'survey'} /></>
     else if (tab === 'tijdlijn') body = <EventFeed project={code} title="Tijdlijn" limit={40} />

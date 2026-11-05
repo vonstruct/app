@@ -7,7 +7,7 @@ import logo from '../assets/vonstruct-logo.webp'
  */
 export type QLang = 'nl' | 'en' | 'de'
 export type QLine = { id?: string; title: string; description: string | null; qty: number; unit_price: number; discount_pct: number; vat_rate: number; kind?: string | null
-  opt_kind?: 'optie' | 'keuze' | null; opt_group?: string | null; opt_default?: boolean | null; selected?: boolean | null }
+  opt_kind?: 'optie' | 'keuze' | null; opt_group?: string | null; opt_default?: boolean | null; selected?: boolean | null; group_name?: string | null }
 export type QSignature = { signer_name: string; signed_at: string; hash: string; png?: string | null; ip?: string | null }
 /** Telt de regel mee? Vaste regels altijd; opties/keuzes volgens de keuze van de klant (of de standaard). */
 export const lineOn = (l: QLine, choice?: Set<string> | null) => !l.opt_kind || (choice && l.id ? choice.has(l.id) : (l.selected ?? l.opt_default ?? true))
@@ -52,7 +52,8 @@ export function quoteTotals(all: QLine[], choice?: Set<string> | null) {
 
 const GROUP: Record<string, string> = { kasten: 'maatwerk', lades: 'maatwerk', werkblad: 'maatwerk', maatwerk: 'maatwerk', toestel: 'toestel', sanitair: 'sanitair', dienst: 'dienst' }
 const ORDER = ['maatwerk', 'toestel', 'sanitair', 'vrij', 'dienst']
-const groupOf = (l: QLine) => GROUP[l.kind ?? ''] ?? 'vrij'
+/** Groep: uit de projectkost (group_name), anders volgens de soort van de regel. */
+const groupOf = (l: QLine) => l.group_name || (GROUP[l.kind ?? ''] ?? 'vrij')
 
 export function QuoteDoc({ q, lines, company, lang = 'nl', btw6, choice, onToggle, signature }: {
   q: QDoc; lines: QLine[]; company: Company; lang?: QLang; btw6?: string | null
@@ -62,7 +63,10 @@ export function QuoteDoc({ q, lines, company, lang = 'nl', btw6, choice, onToggl
   const tot = quoteTotals(lines, choice)
   const on = (l: QLine) => lineOn(l, choice)
   // per rubriek (enkel als er meer dan één rubriek is)
-  const groups = ORDER.map((g) => ({ g, ls: lines.filter((l) => groupOf(l) === g) })).filter((x) => x.ls.length)
+  // groepen uit de projectkost in de volgorde van de regels, anders de vaste soorten
+  const order = lines.some((l) => l.group_name) ? [...new Set(lines.map(groupOf))] : ORDER
+  const groups = order.map((g) => ({ g, ls: lines.filter((l) => groupOf(l) === g) })).filter((x) => x.ls.length)
+  const gname = (g: string) => t.groups[g] ?? g
   const grouped = q.show_groups !== false && groups.length > 1
   const blocks: [string, string | null | undefined][] = [[t.inc, q.included], [t.exc, q.excluded], [t.plan, q.planning], [t.pay, q.payment], [t.war, q.warranty]]
   const has6 = lines.some((l) => Number(l.vat_rate) === 6) && !!btw6
@@ -120,11 +124,13 @@ export function QuoteDoc({ q, lines, company, lang = 'nl', btw6, choice, onToggl
       {onToggle && lines.some((l) => l.opt_kind) && <p className="qdoc-hint">{t.options}</p>}
       <table className="qdoc-lines">
         <thead><tr><th>{t.desc}</th><th className="n">{t.qty}</th><th className="n">{t.price}</th><th className="n">{t.disc}</th><th className="n">{t.amount}</th></tr></thead>
-        {grouped ? groups.map(({ g, ls }) => (
+        {grouped ? groups.map(({ g, ls }) => ls.length === 1 && ls[0].title === gname(g) ? (
+          <tbody key={g} className="qdoc-group">{ls.map(row)}</tbody>
+        ) : (
           <tbody key={g} className="qdoc-group">
-            <tr className="qdoc-gh"><td colSpan={5}>{t.groups[g]}</td></tr>
+            <tr className="qdoc-gh"><td colSpan={5}>{gname(g)}</td></tr>
             {ls.map(row)}
-            <tr className="qdoc-sub"><td colSpan={4}>{t.subtotal} {t.groups[g].toLowerCase()}</td><td className="n">{num(ls.filter(on).reduce((a, l) => a + lineAmount(l), 0), lang)}</td></tr>
+            <tr className="qdoc-sub"><td colSpan={4}>{t.subtotal} {gname(g).toLowerCase()}</td><td className="n">{num(ls.filter(on).reduce((a, l) => a + lineAmount(l), 0), lang)}</td></tr>
           </tbody>
         )) : <tbody>{lines.map(row)}</tbody>}
       </table>

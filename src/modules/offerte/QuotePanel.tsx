@@ -19,7 +19,7 @@ type Quote = {
   included: string | null; excluded: string | null; planning: string | null; payment: string | null; warranty: string | null; show_groups: boolean; project_title: string | null; site: string | null
   external?: boolean; pdf_path?: string | null
 }
-type Line = { id: string; quote_id: string; sort: number; title: string; description: string | null; qty: number; unit_price: number; discount_pct: number; vat_rate: number; kind: string | null; source: string | null; cost_basis: number | null; opt_kind: 'optie' | 'keuze' | null; opt_group: string | null; opt_default: boolean; selected: boolean | null; supplier: string | null; order_needed: boolean | null }
+type Line = { id: string; quote_id: string; sort: number; title: string; description: string | null; qty: number; unit_price: number; discount_pct: number; vat_rate: number; kind: string | null; source: string | null; cost_basis: number | null; opt_kind: 'optie' | 'keuze' | null; opt_group: string | null; opt_default: boolean; selected: boolean | null; supplier: string | null; order_needed: boolean | null; group_name?: string | null }
 type Sig = { id: string; signer_name: string; signer_email: string | null; signed_at: string; ip: string | null; user_agent: string | null; signature_png: string | null; doc_hash: string; vat6_confirmed: boolean | null; consent_text: string | null; confirmation_sent_at: string | null }
 
 const STATUS: Record<string, [string, string]> = {
@@ -55,7 +55,7 @@ export function QuotePanel({ project }: { project: string }) {
           </div>
         )}
         {!current && <span className="muted">Nog geen offerte voor dit project.</span>}
-        {(!current || current.status !== 'concept') && <button className="primary" disabled={busy} onClick={() => generate()}>{busy ? 'Bezig…' : current ? 'Nieuwe offerte' : 'Offerte opbouwen uit de kosten'}</button>}
+        {(!current || current.status !== 'concept') && <button className="primary" disabled={busy} onClick={() => generate()}>{busy ? 'Bezig…' : current ? 'Nieuwe offerte' : 'Offerte opbouwen uit de projectkost'}</button>}
         <button onClick={() => setImporting((x) => !x)}>Bestaande offerte toevoegen (pdf)</button>
       </div>
       <ErrorBox error={list.error} />
@@ -207,7 +207,7 @@ function QuoteEditor({ q, company, btw6, onChange, onGenerate, busy }: { q: Quot
               <div className="qline-main">
                 <input className="qline-title" disabled={!editable} defaultValue={l.title} onBlur={(e) => e.target.value !== l.title && saveL(l.id, { title: e.target.value })} />
                 <textarea disabled={!editable} rows={Math.min(8, Math.max(1, (l.description ?? '').split('\n').length))} placeholder="omschrijving" defaultValue={l.description ?? ''} onBlur={(e) => e.target.value !== (l.description ?? '') && saveL(l.id, { description: e.target.value || null })} />
-                {l.source && <small className="muted">automatisch uit de kosten · kostprijs {fmtEur(l.cost_basis)}</small>}
+                {l.source && <small className="muted">automatisch uit de projectkost{l.group_name ? ` (${l.group_name})` : ''} · kostprijs {fmtEur(l.cost_basis)} · titel en uitleg pas je aan in Projectkost</small>}
                 <div className="qline-opt">
                   <select disabled={!editable} value={l.opt_kind ?? ''} onChange={(e) => { const v = e.target.value || null; saveL(l.id, { opt_kind: v as Line['opt_kind'], opt_group: v === 'keuze' ? (l.opt_group || groups[0] || 'Keuze 1') : null, opt_default: v === 'optie' ? false : true }) }}>
                     <option value="">Vaste regel</option><option value="optie">Optie (aanvinken)</option><option value="keuze">Alternatief (één kiezen)</option>
