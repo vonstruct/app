@@ -53,7 +53,7 @@ const actionFor = (f: Flag): { to: string; label: string } => {
       if (f.title.startsWith('Klant')) return { to: pc ?? '/relaties', label: 'Klant aanvullen' }
       return { to: pc ? pc + '?tab=facturen' : '/facturen', label: 'Bekijken' }
     }
-    case 'planning': return { to: f.project_code ? `/projecten/${encodeURIComponent(f.project_code)}?tab=planning` : '/projecten', label: 'Planning bekijken' }
+    case 'planning': return { to: f.project_code ? `/projecten/${encodeURIComponent(f.project_code)}` : '/projecten', label: 'Planning bekijken' }
     case 'aankoopfactuur': return { to: '/facturen?tab=aankoop', label: 'Bekijken' }
     case 'offerte': return { to: f.project_code ? `/projecten/${encodeURIComponent(f.project_code)}?tab=offerte` : '/projecten', label: 'Offerte openen' }
     case 'partner': return { to: f.project_code ? `/projecten/${encodeURIComponent(f.project_code)}?tab=productie` : '/projecten', label: 'Naar Productie' }

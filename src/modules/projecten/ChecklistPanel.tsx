@@ -137,7 +137,7 @@ export function ChecklistPanel({ code, currentStage }: { code: string; currentSt
               )}
               {s.stage === 'installation' && (
                 <div className="cl-sub">
-                  <div className="cl-sub-h">Opdrachten <Link to={`/projecten/${code}?tab=planning&nieuw=opdracht`} className="small">+ opdracht</Link></div>
+                  <div className="cl-sub-h">Opdrachten <Link to={`/projecten/${code}?nieuw=opdracht`} className="small">+ opdracht</Link></div>
                   {jobs.length ? (
                     <ul>
                       {jobs.map((j) => (

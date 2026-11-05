@@ -28,7 +28,7 @@ export function Capacity() {
             <div className="cap-bar"><span className={over ? 'over' : pct >= 80 ? 'full' : ''} style={{ width: pct + '%' }} /></div>
             <div className="cap-num">{w.planned_days} / {w.capacity_days} d</div>
             <div className="cap-what small">
-              {w.install_projects.map((p) => <Link key={p.code} to={`/projecten/${p.code}?tab=planning`} className="jo-pill warn">Plaatsing {p.code}</Link>)}
+              {w.install_projects.map((p) => <Link key={p.code} to={`/projecten/${p.code}`} className="jo-pill warn">Plaatsing {p.code}</Link>)}
               {w.jobs.map((j, i) => <span key={i} className={'jo-pill ' + (j.me ? '' : 'muted')}>{j.me ? '' : '👷 '}{j.title} · {j.days} d</span>)}
               {!w.install_projects.length && !w.jobs.length && <span className="muted">vrij</span>}
             </div>

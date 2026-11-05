@@ -101,7 +101,7 @@ export function PlanningPanel({ project }: { project: ProjectRow }) {
   return (
     <div className="panel planning-panel">
       <div className="planning-head">
-        <h2>Planning</h2>
+        <h2>Afspraken en opdrachten</h2>
         <div className="toolbar">
           <button onClick={() => setOpen(newJob())}>+ Opdracht</button>
           <button onClick={() => setNewEv(true)}>+ Afspraak</button>

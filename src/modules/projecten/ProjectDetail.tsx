@@ -56,7 +56,8 @@ export function ProjectDetail() {
   const ph = usePhases()
   const [params, setParams] = useSearchParams()
   const focus = params.get('focus')
-  const tab = params.get('tab') ?? (focus === 'survey' ? 'vragenlijst' : focus === 'mails' ? 'mails' : 'overzicht')
+  // tab Planning is opgegaan in het Overzicht (Olivier, 5 nov): oude links ?tab=planning tonen het Overzicht
+  const tab = ((t) => (t === 'planning' ? 'overzicht' : t))(params.get('tab') ?? (focus === 'survey' ? 'vragenlijst' : focus === 'mails' ? 'mails' : 'overzicht'))
   const setTab = (t: string) => setParams(t === 'overzicht' ? {} : { tab: t }, { replace: true })
   const project = pq.data?.[0]
   const versions = q.data ?? []
@@ -66,11 +67,10 @@ export function ProjectDetail() {
   const vb = versions.find((v) => v.version === (b ?? versions[0]?.version))
 
   const wa = (project?.client_phone ?? '').replace(/[^\d+]/g, '').replace(/^\+/, '').replace(/^00/, '').replace(/^0/, '32')
-  const TABS: [string, string][] = [['overzicht', 'Overzicht'], ['planning', 'Planning'], ['mails', 'Mails'], ['ontwerp', `Ontwerp & kosten${versions.length ? ` (${versions.length})` : ''}`], ['kost', 'Projectkost'], ['documenten', 'Documenten'], ['brochure', 'Brochure'], ['vragenlijst', 'Vragenlijst'], ['offerte', 'Offerte'], ['bestellingen', 'Bestellingen'], ['productie', 'Productie'], ['facturen', 'Facturen'], ['oplevering', 'Oplevering'], ['nacalculatie', 'Nacalculatie'], ['tijdlijn', 'Tijdlijn']]
+  const TABS: [string, string][] = [['overzicht', 'Overzicht'], ['mails', 'Mails'], ['ontwerp', `Ontwerp & kosten${versions.length ? ` (${versions.length})` : ''}`], ['kost', 'Projectkost'], ['documenten', 'Documenten'], ['brochure', 'Brochure'], ['vragenlijst', 'Vragenlijst'], ['offerte', 'Offerte'], ['bestellingen', 'Bestellingen'], ['productie', 'Productie'], ['facturen', 'Facturen'], ['oplevering', 'Oplevering'], ['nacalculatie', 'Nacalculatie'], ['tijdlijn', 'Tijdlijn']]
   let body: ReactNode = null
   if (project && ph.data) {
-    if (tab === 'planning') body = <><KeyDates code={code} onSaved={pq.reload} /><PlanningPanel project={project} /></>
-    else if (tab === 'mails') body = <MailList project={code} title="Mails" limit={60} />
+    if (tab === 'mails') body = <MailList project={code} title="Mails" limit={60} />
     else if (tab === 'brochure') body = <BrochurePanel project={code} />
     else if (tab === 'documenten') body = <DocumentsPanel project={code} />
     else if (tab === 'nacalculatie') body = <NacalcPanel project={code} />
@@ -123,6 +123,7 @@ export function ProjectDetail() {
         </div>
         <ProjectProposals code={code} />
         <KeyDates code={code} onSaved={pq.reload} />
+        <PlanningPanel project={project} />
         <IntakeCard code={code} />
         {['lead', 'intake', 'survey'].includes(project.phase) && <LeadActions p={project} onDone={pq.reload} />}
         <ChecklistPanel code={code} currentStage={project.stage} />
@@ -144,8 +145,8 @@ export function ProjectDetail() {
             {project.client_email && <a className="pd-q" href={`mailto:${project.client_email}?subject=${encodeURIComponent(`Je project bij Vonstruct (${code})`)}`}>Mail</a>}
             {project.client_phone && <a className="pd-q" href={`tel:${project.client_phone}`}>Bel</a>}
             {project.client_phone && wa && <a className="pd-q" href={`https://wa.me/${wa}`} target="_blank" rel="noreferrer">WhatsApp</a>}
-            <button className="pd-q gold" onClick={() => setParams({ tab: 'planning', nieuw: 'opdracht' }, { replace: true })}>+ Opdracht</button>
-            <button className="pd-q" onClick={() => setParams({ tab: 'planning', nieuw: 'afspraak' }, { replace: true })}>+ Afspraak</button>
+            <button className="pd-q gold" onClick={() => setParams({ tab: 'overzicht', nieuw: 'opdracht' }, { replace: true })}>+ Opdracht</button>
+            <button className="pd-q" onClick={() => setParams({ tab: 'overzicht', nieuw: 'afspraak' }, { replace: true })}>+ Afspraak</button>
           </div>
         )}
       </header>
