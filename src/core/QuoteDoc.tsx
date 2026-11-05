@@ -25,7 +25,7 @@ export function initialChoice(lines: QLine[]) {
 export type QDoc = {
   number: string | null; title: string | null; doc_date: string | null; valid_until: string | null; client_name: string | null; client_address: string | null
   intro?: string | null; closing?: string | null; included?: string | null; excluded?: string | null; planning?: string | null; payment?: string | null; warranty?: string | null
-  show_groups?: boolean | null; project_code?: string | null; project_title?: string | null; site?: string | null; status?: string | null; accepted_at?: string | null; accepted_name?: string | null
+  show_groups?: boolean | null; vat_note?: string | null; project_code?: string | null; project_title?: string | null; site?: string | null; status?: string | null; accepted_at?: string | null; accepted_name?: string | null
 }
 export type Company = { naam?: string; adres?: string; kbo?: string; btw?: string; bank?: string; web?: string; telefoon?: string; email?: string }
 
@@ -141,6 +141,7 @@ export function QuoteDoc({ q, lines, company, lang = 'nl', btw6, choice, onToggl
           <tr className="qdoc-grand"><td>{t.total}</td><td>{eur(tot.incl, lang)}</td></tr>
         </tbody>
       </table>
+      {q.vat_note && <p className="qdoc-vatnote">{q.vat_note}</p>}
       {q.closing && <p className="qdoc-text">{q.closing}</p>}
       {(blocks.some(([, v]) => v) || has6) && (
         <section className="qdoc-know">

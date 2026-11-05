@@ -68,6 +68,7 @@ export function QuotePanel({ project }: { project: string }) {
 
 function QuoteEditor({ q, company, btw6, onChange, onGenerate, busy }: { q: Quote; company: Company; btw6: string | null; onChange: () => void; onGenerate: (m?: number | null) => void; busy: boolean }) {
   const lines = useQuery<Line[]>(() => supabase.from('quote_lines').select('*').eq('quote_id', q.id).order('sort').order('created_at'), [q.id, q.total_excl])
+  const vn = useQuery<{ vat_note: string | null } | null>(() => supabase.from('quotes').select('vat_note').eq('id', q.id).maybeSingle(), [q.id, q.total_excl])
   const sigs = useQuery<Sig[]>(() => supabase.from('quote_signatures').select('*').eq('quote_id', q.id).order('signed_at', { ascending: false }), [q.id, q.status])
   const sig = (sigs.data ?? [])[0] ?? null
   const qsig: QSignature | null = sig ? { signer_name: sig.signer_name, signed_at: sig.signed_at, hash: sig.doc_hash, png: sig.signature_png, ip: sig.ip } : null
@@ -237,7 +238,7 @@ function QuoteEditor({ q, company, btw6, onChange, onGenerate, busy }: { q: Quot
       {view === 'voorbeeld' && (
         <div className="qpreview">
           <div className="order-actions"><button onClick={printQuote}>Afdrukken / PDF</button></div>
-          <QuoteDoc q={{ ...q, client_name: q.client_name ?? preview?.name ?? '', client_address: q.client_address ?? preview?.address ?? '' }} lines={ls} company={company} lang={(q.language as QLang) ?? 'nl'} btw6={btw6} signature={qsig} />
+          <QuoteDoc q={{ ...q, vat_note: vn.data?.vat_note ?? null, client_name: q.client_name ?? preview?.name ?? '', client_address: q.client_address ?? preview?.address ?? '' }} lines={ls} company={company} lang={(q.language as QLang) ?? 'nl'} btw6={btw6} signature={qsig} />
         </div>
       )}
 
