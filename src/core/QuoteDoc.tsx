@@ -81,10 +81,10 @@ export function QuoteDoc({ q, lines, company, lang = 'nl', btw6, choice, onToggl
           <div className="qdoc-lt">{mark}{l.title}{l.opt_kind && <span className="qdoc-tag">{l.opt_kind === 'keuze' ? `${t.choose}${l.opt_group ? ': ' + l.opt_group : ''}` : t.optional}</span>}</div>
           {l.description && <div className="qdoc-ld">{l.description}</div>}
         </td>
-        <td className="n">{num(l.qty, lang)}</td>
-        <td className="n">{num(l.unit_price, lang)}</td>
+        <td className="n">{l.kind === 'info' ? '' : num(l.qty, lang)}</td>
+        <td className="n">{l.kind === 'info' ? '' : num(l.unit_price, lang)}</td>
         <td className="n">{Number(l.discount_pct) ? num(l.discount_pct, lang) + '%' : ''}</td>
-        <td className="n">{inc ? num(lineAmount(l), lang) : <span className="qdoc-nc">{t.notChosen}</span>}</td>
+        <td className="n">{l.kind === 'info' ? '' : inc ? num(lineAmount(l), lang) : <span className="qdoc-nc">{t.notChosen}</span>}</td>
       </tr>
     )
   }

@@ -25,7 +25,7 @@ type Sig = { id: string; signer_name: string; signer_email: string | null; signe
 const STATUS: Record<string, [string, string]> = {
   concept: ['Concept', 'muted'], verstuurd: ['Verstuurd', 'warn'], aanvaard: ['Aanvaard', 'ok'], geweigerd: ['Geweigerd', 'bad'], vervallen: ['Vervallen', 'muted'], vervangen: ['Vervangen', 'muted'],
 }
-const KINDS: [string, string, number | null][] = [['vrij', 'Vrije regel', null], ['toestel', 'Toestel (21 % btw)', 21], ['sanitair', 'Sanitair', null], ['dienst', 'Dienst / arbeid', null], ['optie', 'Optie (klant vinkt aan)', null], ['keuze', 'Alternatief (klant kiest één)', null]]
+const KINDS: [string, string, number | null][] = [['vrij', 'Vrije regel', null], ['toestel', 'Toestel (21 % btw)', 21], ['sanitair', 'Sanitair', null], ['dienst', 'Dienst / arbeid', null], ['info', 'Info (zonder bedrag)', null], ['optie', 'Optie (klant vinkt aan)', null], ['keuze', 'Alternatief (klant kiest één)', null]]
 
 export function QuotePanel({ project }: { project: string }) {
   const list = useQuery<Quote[]>(() => supabase.from('app_quotes').select('*').eq('project_code', project).order('created_at', { ascending: false }), [project])
@@ -82,7 +82,7 @@ function QuoteEditor({ q, company, btw6, onChange, onGenerate, busy }: { q: Quot
   const cost = ls.filter((l) => lineOn(l)).reduce((a, l) => a + Number(l.cost_basis ?? 0), 0)
   const marginEur = ls.filter((l) => l.cost_basis != null && lineOn(l)).reduce((a, l) => a + lineAmount(l) - Number(l.cost_basis), 0)
   const groups = [...new Set(ls.filter((l) => l.opt_kind === 'keuze').map((l) => l.opt_group ?? ''))]
-  const zero = ls.filter((l) => Number(l.unit_price) === 0 && Number(l.discount_pct) < 100)
+  const zero = ls.filter((l) => Number(l.unit_price) === 0 && Number(l.discount_pct) < 100 && l.kind !== 'info')
 
   // naam en adres zoals ze op de offerte komen (concept: uit klant/project)
   useEffect(() => {
@@ -110,7 +110,7 @@ function QuoteEditor({ q, company, btw6, onChange, onGenerate, busy }: { q: Quot
     const std = ls.find((l) => l.kind !== 'toestel')?.vat_rate ?? 6
     const opt = kind === 'optie' || kind === 'keuze' ? kind : null
     const grp = kind === 'keuze' ? (groups[0] || 'Werkblad') : null
-    const { error } = await supabase.from('quote_lines').insert({ quote_id: q.id, sort, title: kind === 'toestel' ? 'Toestel' : opt === 'keuze' ? 'Alternatief' : opt === 'optie' ? 'Optie' : 'Nieuwe regel', qty: 1, unit_price: 0, vat_rate: vat ?? std, kind: opt ? 'vrij' : kind, opt_kind: opt, opt_group: grp, opt_default: opt === 'keuze' ? !ls.some((l) => l.opt_kind === 'keuze' && l.opt_group === grp) : opt === 'optie' ? false : true })
+    const { error } = await supabase.from('quote_lines').insert({ quote_id: q.id, sort, title: kind === 'toestel' ? 'Toestel' : kind === 'info' ? 'Info, bv. 5 jaar garantie op de toestellen' : opt === 'keuze' ? 'Alternatief' : opt === 'optie' ? 'Optie' : 'Nieuwe regel', qty: 1, unit_price: 0, vat_rate: vat ?? std, kind: opt ? 'vrij' : kind, opt_kind: opt, opt_group: grp, opt_default: opt === 'keuze' ? !ls.some((l) => l.opt_kind === 'keuze' && l.opt_group === grp) : opt === 'optie' ? false : true })
     if (error) toast(error.message, 'err'); else { lines.reload(); onChange() }
   }
   const removeLine = async (l: Line) => {

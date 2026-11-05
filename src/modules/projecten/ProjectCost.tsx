@@ -7,14 +7,14 @@ import { toast } from '../../core/toast'
 
 /**
  * Tab "Projectkost" op de projectpagina: de kostprijs van het project op detailniveau, in groepen.
- * Groepen = rubrieken uit de stuklijst (laatste berekende versie) + eigen groepen. Eigen regels (met de hand, uit een prijslijst,
+ * Groepen = standaardgroepen uit de stuklijst (regel projectkost_groepen: platen, kanten en productie = "Kasten volgens 3D-plan", werkbladplaten = "Werkblad", de rest per rubriek) + eigen groepen. Eigen regels (met de hand, uit een prijslijst,
  * uit een mail of een nieuw artikel) blijven staan bij een nieuwe versie. De offerte wordt hieruit opgebouwd (quote_generate):
  * de klant ziet per groep titel, uitleg en prijs; Olivier ziet deze opbouw. Rekenen gebeurt in de views app_project_cost(_groups).
  */
 type Line = {
   project_code: string; kind: 'stuklijst' | 'eigen'; id: string; group_name: string; rubriek: string | null; sort: number; description: string; explanation: string | null
   supplier: string | null; article_no: string | null; qty: number | null; unit: string | null; unit_price: number | null; total: number; note: string | null
-  line_key: string; no_price: boolean; in_stock: boolean; duplicate: boolean; source: string; source_ref: string | null; version: number | null
+  line_key: string; no_price: boolean; in_stock: boolean; duplicate: boolean; source: string; source_ref: string | null; version: number | null; default_group?: string | null
 }
 type Group = {
   project_code: string; group_name: string; sort: number; client_title: string; client_text: string | null; vat_rate: number | null; margin_pct: number | null
@@ -57,7 +57,7 @@ export function ProjectCost({ project, onQuote }: { project: string; onQuote: ()
     if (!to || to === l.group_name) return
     let error
     if (l.kind === 'eigen') ({ error } = await supabase.from('project_cost_items').update({ group_name: to, updated_at: new Date().toISOString() }).eq('id', l.id))
-    else if (to === l.rubriek) ({ error } = await supabase.from('project_cost_moves').delete().eq('project_code', project).eq('line_key', l.line_key))
+    else if (to === (l.default_group ?? l.rubriek)) ({ error } = await supabase.from('project_cost_moves').delete().eq('project_code', project).eq('line_key', l.line_key))
     else ({ error } = await supabase.from('project_cost_moves').upsert({ project_code: project, line_key: l.line_key, group_name: to, updated_at: new Date().toISOString() }))
     if (error) return toast(error.message, 'err')
     toast(`Naar ${to}`); reload()
@@ -213,7 +213,7 @@ function LineRow({ l, groups, onMove, onStock, onRemove, onSaved }: { l: Line; g
         <td>
           <select value={l.group_name} onChange={(e) => onMove(e.target.value)} aria-label="Groep">
             {groups.map((g) => <option key={g}>{g}</option>)}
-            {l.rubriek && !groups.includes(l.rubriek) && <option value={l.rubriek}>{l.rubriek} (rubriek)</option>}
+            {l.kind === 'stuklijst' && (l.default_group ?? l.rubriek) && !groups.includes((l.default_group ?? l.rubriek)!) && <option value={(l.default_group ?? l.rubriek)!}>{l.default_group ?? l.rubriek} (standaard)</option>}
             <option value="__new">+ nieuwe groep…</option>
           </select>
         </td>
