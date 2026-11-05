@@ -128,6 +128,10 @@ export function ProductionPanel({ project }: { project: string }) {
             <p className="notice">{partner.data?.name ?? 'De partner'} heeft nog geen login voor het portaal ({partner.data?.email}). Zonder login kan hij het pakket niet openen.{' '}
               <button className="link" disabled={busy === 'invite'} onClick={invite}>Nu uitnodigen</button></p>
           )}
+          {!editable && cur.id === rows[0]?.id && (
+            <p className="notice">Deze versie is {cur.status === 'verstuurd' ? (test ? 'verstuurd (test)' : 'verstuurd') : cur.status} en ligt vast. Iets aanpassen (opmerkingen, nerf laten doorlopen, vinkjes, bestanden)?{' '}
+              <button className="link" disabled={busy === 'new'} onClick={make}>Maak een nieuwe versie</button>: alles van deze versie gaat mee.</p>
+          )}
           {editable && (
             <div className="prodpkg-edit">
               <label className="wide">Opmerkingen voor {partner.data?.name ?? 'partner'}
