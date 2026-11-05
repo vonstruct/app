@@ -2,14 +2,20 @@ import { useState } from 'react'
 import { supabase } from '../core/supabase'
 import { useQuery } from '../core/useQuery'
 import { PackageView, type Pkg, type PkgFile } from '../core/PackageView'
+import type { ViewAs } from './Jobs'
 
 /** Partnerportaal (partner): productiepakketten die Olivier verstuurde. Nieuwste versie per project bovenaan; downloads worden bijgehouden. */
-export function Packages({ preview }: { preview?: boolean }) {
+export function Packages({ preview, viewAs }: { preview?: boolean; viewAs?: ViewAs | null }) {
   const q = useQuery<Pkg[]>(async () => {
+    // beheerder bekijkt het portaal van de partner: zijn verstuurde pakketten
+    if (viewAs?.kind === 'partner') {
+      const { data, error } = await supabase.rpc('admin_partner_packages', { p_partner: viewAs.id })
+      return { data: (data ?? []) as Pkg[], error }
+    }
     if (preview) return { data: [], error: null }
     const { data, error } = await supabase.rpc('portal_my_packages')
     return { data: (data ?? []) as Pkg[], error }
-  }, [preview])
+  }, [preview, viewAs?.id])
   const [busy, setBusy] = useState<string | null>(null)
   const [old, setOld] = useState(false)
   const all = q.data ?? []

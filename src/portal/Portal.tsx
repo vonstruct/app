@@ -88,7 +88,7 @@ export function Portal({ role, preview = false, viewAs = null }: { role: PortalR
           </>
         ) : (
           <>
-            {role === 'partner' && !viewAs && <Packages preview={preview} />}
+            {role === 'partner' && <Packages preview={preview} viewAs={viewAs} />}
             <MyPunch lang={lang} preview={preview || !!viewAs} />
             <Jobs lang={lang} preview={preview} viewAs={viewAs} empty={<EmptyWork role={role} lang={lang} />} />
           </>
