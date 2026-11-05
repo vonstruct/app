@@ -28,7 +28,7 @@ const SECTIONS: Section[] = [
   },
   {
     id: 'partners', label: 'Partners', table: 'partners', orderBy: 'name', newRow: { name: 'Nieuwe partner' }, canDelete: true,
-    intro: 'Productiepartners, zoals partner voor het zagen en frezen van de platen. Met een e-mailadres krijgt de partner toegang tot het partnerportaal.',
+    intro: 'Productiepartners, bijvoorbeeld voor het zagen en frezen van de platen. Met een e-mailadres krijgt de partner toegang tot het partnerportaal.',
     columns: [
       { key: 'name', label: 'Naam' },
       { key: 'services', label: 'Doet voor ons' },

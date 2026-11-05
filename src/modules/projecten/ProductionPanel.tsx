@@ -7,9 +7,9 @@ import { PackageView, fileSize, type Pkg, type PkgFile } from '../../core/Packag
 import { PartnerOrderPanel } from './PartnerOrderPanel'
 
 /**
- * Tab "Productie" op de projectpagina: productiepakket voor partner (tabel production_packages, versies).
+ * Tab "Productie" op de projectpagina: productiepakket voor de productiepartner (tabel production_packages, versies).
  * Concept: opmerkingen, restplaten/rest kantenband meegeven, opmerkingen per kast (cabinet_notes: kasten uit bom_cabinets kiezen, per kast de keuzes uit regel productie_kast_opmerkingen of Andere met eigen tekst), bestanden = wat in de projectmap in OneDrive staat (regel productie_map,
- * Edge Function productie actie folder) + zaagplan en gedeelde tekeningen. Testmodus (regel productie_testmodus): niets naar de partner. Versturen = mail aan partner + zichtbaar in het partnerportaal;
+ * Edge Function productie actie folder) + zaagplan en gedeelde tekeningen. Testmodus (regel productie_testmodus): niets naar de partner. Versturen = mail aan de partner + zichtbaar in het partnerportaal;
  * downloads worden bijgehouden. Nieuwe versie = package_new (neemt opmerkingen over, zaagplan + gedeelde tekeningen erbij).
  */
 type Row = { id: string; project_code: string; version: number; status: string; note: string | null; return_sheets: boolean; return_edges: boolean; sent_at: string | null; partner_id: string | null; created_at: string; design_version_id: string | null; cabinet_notes: Record<string, CabNote> | null }
@@ -90,13 +90,13 @@ export function ProductionPanel({ project }: { project: string }) {
     if (error) toast(error.message, 'err'); else { toast('Bewaard'); reload() }
   }
   const send = async () => {
-    if (!cur || !confirm(test ? `Testmodus: de mail gaat enkel naar info@ (niets naar ${partner.data?.name ?? 'partner'}). Doorgaan?` : `Productiepakket versie ${cur.version} versturen naar ${partner.data?.name ?? 'partner'}? Ze krijgen een mail en zien het in hun portaal.`)) return
+    if (!cur || !confirm(test ? `Testmodus: de mail gaat enkel naar info@ (niets naar ${partner.data?.name ?? 'de partner'}). Doorgaan?` : `Productiepakket versie ${cur.version} versturen naar ${partner.data?.name ?? 'de partner'}? Ze krijgen een mail en zien het in hun portaal.`)) return
     setBusy('send')
     const { data, error } = await supabase.functions.invoke('productie', { body: { action: 'send', package_id: cur.id } })
     setBusy(null)
     const msg = error ? (await (error as { context?: Response }).context?.json?.().catch(() => null))?.error ?? error.message : (data as { error?: string })?.error
     if (msg) return toast(msg, 'err')
-    toast(test ? 'Test: mail naar info@ gestuurd' : `Verstuurd naar ${partner.data?.name ?? 'partner'}`); reload()
+    toast(test ? 'Test: mail naar info@ gestuurd' : `Verstuurd naar ${partner.data?.name ?? 'de partner'}`); reload()
   }
   const download = async (f: PkgFile) => {
     const w = window.open('', '_blank')
@@ -139,9 +139,9 @@ export function ProductionPanel({ project }: { project: string }) {
           <header className="prodpkg-head">
             <div><b>Productiepakket versie {cur.version}</b> <span className={'pill ' + (cur.status === 'verstuurd' ? 'ok' : 'muted')}>{STATUS[cur.status] ?? cur.status}</span>
               <div className="small muted">voor {partner.data?.name ?? '—'}{cur.sent_at ? ` · verstuurd ${new Date(cur.sent_at).toLocaleString('nl-BE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}</div></div>
-            {editable && <button className="primary" disabled={busy === 'send'} onClick={send}>{busy === 'send' ? 'Versturen…' : test ? 'Versturen (test: enkel naar info@)' : `Versturen naar ${partner.data?.name ?? 'partner'}`}</button>}
+            {editable && <button className="primary" disabled={busy === 'send'} onClick={send}>{busy === 'send' ? 'Versturen…' : test ? 'Versturen (test: enkel naar info@)' : `Versturen naar ${partner.data?.name ?? 'de partner'}`}</button>}
           </header>
-          {test && <p className="notice small">Testmodus: niets gaat naar {partner.data?.name ?? 'partner'}. Versturen mailt enkel naar info@. Uitzetten in Rekenregels → Productie.</p>}
+          {test && <p className="notice small">Testmodus: niets gaat naar {partner.data?.name ?? 'de partner'}. Versturen mailt enkel naar info@. Uitzetten in Rekenregels → Productie.</p>}
           {!test && login.data === false && (
             <p className="notice">{partner.data?.name ?? 'De partner'} heeft nog geen login voor het portaal ({partner.data?.email}). Zonder login kan hij het pakket niet openen.{' '}
               <button className="link" disabled={busy === 'invite'} onClick={invite}>Nu uitnodigen</button></p>
@@ -153,7 +153,7 @@ export function ProductionPanel({ project }: { project: string }) {
           {editable && (
             <div className="prodpkg-edit">
               <div className="prodpkg-notes">
-                <b>Opmerkingen voor {partner.data?.name ?? 'partner'}</b>
+                <b>Opmerkingen voor {partner.data?.name ?? 'de partner'}</b>
                 <label className="wide">Algemeen
                   <textarea key={cur.id} rows={3} defaultValue={cur.note ?? ''} placeholder="Waar moeten ze rekening mee houden?" onBlur={(e) => e.target.value !== (cur.note ?? '') && save({ note: e.target.value || null })} />
                 </label>
@@ -195,7 +195,7 @@ export function ProductionPanel({ project }: { project: string }) {
               )}
             </div>
           )}
-          <h3 className="prodpkg-sub">{editable ? `Zo ziet ${partner.data?.name ?? 'partner'} het` : 'Inhoud'}</h3>
+          <h3 className="prodpkg-sub">{editable ? `Zo ziet ${partner.data?.name ?? 'de partner'} het` : 'Inhoud'}</h3>
           {pv.loading ? <Loading /> : pv.data && <PackageView p={pv.data} onDownload={download} admin />}
         </section>
       )}

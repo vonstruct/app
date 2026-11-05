@@ -1,7 +1,7 @@
 import logo from '../assets/vonstruct-logo.webp'
 
 /**
- * De offerte zoals de klant ze ziet (zelfde opbouw als OFF00): zwarte kop met logo en bedrijfsgegevens,
+ * De offerte zoals de klant ze ziet (zelfde opbouw als de bestaande offertes): zwarte kop met logo en bedrijfsgegevens,
  * referentie/datums/klant, regels (omschrijving, aantal, prijs excl., korting, bedrag), totalen per btw-tarief.
  * Gedeeld door de beheer-app (voorbeeld/afdrukken) en het klantenportaal. Toont nooit kostprijs of marge.
  */

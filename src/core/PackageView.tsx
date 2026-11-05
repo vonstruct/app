@@ -1,7 +1,7 @@
 import { fmtNum } from './format'
 
 /**
- * Inhoud van een productiepakket zoals de partner (partner) het ziet: opmerkingen, restplaten/kantenband meegeven, bestanden,
+ * Inhoud van een productiepakket zoals de productiepartner het ziet: opmerkingen, restplaten/kantenband meegeven, bestanden,
  * opmerkingen per kast, platen en kantenband die de partner bestelt (zonder prijs; wat Vonstruct zelf bestelt niet), productie in aantallen (geen prijzen, geen bestelkost of vracht). Gedeeld door het partnerportaal en het voorbeeld voor de beheerder.
  * Gegevens = package_json() in Supabase.
  */
@@ -45,7 +45,7 @@ export function PackageView({ p, onDownload, admin }: { p: Pkg; onDownload: (f: 
             <li key={f.id}>
               <span className="pkg-kind">{KIND[f.kind] ?? f.kind}</span>
               <span className="pkg-fname">{f.name} <small className="muted">{fileSize(f.size)}</small></span>
-              <span className="small muted">{f.downloaded_at ? `${admin ? 'gedownload door partner' : 'gedownload'} ${day(f.downloaded_at)}` : admin ? 'nog niet gedownload' : ''}</span>
+              <span className="small muted">{f.downloaded_at ? `${admin ? 'gedownload door de partner' : 'gedownload'} ${day(f.downloaded_at)}` : admin ? 'nog niet gedownload' : ''}</span>
               <button className="small" onClick={() => onDownload(f)}>Downloaden</button>
             </li>
           ))}

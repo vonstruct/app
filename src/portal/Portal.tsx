@@ -121,7 +121,7 @@ function ClientProjects({ preview, lang, onSurvey }: { preview: boolean; lang: L
   const [visits, setVisits] = useState<Visit[]>([])
   const loadVisits = () => { if (!preview) supabase.rpc('portal_client_visits').then(({ data }) => setVisits((data as Visit[]) ?? [])) }
   useEffect(() => {
-    if (preview) { const d = new Date(); d.setDate(d.getDate() + 3); return setVisits([{ id: 'v', project_code: '209901', title: 'Keuken plaatsen', job_type: 'Nieuwbouw', slot: 'dag', start_at: d.toISOString(), end_at: new Date(d.getTime() + 86400000).toISOString(), status: 'gepland', who: 'Elektricien – Jan Peeters BV', client_in_loop: true, client_confirmed_at: null, sub_confirmed: true }]) }
+    if (preview) { const d = new Date(); d.setDate(d.getDate() + 3); return setVisits([{ id: 'v', project_code: '209901', title: 'Keuken plaatsen', job_type: 'Nieuwbouw', slot: 'dag', start_at: d.toISOString(), end_at: new Date(d.getTime() + 86400000).toISOString(), status: 'gepland', who: 'Elektricien – Jan Peeters', client_in_loop: true, client_confirmed_at: null, sub_confirmed: true }]) }
     supabase.rpc('portal_client_visits').then(({ data }) => setVisits((data as Visit[]) ?? []))
   }, [preview])
   useEffect(() => {

@@ -3,7 +3,7 @@ import { supabase } from './supabase'
 import { fmtNum } from './format'
 
 /**
- * Bestelling en ophaling bij de productiepartner (partner), zoals de partner ze ziet: platen en kantenband bestellen (per leverancier
+ * Bestelling en ophaling bij de productiepartner, zoals de partner ze ziet: platen en kantenband bestellen (per leverancier
  * "besteld + verwacht op" of "binnen"), ophaaldatum bevestigen, palletvoorstel, productie klaar. Gegevens = partner_order_json() in Supabase.
  * act = de partner kan klikken (portaal); in het voorbeeld voor de beheerder staan de knoppen uit.
  */

@@ -4,7 +4,7 @@ import { useQuery } from '../core/useQuery'
 import { PartnerOrderView, type PartnerOrder } from '../core/PartnerOrderView'
 import type { ViewAs } from './Jobs'
 
-/** Partnerportaal (partner): bestellingen en ophalingen per project (platen bestellen, ophaaldatum bevestigen, paletten, klaar). */
+/** Partnerportaal (productiepartner): bestellingen en ophalingen per project (platen bestellen, ophaaldatum bevestigen, paletten, klaar). */
 export function PartnerOrders({ preview, viewAs, onCount }: { preview?: boolean; viewAs?: ViewAs | null; onCount?: (n: number) => void }) {
   const q = useQuery<PartnerOrder[]>(async () => {
     if (viewAs?.kind === 'partner') {

@@ -4,7 +4,7 @@ import { useQuery } from '../core/useQuery'
 import { PackageView, type Pkg, type PkgFile } from '../core/PackageView'
 import type { ViewAs } from './Jobs'
 
-/** Partnerportaal (partner): productiepakketten die Olivier verstuurde. Nieuwste versie per project bovenaan; downloads worden bijgehouden. */
+/** Partnerportaal (productiepartner): productiepakketten die Olivier verstuurde. Nieuwste versie per project bovenaan; downloads worden bijgehouden. */
 export function Packages({ preview, viewAs, onCount }: { preview?: boolean; viewAs?: ViewAs | null; onCount?: (n: number) => void }) {
   const q = useQuery<Pkg[]>(async () => {
     // beheerder bekijkt het portaal van de partner: zijn verstuurde pakketten

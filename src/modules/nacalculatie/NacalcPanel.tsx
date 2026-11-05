@@ -101,7 +101,7 @@ export function NacalcPanel({ project }: { project: string }) {
         <input placeholder="Uren" inputMode="decimal" value={h.hours} onChange={(e) => setH({ ...h, hours: e.target.value })} />
         <button className="primary" onClick={addHours}>+ Uren</button>
       </div>
-      <p className="muted small">Tip: zeg tegen VON of Siri "noteer 4 uur plaatsing op 209901". Uurkost aanpassen: <RuleLink s="Nacalculatie" />.</p>
+      <p className="muted small">Tip: zeg tegen VON of Siri "noteer 4 uur plaatsing op &lt;projectcode&gt;". Uurkost aanpassen: <RuleLink s="Nacalculatie" />.</p>
     </div>
   )
 }

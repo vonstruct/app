@@ -6,10 +6,10 @@ import { toast } from '../../core/toast'
 import { PartnerOrderView, palletName, type PartnerOrder } from '../../core/PartnerOrderView'
 
 /**
- * Blok "Bestelling en ophaling bij partner" bovenaan de tab Productie (tabel partner_orders, view app_partner_orders).
- * Platen + kantenband (bestellingen "besteld door partner") doorgeven met de ophaaldatum: vanzelf bij een betaald voorschot
+ * Blok "Bestelling en ophaling bij de partner" bovenaan de tab Productie (tabel partner_orders, view app_partner_orders).
+ * Platen + kantenband (bestellingen "besteld door" de partner) doorgeven met de ophaaldatum: vanzelf bij een betaald voorschot
  * (trigger op invoices) of hier met de hand (Edge Function productie, actie order_send; testmodus = enkel naar info@).
- * partner duidt in het portaal aan: besteld + verwacht op / binnen, ophalen lukt of niet, productie klaar. Palletvoorstel = pallet_plan().
+ * De partner duidt in het portaal aan: besteld + verwacht op / binnen, ophalen lukt of niet, productie klaar. Palletvoorstel = pallet_plan().
  */
 type Row = {
   id: string | null; partner_id: string; partner: string; status: string; sent_at: string | null; sent_how: string | null; sent_count: number | null

@@ -9,6 +9,8 @@ export type EditCol = {
   label: string
   type?: 'text' | 'number' | 'bool' | 'select' | 'textarea'
   options?: string[]
+  /** keuzes uit een tabel (bv. partnernamen), achter de vaste options */
+  optionsFrom?: { table: string; column: string }
   width?: number
   placeholder?: string
 }
@@ -96,14 +98,25 @@ export function EditableTable({ table, columns, orderBy = 'id', newRow = {}, emp
   )
 }
 
+// keuzes uit een tabel: één keer ophalen per tabel+kolom (niet per cel)
+const optCache = new Map<string, Promise<string[]>>()
+function optionsFrom(table: string, column: string) {
+  const k = table + '.' + column
+  if (!optCache.has(k))
+    optCache.set(k, Promise.resolve(supabase.from(table).select(column).order(column)).then(({ data }) =>
+      ((data ?? []) as unknown as Record<string, unknown>[]).map((r) => String(r[column] ?? '')).filter(Boolean)))
+  return optCache.get(k)!
+}
+
 function Cell({ col, value, onSave, autoFocus }: { col: EditCol; value: unknown; onSave: (v: unknown) => void; autoFocus?: boolean }) {
   const [v, setV] = useState(value == null ? '' : String(value))
+  const extra = useQuery<string[]>(async () => ({ data: col.optionsFrom ? await optionsFrom(col.optionsFrom.table, col.optionsFrom.column) : [], error: null }), [col.optionsFrom?.table, col.optionsFrom?.column])
   if (col.type === 'bool')
     return <input type="checkbox" checked={value === true} onChange={(e) => onSave(e.target.checked)} />
   if (col.type === 'select')
     return (
       <select value={v} onChange={(e) => { setV(e.target.value); onSave(e.target.value === '' ? null : e.target.value) }}>
-        {(col.options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}
+        {[...new Set([...(col.options ?? []), ...(extra.data ?? []), ...(v && !(col.options ?? []).includes(v) ? [v] : [])])].map((o) => <option key={o} value={o}>{o}</option>)}
       </select>
     )
   if (col.type === 'textarea')

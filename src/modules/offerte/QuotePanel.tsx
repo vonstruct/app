@@ -331,7 +331,7 @@ function ImportQuote({ project, onDone }: { project: string; onDone: (id: string
       {scan === 'ok' && <p className="small ok-txt">Gelezen ✓ Kijk de gegevens na.</p>}
       {note && <p className="small muted">{note}</p>}
       <div className="new-rel-grid">
-        <label>Nummer<input value={f.number} onChange={set('number')} placeholder="bv. OFF00" /></label>
+        <label>Nummer<input value={f.number} onChange={set('number')} placeholder="bv. OFF1" /></label>
         <label>Datum<input type="date" value={f.date} onChange={set('date')} /></label>
         <label>Omschrijving<input value={f.title} onChange={set('title')} placeholder="bv. Keuken" /></label>
         <label>Status<select value={f.status} onChange={set('status')}><option value="aanvaard">Aanvaard</option><option value="verstuurd">Verstuurd (wacht op antwoord)</option><option value="geweigerd">Geweigerd</option></select></label>
