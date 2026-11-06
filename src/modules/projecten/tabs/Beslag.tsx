@@ -3,8 +3,8 @@ import { useQuery } from '../../../core/useQuery'
 import { DataTable } from '../../../core/DataTable'
 import { ErrorBox, Loading } from '../../../core/ui'
 
-/** own_* = eigen artikel (manual_prices, herkend op artikelnummer of naam): telt mee in de kostprijs, ook zonder artikelnummer in PaletteCAD. */
-type Row = { category: string | null; name: string; manufacturer: string | null; article_no: string | null; qty: number; own_supplier: string | null; own_article_no: string | null; own_origin: string | null }
+/** own_* = ingevulde prijs (manual_prices, herkend op artikelnummer of naam) met leverancier en zijn artikelnummer (own_ref): telt mee in de kostprijs, ook zonder artikelnummer in PaletteCAD. */
+type Row = { category: string | null; name: string; manufacturer: string | null; article_no: string | null; qty: number; own_supplier: string | null; own_article_no: string | null; own_origin: string | null; own_ref: string | null }
 const CAT: Record<string, string> = { LA: 'Lades', WB: 'Werkblad', SA: 'Sanitair', EL: 'Elektriciteit', TO: 'Toestellen', GR: 'Grepen', VA: 'Varia' }
 
 export function Beslag({ dvId }: { dvId: string }) {
@@ -21,8 +21,8 @@ export function Beslag({ dvId }: { dvId: string }) {
           { key: 'category', label: 'Rubriek', value: (r) => (r.category ? CAT[r.category] ?? r.category : 'Beslag') },
           { key: 'name', label: 'Artikel' },
           { key: 'manufacturer', label: 'Fabrikant', value: (r) => r.manufacturer ?? r.own_supplier ?? '' },
-          { key: 'article_no', label: 'Artikelnummer', value: (r) => r.article_no ?? r.own_article_no ?? '', render: (r) => r.article_no ?? r.own_article_no ?? (r.own_origin
-            ? <span className="badge ok" title="Herkend op naam als eigen artikel: prijs en herkomst staan bij Geld › Kostprijs">eigen artikel{r.own_origin !== 'Bestellen' ? ` · ${r.own_origin.toLowerCase()}` : ''}</span>
+          { key: 'article_no', label: 'Artikelnummer', value: (r) => r.article_no ?? r.own_ref ?? r.own_article_no ?? '', render: (r) => r.article_no ?? r.own_ref ?? r.own_article_no ?? (r.own_origin
+            ? <span className="muted small" title="Prijs ingevuld bij Geld › Kostprijs, zonder artikelnummer van de leverancier">nummer niet gekend{r.own_origin !== 'Bestellen' ? ` · ${r.own_origin.toLowerCase()}` : ''}</span>
             : <span className="badge warn">ontbreekt</span>) },
           { key: 'qty', label: 'Aantal', align: 'right', total: true },
         ]}

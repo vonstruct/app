@@ -263,6 +263,8 @@ function LineRow({ l, groups, onMove, onStock, onRemove, onSaved }: { l: Line; g
           <PriceFinder query={l.description} onPick={async (h) => {
             const { error } = await supabase.rpc('set_manual_item', { p_article_no: l.article_no ?? '', p_description: l.description, p_supplier: h.supplier, p_price: h.unit_price, p_origin: 'Bestellen' })
             if (error) return toast(error.message, 'err')
+            // het artikelnummer van de leverancier (prijslijst of factuur) mee bewaren, los van de herkenning op naam
+            if (h.article_no) await supabase.rpc('set_manual_ref', { p_article_no: l.article_no ?? '', p_description: l.description, p_ref: h.article_no })
             toast(`Prijs bewaard: ${fmtEur(h.unit_price ?? 0)} per stuk (${h.supplier ?? h.src}). Geldt ook voor volgende projecten.`)
             setFind(false); onSaved()
           }} />
@@ -314,7 +316,7 @@ function PriceFinder({ query, onPick }: { query: string; onPick: (h: Hit) => voi
           <tbody>
             {hits.map((h, i) => (
               <tr key={i}>
-                <td><span className={'tag t-' + h.src}>{h.src === 'mail' ? 'mail' : h.src === 'eigen' ? 'eigen artikel' : 'prijslijst'}</span></td>
+                <td><span className={'tag t-' + h.src}>{h.src === 'mail' ? 'mail' : h.src === 'eigen' ? 'eerder ingevuld' : 'prijslijst'}</span></td>
                 <td>{h.description}<div className="small muted">{[h.supplier, h.article_no, h.seen && new Date(h.seen).toLocaleDateString('nl-BE')].filter(Boolean).join(' · ')}</div></td>
                 <td className="num">
                   {h.unit_price == null ? '' : fmtEur(h.unit_price)}{h.unit ? <small className="muted"> / {h.unit}</small> : null}
