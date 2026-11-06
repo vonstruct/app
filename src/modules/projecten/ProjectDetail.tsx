@@ -11,7 +11,7 @@ import { ProjectCost } from './ProjectCost'
 import { ProductionPanel } from './ProductionPanel'
 import { Orders } from '../bestellingen/Orders'
 import { MailDocs } from '../bestellingen/MailDocs'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { supabase } from '../../core/supabase'
 import { useQuery } from '../../core/useQuery'
@@ -56,6 +56,12 @@ export function ProjectDetail() {
   // tab Planning is opgegaan in het Overzicht (Olivier, 5 nov): oude links ?tab=planning tonen het Overzicht
   const tab = ((t) => (t === 'planning' ? 'overzicht' : t))(params.get('tab') ?? (focus === 'survey' ? 'vragenlijst' : focus === 'mails' ? 'mails' : 'overzicht'))
   const setTab = (t: string) => setParams(t === 'overzicht' ? {} : { tab: t }, { replace: true })
+  // gsm: het gekozen tabblad in beeld schuiven (enkel de rij tabbladen, niet de pagina)
+  const tabsRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const n = tabsRef.current, el = n?.querySelector<HTMLElement>('button.on')
+    if (n && el) n.scrollLeft += el.getBoundingClientRect().left - n.getBoundingClientRect().left - (n.clientWidth - el.clientWidth) / 2
+  }, [tab])
   const project = pq.data?.[0]
   const tl = useTimeline(code, pq.reload)
   // klantgegevens: klein blok onder de kop; opent vanzelf als je komt om een ontbrekend veld in te vullen (?focus=email …)
@@ -143,8 +149,8 @@ export function ProjectDetail() {
       </header>
       {project && (showClient || clientFocus) && <div className="pd-client"><ClientPanel project={project} focus={clientFocus} onSaved={pq.reload} /></div>}
       {project && ph.data && <PhaseBar project={project} gates={tl.gates} phases={ph.data} onSaved={() => { pq.reload(); tl.load() }} focus={focus === 'fase'} />}
-      <nav className="pd-tabs" aria-label="Onderdelen van het project">
-        {TABS.map(([id, label]) => <button key={id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)} ref={tab === id ? (el) => el?.scrollIntoView({ block: 'nearest', inline: 'nearest' }) : undefined}>{label}</button>)}
+      <nav className="pd-tabs" aria-label="Onderdelen van het project" ref={tabsRef}>
+        {TABS.map(([id, label]) => <button key={id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{label}</button>)}
       </nav>
       <ErrorBox error={q.error ?? pq.error} />
       {pq.loading ? <Loading /> : !project ? <p className="muted">Project {code} niet gevonden.</p> : <div className="pd-body">{body}</div>}
