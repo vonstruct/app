@@ -11,17 +11,19 @@ export async function openYukiPdf(documentId: string) {
   if (w) w.location.href = data.url; else window.location.href = data.url
 }
 
-/** Facturen en betalingen van een klant uit Yuki (klantenrekening, view app_client_ledger; elke nacht bijgewerkt), met pdf uit het archief. Offertes uit Yuki zijn niet op te halen (niet in het archief). */
-type L = { yuki_id: string; entry_date: string; kind: 'factuur' | 'creditnota' | 'betaling'; invoice_no: string | null; description: string | null; amount: number; paid: boolean | null; client_balance: number; document_id: string | null }
+/** Facturen en betalingen van een klant uit Yuki (klantenrekening, view app_client_ledger; elke nacht bijgewerkt), met pdf uit het archief. Offertes uit Yuki zijn niet op te halen (niet in het archief).
+ *  Enkel facturen die horen bij een opgeladen offerte of een factuur van de app (+ hun betalingen); met `project` enkel die van dat project (6 nov 2026). */
+type L = { project_code: string | null; yuki_id: string; entry_date: string; kind: 'factuur' | 'creditnota' | 'betaling'; invoice_no: string | null; description: string | null; amount: number; paid: boolean | null; client_balance: number; document_id: string | null }
 const d = (v: string) => new Date(v + 'T12:00').toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', year: 'numeric' })
 const clean = (s: string | null) => (s ?? '').replace(/^Binnenlandse overschrijvingen - SEPA credit transfers : /, '').replace(/\s*\|.*$/, '').replace(/Netto bedrag: [\d,.]+ : /, '').slice(0, 90)
 
-export function useClientLedger(clientId: string | null | undefined) {
+export function useClientLedger(clientId: string | null | undefined, project?: string) {
   const [rows, setRows] = useState<L[] | null>(null)
   useEffect(() => {
-    if (!clientId) return setRows([])
-    supabase.from('app_client_ledger').select('*').eq('client_id', clientId).order('entry_date').then(({ data }) => setRows((data as L[]) ?? []))
-  }, [clientId])
+    if (!clientId && !project) return setRows([])
+    const q = supabase.from('app_client_ledger').select('*').order('entry_date')
+    ;(project ? q.eq('project_code', project) : q.eq('client_id', clientId!)).then(({ data }) => setRows((data as L[]) ?? []))
+  }, [clientId, project])
   return rows
 }
 
@@ -29,12 +31,12 @@ export function ledgerSummary(rows: L[] | null) {
   if (!rows?.length) return null
   const inv = rows.filter((r) => r.kind === 'factuur')
   const total = inv.reduce((a, r) => a + Number(r.amount), 0)
-  const open = Math.max(0, Number(rows[0].client_balance))
+  const open = Math.max(0, rows.reduce((a, r) => a + Number(r.amount), 0))
   return { n: inv.length, total, open }
 }
 
-export function YukiHistory({ clientId, compact = false }: { clientId: string | null | undefined; compact?: boolean }) {
-  const rows = useClientLedger(clientId)
+export function YukiHistory({ clientId, project, compact = false }: { clientId: string | null | undefined; project?: string; compact?: boolean }) {
+  const rows = useClientLedger(clientId, project)
   const [open, setOpen] = useState(!compact)
   const s = ledgerSummary(rows)
   if (!rows || !s) return null

@@ -322,7 +322,7 @@ function KeyFigures({ d, t, onTab, onDates }: { d: ProjectNumbers | null; t: Tim
         <button className="ov-tile" onClick={() => onTab('facturen')}>
           <small>Betaald</small>
           <b>{d && d.nInv ? fmtEur(d.paid) : '—'}</b>
-          <span>{!d ? '' : d.nInv ? `van ${fmtEur(d.inv)}` : 'nog geen facturen'}</span>
+          <span>{!d ? '' : d.nInv ? `van ${fmtEur(d.inv)} gefactureerd` : 'nog geen facturen'}</span>
         </button>
         <button className="ov-tile" onClick={onDates}>
           <small>Plaatsing</small>

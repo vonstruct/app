@@ -8,7 +8,8 @@ import { QuoteDoc, printQuote, lineAmount, quoteTotals, lineOn, type Company, ty
 import { RuleLink } from '../../core/RuleLink'
 
 /**
- * Tab "Offerte" op de projectpagina. Opbouwen uit de kosten = RPC quote_generate (kasten, lades, werkblad + vaste regels),
+ * Tab "Offerte" op de projectpagina. Sinds 6 nov 2026 enkel opgeladen offertes (pdf; app_quotes toont enkel quotes.external).
+ * Vroeger ook: opbouwen uit de kosten = RPC quote_generate (kasten, lades, werkblad + vaste regels),
  * regels bewerken, intern: kostprijs en marge (nooit voor de klant), voorbeeld/afdrukken, versturen = Edge Function quote-send.
  */
 type Quote = {
@@ -54,9 +55,8 @@ export function QuotePanel({ project }: { project: string }) {
             {(list.data ?? []).map((q) => <button key={q.id} className={current?.id === q.id ? 'on' : ''} onClick={() => setSel(q.id)}>{q.number}</button>)}
           </div>
         )}
-        {!current && <span className="muted">Nog geen offerte voor dit project.</span>}
-        {(!current || current.status !== 'concept') && <button className="primary" disabled={busy} onClick={() => generate()}>{busy ? 'Bezig…' : current ? 'Nieuwe offerte' : 'Offerte opbouwen uit de projectkost'}</button>}
-        <button onClick={() => setImporting((x) => !x)}>Bestaande offerte toevoegen (pdf)</button>
+        {!current && <span className="muted">Nog geen offerte voor dit project. Voeg de offerte toe als pdf.</span>}
+        <button className={current ? '' : 'primary'} onClick={() => setImporting((x) => !x)}>Offerte toevoegen (pdf)</button>
       </div>
       <ErrorBox error={list.error} />
       {importing && <ImportQuote project={project} onDone={(id) => { setImporting(false); if (id) { setSel(id); list.reload() } }} />}
