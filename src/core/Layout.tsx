@@ -12,10 +12,11 @@ function useCounts() {
   const [n, setN] = useState({ inbox: 0, von: 0, controltower: 0 })
   const loc = useLocation()
   useEffect(() => {
-    Promise.all([
-      supabase.from('app_mail_messages').select('id', { count: 'exact', head: true }).eq('direction', 'in').eq('needs_reply', true).eq('replied', false).is('dismissed_at', null).eq('is_bulk', false).is('proposal_status', null).gt('at', new Date(Date.now() - 30 * 864e5).toISOString()),
-      supabase.from('von_proposals').select('id', { count: 'exact', head: true }).eq('status', 'voorstel'),
-    ]).then(([a, b]) => setN({ inbox: a.count ?? 0, von: b.count ?? 0, controltower: (a.count ?? 0) + (b.count ?? 0) }))
+    // één verzoek (RPC nav_counts, bewaard plan) in plaats van twee tellingen
+    supabase.rpc('nav_counts').then(({ data }) => {
+      const d = (data ?? {}) as { inbox?: number; von?: number }
+      setN({ inbox: d.inbox ?? 0, von: d.von ?? 0, controltower: (d.inbox ?? 0) + (d.von ?? 0) })
+    })
   }, [loc.pathname])
   return n
 }

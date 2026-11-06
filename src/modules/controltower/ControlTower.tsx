@@ -120,7 +120,8 @@ function useToast() {
 }
 
 export function ControlTower() {
-  const flags = useQuery<Flag[]>(() => supabase.from('app_today').select('*').order('prio').order('due_date', { ascending: true, nullsFirst: false }).order('since', { ascending: false }), [])
+  // RPC today_items = app_today met een bewaard plan (snelheid, 6 nov 2026)
+  const flags = useQuery<Flag[]>(async () => { const { data, error } = await supabase.rpc('today_items'); return { data: (data ?? []) as Flag[], error } }, [])
   const cats = useQuery<Cat[]>(() => supabase.from('today_categories').select('*').order('sort'), [])
   const projects = useProjects()
   const [snoozed, setSnoozed] = useState<Set<string>>(new Set())

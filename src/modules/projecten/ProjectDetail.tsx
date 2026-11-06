@@ -1,8 +1,9 @@
 import { YukiHistory } from '../../core/YukiHistory'
-import { useTimeline } from './KeyDates'
+import type { Timeline } from './KeyDates'
+import { toast } from '../../core/toast'
 import { Overview, PhaseBar } from './Overview'
 import { PlanningPanel } from './PlanningPanel'
-import { useProjectNumbers } from './projectStatus'
+import { numbersOf, useProjectPage } from './projectStatus'
 import { BrochurePanel } from '../brochure/BrochurePanel'
 import { DocumentsPanel } from '../documenten/DocumentsPanel'
 import { NacalcPanel } from '../nacalculatie/NacalcPanel'
@@ -16,12 +17,11 @@ import { MailDocs } from '../bestellingen/MailDocs'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { supabase } from '../../core/supabase'
-import { useQuery } from '../../core/useQuery'
 import { DataTable } from '../../core/DataTable'
 import { ErrorBox, Loading } from '../../core/ui'
 import { fmtDate, fmtEur, fmtInt } from '../../core/format'
 import { Compare } from './Compare'
-import { usePhases, type ProjectRow } from '../../core/projects'
+import { usePhases } from '../../core/projects'
 import { ClientPanel } from './ClientPanel'
 import { SurveyPanel } from './SurveyPanel'
 import { MailList } from '../../core/MailList'
@@ -75,38 +75,37 @@ function Steps({ items, active, onPick, plain }: { items: Step[]; active: string
 
 export function ProjectDetail() {
   const { code = '' } = useParams()
-  const q = useQuery<Version[]>(
-    () =>
-      supabase
-        .from('design_versions')
-        .select('id, version, received_at, exported_at, scene_title, n_cabinets, n_parts, n_errors, n_warnings')
-        .eq('project_code', code)
-        .order('version', { ascending: false }),
-    [code],
-  )
-  const pq = useQuery<ProjectRow[]>(() => supabase.from('app_projects').select('*').eq('project_code', code), [code])
-  const ph = usePhases()
   const [params, setParams] = useSearchParams()
   const focus = params.get('focus')
-  const project = pq.data?.[0]
+  // alles van deze pagina in één verzoek (RPC project_page); opnieuw laden bij een ander tabblad (cijfers en status vers)
+  const page = useProjectPage(code, params.get('tab'))
+  const pd = page.data
+  const pq = { reload: page.reload, error: page.error }
+  const ph = usePhases()
+  const project = pd?.project ?? undefined
   // 5 tabbladen (6 nov 2026; waren er 14). ?tab= mag een tabblad of een onderdeel zijn (oude links zoals ?tab=offerte blijven werken).
   // tab Planning is opgegaan in het Overzicht (5 nov): ?tab=planning toont het Overzicht.
   const raw = ((t) => (t === 'planning' ? 'overzicht' : t))(params.get('tab') ?? (focus === 'survey' ? 'vragenlijst' : focus === 'mails' ? 'mails' : 'overzicht'))
   const tab = MAIN_OF[raw] ?? (MAIN.some(([id]) => id === raw) ? raw : 'overzicht')
   const sub = MAIN_OF[raw] ? raw : defaultSub(tab, project?.stage ?? null)
   const setTab = (t: string) => setParams(t === 'overzicht' ? {} : { tab: t }, { replace: true })
-  const nums = useProjectNumbers(code, params.get('tab'))
+  const nums = { data: pd ? numbersOf(pd) : null }
   // gsm: het gekozen tabblad in beeld schuiven (enkel de rij tabbladen, niet de pagina)
   const tabsRef = useRef<HTMLElement>(null)
   useEffect(() => {
     const n = tabsRef.current, el = n?.querySelector<HTMLElement>('button.on')
     if (n && el) n.scrollLeft += el.getBoundingClientRect().left - n.getBoundingClientRect().left - (n.clientWidth - el.clientWidth) / 2
   }, [tab])
-  const tl = useTimeline(code, pq.reload)
+  // datums (deadline, start werken, plaatsing) bewaren op het project, daarna de pagina opnieuw laden
+  const saveDates = async (patch: Partial<Timeline>) => {
+    const { error } = await supabase.from('projects').update(patch).eq('project_code', code)
+    if (error) toast(error.message, 'err'); else { toast('Bewaard'); page.reload() }
+  }
+  const tl = { t: pd?.timeline ?? null, gates: pd?.gates ?? [], save: saveDates, load: page.reload }
   // klantgegevens: klein blok onder de kop; opent vanzelf als je komt om een ontbrekend veld in te vullen (?focus=email …)
   const clientFocus = focus && !['fase', 'survey', 'mails', 'datums', 'prijzen'].includes(focus) ? focus : null
   const [showClient, setShowClient] = useState(false)
-  const versions = q.data ?? []
+  const versions = pd?.versions ?? []
   const [a, setA] = useState<number | null>(null)
   const [b, setB] = useState<number | null>(null)
   const va = versions.find((v) => v.version === (a ?? versions[1]?.version))
@@ -159,7 +158,7 @@ export function ProjectDetail() {
     else if (sub === 'vragenlijst') body = <>{!['lead', 'intake', 'survey'].includes(project.phase) && <LeadActions p={project} onDone={pq.reload} />}<IntakeCard code={code} /><SurveyPanel code={code} focus={focus === 'survey'} /></>
     else if (sub === 'opdrachten') body = <PlanningPanel project={project} />
     else if (sub === 'tijdlijn') body = <EventFeed project={code} title="Tijdlijn" limit={40} />
-    else if (sub === 'versies') body = q.loading ? <Loading /> : (
+    else if (sub === 'versies') body = (
       <>
         {versions.length === 0 ? <p className="muted">Nog geen ontwerp uit PaletteCAD. Gebruik projectcode <b>{code}</b> in het veld "Project" en klik op de knop Supabase.</p> : (
           <DataTable
@@ -193,7 +192,7 @@ export function ProjectDetail() {
       <>
         {['lead', 'intake', 'survey'].includes(project.phase) && <LeadActions p={project} onDone={pq.reload} />}
         {project.stage === 'lead' && <IntakeCard code={code} />}
-        <Overview project={project} t={tl.t} gates={tl.gates} nums={nums.data} saveDates={tl.save} onTab={(t) => setTab(t)} onSaved={() => { pq.reload(); tl.load(); nums.reload() }} />
+        <Overview project={project} page={pd!} t={tl.t} gates={tl.gates} nums={nums.data} saveDates={tl.save} onTab={(t) => setTab(t)} onSaved={page.reload} />
       </>
     )
     else body = <><Steps items={STEPS[tab]} active={sub} onPick={setTab} plain={tab === 'dossier'} />{body}</>
@@ -219,15 +218,15 @@ export function ProjectDetail() {
         )}
       </header>
       {project && (showClient || clientFocus) && <div className="pd-client"><ClientPanel project={project} focus={clientFocus} onSaved={pq.reload} /></div>}
-      {project && ph.data && <PhaseBar project={project} gates={tl.gates} phases={ph.data} onSaved={() => { pq.reload(); tl.load() }} focus={focus === 'fase'} />}
+      {project && ph.data && <PhaseBar project={project} gates={tl.gates} phases={ph.data} onSaved={page.reload} focus={focus === 'fase'} />}
       <nav className="pd-tabs" aria-label="Onderdelen van het project" ref={tabsRef}>
         {MAIN.map(([id, label]) => {
           const o = n?.open[id]
           return <button key={id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{label}{o && tab !== id && <span className={'pd-badge' + (o.urgent ? ' red' : '')} title={`${o.n} open ${o.n === 1 ? 'punt' : 'punten'}`}>{o.n}</span>}</button>
         })}
       </nav>
-      <ErrorBox error={q.error ?? pq.error} />
-      {pq.loading ? <Loading /> : !project ? <p className="muted">Project {code} niet gevonden.</p> : <div className="pd-body">{body}</div>}
+      <ErrorBox error={page.error} />
+      {!pd ? (page.loading ? <Loading /> : null) : !project ? <p className="muted">Project {code} niet gevonden.</p> : <div className="pd-body">{body}</div>}
     </section>
   )
 }

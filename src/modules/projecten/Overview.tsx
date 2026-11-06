@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { supabase } from '../../core/supabase'
 import { toast } from '../../core/toast'
@@ -8,7 +8,7 @@ import { actionFor, cleanTitle, dueText, InlineProposal, keyOf, type Flag } from
 import { DatesForm, dayLabel, type Gate, type Timeline } from './KeyDates'
 import { useProjectPlanning } from './PlanningPanel'
 import { keyOf as agendaKey } from '../agenda/Agenda'
-import type { ProjectNumbers } from './projectStatus'
+import type { CheckItem, ProjectNumbers, ProjectPage } from './projectStatus'
 
 /**
  * Overzicht van een project (voorstel 6 nov 2026, stap 1): één Verloop + Kerncijfers.
@@ -22,10 +22,6 @@ import type { ProjectNumbers } from './projectStatus'
  * Elk ding staat er één keer. Welke stap wie aan zet heeft en waar je hem oplost: STEP hieronder (één regel per auto_rule).
  */
 
-type CheckItem = { stage: string; stage_label: string; stage_sort: number; sort: number; template_id: number; label: string; automatic: boolean; done: boolean; done_at: string | null; done_by: string | null; na: boolean; skipped: boolean }
-type Order = { id: string; supplier: string; status: string; expected_at: string | null; delivered_at: string | null; ordered_by: string | null; urgency: string | null; auto_vervallen: boolean | null }
-type PartnerOrder = { id: string | null; partner: string; status: string; pickup_date: string | null; pickup_slot: string | null; pickup_answer: string | null; pickup_note: string | null; ready_at: string | null; picked_up_at: string | null }
-type Task = { id: string; text: string; due_date: string | null; kind: string | null }
 
 /** Per automatische stap: wie aan zet is, of jij er nu iets aan kan doen, en waar (tab). Met de hand = jij, afvinken. */
 const STEP: Record<string, { who: string; now: boolean; tab?: string; flags?: string[]; tick?: boolean }> = {
@@ -72,55 +68,39 @@ function LineRow({ l, dateText }: { l: Line; dateText?: string }) {
   )
 }
 
-export function Overview({ project, t, gates, nums, saveDates, onTab, onSaved }: {
-  project: ProjectRow; t: Timeline | null; nums: ProjectNumbers | null; gates: Gate[]; saveDates: (p: Partial<Timeline>) => Promise<void>; onTab: (tab: string) => void; onSaved: () => void
+export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSaved }: {
+  project: ProjectRow; page: ProjectPage; t: Timeline | null; nums: ProjectNumbers | null; gates: Gate[]; saveDates: (p: Partial<Timeline>) => Promise<void>; onTab: (tab: string) => void; onSaved: () => void
 }) {
   const code = project.project_code
-  const [items, setItems] = useState<CheckItem[] | null>(null)
-  const [rules, setRules] = useState<Record<number, string | null>>({})
-  const [words, setWords] = useState<Record<number, string | null>>({})
-  const [flags, setFlags] = useState<Flag[]>([])
-  const [orders, setOrders] = useState<Order[]>([])
-  const [po, setPo] = useState<PartnerOrder | null>(null)
-  const [tasks, setTasks] = useState<Task[]>([])
+  // alle gegevens komen uit project_page (één verzoek, ProjectDetail); opnieuw laden = onSaved
+  const items: CheckItem[] = page.checklist
+  const rules = useMemo(() => Object.fromEntries(page.templates.map((x) => [x.id, x.auto_rule])) as Record<number, string | null>, [page.templates])
+  const words = useMemo(() => Object.fromEntries(page.templates.map((x) => [x.id, x.agenda_words])) as Record<number, string | null>, [page.templates])
+  const flags: Flag[] = page.today
+  const orders = useMemo(() => page.orders.filter((x) => !x.auto_vervallen), [page.orders])
+  const po = page.partner
+  const tasks = page.tasks
   const [openProp, setOpenProp] = useState<string | null>(null)
   // ?focus=datums (vanuit Vandaag: datum ontbreekt): het formulier met de datums meteen open
   const [params] = useSearchParams()
   const [dates, setDates] = useState(params.get('focus') === 'datums')
   const [newTask, setNewTask] = useState<string | null>(null)
   const plan = useProjectPlanning(project)
-
-  const load = useCallback(async () => {
-    const [c, r, f, o, p, k] = await Promise.all([
-      supabase.from('app_project_checklist').select('*').eq('project_code', code).order('stage_sort').order('sort'),
-      supabase.from('checklist_template').select('id,auto_rule,agenda_words'),
-      supabase.from('app_today').select('*').eq('project_code', code).neq('category', 'systeem').order('prio').order('due_date', { ascending: true, nullsFirst: false }),
-      supabase.from('app_orders').select('id,supplier,status,expected_at,delivered_at,ordered_by,urgency,auto_vervallen').eq('project_code', code).neq('status', 'geannuleerd'),
-      supabase.from('app_partner_orders').select('id,partner,status,pickup_date,pickup_slot,pickup_answer,pickup_note,ready_at,picked_up_at').eq('project_code', code).limit(1),
-      supabase.from('tasks').select('id,text,due_date,kind').eq('project_code', code).is('done_at', null).neq('kind', 'app').order('due_date', { nullsFirst: false }),
-    ])
-    setItems((c.data as CheckItem[]) ?? [])
-    const tpl = (r.data ?? []) as { id: number; auto_rule: string | null; agenda_words: string | null }[]
-    setRules(Object.fromEntries(tpl.map((x) => [x.id, x.auto_rule])))
-    setWords(Object.fromEntries(tpl.map((x) => [x.id, x.agenda_words])))
-    setFlags((f.data as Flag[]) ?? [])
-    setOrders(((o.data as Order[]) ?? []).filter((x) => !x.auto_vervallen))
-    setPo(((p.data as PartnerOrder[]) ?? [])[0] ?? null)
-    setTasks((k.data as Task[]) ?? [])
-  }, [code])
-  useEffect(() => { load() }, [load])
+  const load = onSaved
   // Outlook-afspraken staan niet in de database: een voorbije afspraak van dit project met een woord uit de checklist (opmeting,
   // eindopmeting, ontwerpbespreking …) bewaren in agenda_notes, dan vinkt de stap vanzelf af (project_agenda_done_at).
+  // Enkel als de stap nog open staat, zodat dit niet bij elk bezoek opnieuw gebeurt.
   useEffect(() => {
-    const ws = Object.values(words).filter(Boolean).flatMap((w) => w!.split(',')).map((w) => w.trim().toLowerCase()).filter(Boolean)
+    const open = items.filter((it) => rules[it.template_id] === 'agenda' && !it.done && !it.na)
+    const ws = open.flatMap((it) => (words[it.template_id] ?? '').split(',')).map((w) => w.trim().toLowerCase()).filter(Boolean)
     if (!ws.length || !plan.events?.length) return
     const re = new RegExp('(^|[^\\p{L}\\p{N}])(' + ws.map((w) => w.replace(/[^\p{L}\p{N} ]/gu, '')).join('|') + ')', 'u')
     const past = plan.events.filter((e) => new Date(e.end).getTime() < Date.now() - 3600000 && re.test(e.title.toLowerCase()))
     if (!past.length) return
     supabase.from('agenda_notes').upsert(past.map((e) => ({ event_key: agendaKey(e), project_code: code, event_title: e.title, event_start: e.start })), { onConflict: 'event_key' })
-      .then(({ error }) => { if (!error) load() })
-  }, [plan.events, words, code]) // eslint-disable-line react-hooks/exhaustive-deps
-  const reload = () => { load(); onSaved() }
+      .then(({ error }) => { if (!error) onSaved() })
+  }, [plan.events, rules, words, code]) // eslint-disable-line react-hooks/exhaustive-deps
+  const reload = onSaved
 
   const tick = async (it: CheckItem, na = false) => {
     const { error } = await supabase.from('project_checklist').upsert({ project_code: code, template_id: it.template_id, done_at: na ? null : new Date().toISOString(), na })
@@ -302,7 +282,7 @@ export function Overview({ project, t, gates, nums, saveDates, onTab, onSaved }:
   )
 }
 
-/** Vier kerncijfers; elk vakje opent de plek waar het vandaan komt. Cijfers: useProjectNumbers (projectStatus.ts). */
+/** Vier kerncijfers; elk vakje opent de plek waar het vandaan komt. Cijfers: numbersOf (projectStatus.ts). */
 function KeyFigures({ d, t, onTab, onDates }: { d: ProjectNumbers | null; t: Timeline | null; onTab: (tab: string) => void; onDates: () => void }) {
   const qs = d?.quote
   return (

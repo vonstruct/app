@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../core/supabase'
 import { toast } from '../../core/toast'
 
 /**
  * Datums van een project (view app_project_timeline) en de stage gates (view app_project_gates: due / done_at / passed).
  * Zelf in te vullen: deadline klant (+ reden), start van de werken (eerste werfdag) en plaatsing (start + dagen, ook weekend).
- * De app rekent terug. Getoond in het Verloop op het Overzicht (Overview.tsx); "Datums wijzigen" opent DatesForm.
+ * De app rekent terug. Gegevens via project_page (projectStatus.ts); getoond in het Verloop (Overview.tsx); "Datums wijzigen" opent DatesForm.
  */
 export type Timeline = {
   project_code: string; deadline: string | null; deadline_reason: string | null; works_start: string | null; install_start: string | null; install_days: number | null
@@ -15,24 +14,6 @@ export type Timeline = {
 export type Gate = { stage: string; label: string; gate_label: string; sort: number; n: number; n_done: number; done_at: string | null; passed: boolean; due: string | null }
 
 export const dayLabel = (v: string | null) => (v ? new Date(v.length === 10 ? v + 'T12:00' : v).toLocaleDateString('nl-BE', { weekday: 'short', day: 'numeric', month: 'short' }) : '—')
-
-export function useTimeline(code: string, onSaved?: () => void) {
-  const [t, setT] = useState<Timeline | null>(null)
-  const [gates, setGates] = useState<Gate[]>([])
-  const load = useCallback(async () => {
-    const [a, b] = await Promise.all([
-      supabase.from('app_project_timeline').select('*').eq('project_code', code).maybeSingle(),
-      supabase.from('app_project_gates').select('*').eq('project_code', code).order('sort'),
-    ])
-    setT(a.data as Timeline | null); setGates((b.data as Gate[]) ?? [])
-  }, [code])
-  useEffect(() => { load() }, [load])
-  const save = async (patch: Partial<Timeline>) => {
-    const { error } = await supabase.from('projects').update(patch).eq('project_code', code)
-    if (error) toast(error.message, 'err'); else { toast('Bewaard'); await load(); onSaved?.() }
-  }
-  return { t, gates, load, save }
-}
 
 /** Formulier "Datums wijzigen": deadline, start van de werken, plaatsing (+ dagen), en "plan vanaf deadline". */
 export function DatesForm({ t, save, onClose }: { t: Timeline; save: (patch: Partial<Timeline>) => Promise<void>; onClose: () => void }) {
