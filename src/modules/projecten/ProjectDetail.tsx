@@ -1,6 +1,8 @@
 import { YukiHistory } from '../../core/YukiHistory'
 import { useTimeline } from './KeyDates'
 import { Overview, PhaseBar } from './Overview'
+import { PlanningPanel } from './PlanningPanel'
+import { useProjectNumbers } from './projectStatus'
 import { BrochurePanel } from '../brochure/BrochurePanel'
 import { DocumentsPanel } from '../documenten/DocumentsPanel'
 import { NacalcPanel } from '../nacalculatie/NacalcPanel'
@@ -17,7 +19,7 @@ import { supabase } from '../../core/supabase'
 import { useQuery } from '../../core/useQuery'
 import { DataTable } from '../../core/DataTable'
 import { ErrorBox, Loading } from '../../core/ui'
-import { fmtDate, fmtInt } from '../../core/format'
+import { fmtDate, fmtEur, fmtInt } from '../../core/format'
 import { Compare } from './Compare'
 import { usePhases, type ProjectRow } from '../../core/projects'
 import { ClientPanel } from './ClientPanel'
@@ -38,6 +40,39 @@ export type Version = {
   n_warnings: number
 }
 
+/** De 5 tabbladen en welk onderdeel bij welk tabblad hoort. */
+const MAIN: [string, string][] = [['overzicht', 'Overzicht'], ['ontwerp', 'Ontwerp'], ['geld', 'Geld'], ['uitvoering', 'Uitvoering'], ['dossier', 'Dossier']]
+const MAIN_OF: Record<string, string> = {
+  vragenlijst: 'ontwerp', versies: 'ontwerp', brochure: 'ontwerp',
+  kost: 'geld', offerte: 'geld', facturen: 'geld', nacalculatie: 'geld',
+  bestellingen: 'uitvoering', productie: 'uitvoering', opdrachten: 'uitvoering', oplevering: 'uitvoering',
+  mails: 'dossier', documenten: 'dossier', tijdlijn: 'dossier',
+}
+/** Welk onderdeel open staat als je een tabblad kiest: de stap waar het project nu zit. */
+function defaultSub(tab: string, stage: string | null) {
+  const s = stage ?? ''
+  if (tab === 'ontwerp') return s === 'lead' ? 'vragenlijst' : 'versies'
+  if (tab === 'geld') return ['lead', 'design'].includes(s) ? 'kost' : s === 'quote' ? 'offerte' : s === 'closed' ? 'nacalculatie' : 'facturen'
+  if (tab === 'uitvoering') return s === 'production' ? 'productie' : s === 'installation' ? 'opdrachten' : s === 'closed' ? 'oplevering' : 'bestellingen'
+  if (tab === 'dossier') return 'mails'
+  return ''
+}
+
+type Step = { id: string; label: string; status?: string; bad?: boolean }
+/** Rij met de onderdelen van een tabblad, in de volgorde waarin je werkt; elk met een korte status. */
+function Steps({ items, active, onPick, plain }: { items: Step[]; active: string; onPick: (id: string) => void; plain?: boolean }) {
+  return (
+    <nav className={'pd-steps' + (plain ? ' plain' : '')} aria-label="Onderdelen">
+      {items.map((s, i) => (
+        <button key={s.id} className={s.id === active ? 'on' : ''} onClick={() => onPick(s.id)} aria-current={s.id === active ? 'page' : undefined}>
+          <b>{plain ? '' : `${i + 1} · `}{s.label}</b>
+          {s.status && <small className={s.bad ? 'bad-text' : ''}>{s.status}</small>}
+        </button>
+      ))}
+    </nav>
+  )
+}
+
 export function ProjectDetail() {
   const { code = '' } = useParams()
   const q = useQuery<Version[]>(
@@ -53,16 +88,20 @@ export function ProjectDetail() {
   const ph = usePhases()
   const [params, setParams] = useSearchParams()
   const focus = params.get('focus')
-  // tab Planning is opgegaan in het Overzicht (Olivier, 5 nov): oude links ?tab=planning tonen het Overzicht
-  const tab = ((t) => (t === 'planning' ? 'overzicht' : t))(params.get('tab') ?? (focus === 'survey' ? 'vragenlijst' : focus === 'mails' ? 'mails' : 'overzicht'))
+  const project = pq.data?.[0]
+  // 5 tabbladen (6 nov 2026; waren er 14). ?tab= mag een tabblad of een onderdeel zijn (oude links zoals ?tab=offerte blijven werken).
+  // tab Planning is opgegaan in het Overzicht (5 nov): ?tab=planning toont het Overzicht.
+  const raw = ((t) => (t === 'planning' ? 'overzicht' : t))(params.get('tab') ?? (focus === 'survey' ? 'vragenlijst' : focus === 'mails' ? 'mails' : 'overzicht'))
+  const tab = MAIN_OF[raw] ?? (MAIN.some(([id]) => id === raw) ? raw : 'overzicht')
+  const sub = MAIN_OF[raw] ? raw : defaultSub(tab, project?.stage ?? null)
   const setTab = (t: string) => setParams(t === 'overzicht' ? {} : { tab: t }, { replace: true })
+  const nums = useProjectNumbers(code, params.get('tab'))
   // gsm: het gekozen tabblad in beeld schuiven (enkel de rij tabbladen, niet de pagina)
   const tabsRef = useRef<HTMLElement>(null)
   useEffect(() => {
     const n = tabsRef.current, el = n?.querySelector<HTMLElement>('button.on')
     if (n && el) n.scrollLeft += el.getBoundingClientRect().left - n.getBoundingClientRect().left - (n.clientWidth - el.clientWidth) / 2
   }, [tab])
-  const project = pq.data?.[0]
   const tl = useTimeline(code, pq.reload)
   // klantgegevens: klein blok onder de kop; opent vanzelf als je komt om een ontbrekend veld in te vullen (?focus=email …)
   const clientFocus = focus && !['fase', 'survey', 'mails'].includes(focus) ? focus : null
@@ -74,22 +113,53 @@ export function ProjectDetail() {
   const vb = versions.find((v) => v.version === (b ?? versions[0]?.version))
 
   const wa = (project?.client_phone ?? '').replace(/[^\d+]/g, '').replace(/^\+/, '').replace(/^00/, '').replace(/^0/, '32')
-  const TABS: [string, string][] = [['overzicht', 'Overzicht'], ['mails', 'Mails'], ['ontwerp', `Ontwerp & kosten${versions.length ? ` (${versions.length})` : ''}`], ['kost', 'Projectkost'], ['documenten', 'Documenten'], ['brochure', 'Brochure'], ['vragenlijst', 'Vragenlijst'], ['offerte', 'Offerte'], ['bestellingen', 'Bestellingen'], ['productie', 'Productie'], ['facturen', 'Facturen'], ['oplevering', 'Oplevering'], ['nacalculatie', 'Nacalculatie'], ['tijdlijn', 'Tijdlijn']]
+  const n = nums.data
+  const t = tl.t
+  const stage = project?.stage ?? ''
+  const after = (s: string) => ['installation', 'closed'].includes(stage) || (s === 'production' && stage === 'production')
+  const day = (d: string) => new Date(d + 'T12:00').toLocaleDateString('nl-BE', { weekday: 'short', day: 'numeric', month: 'short' })
+  // korte status bij elk onderdeel; de stap waar het project nu zit, staat open
+  const STEPS: Record<string, Step[]> = {
+    ontwerp: [
+      { id: 'vragenlijst', label: 'Wensen van de klant', status: project?.survey_status === 'submitted' ? 'vragenlijst ingediend' : project?.survey_status === 'open' ? 'vragenlijst bezig' : 'vragenlijst en intake' },
+      { id: 'versies', label: 'Ontwerpen', status: versions.length ? `${versions.length} ${versions.length === 1 ? 'versie' : 'versies'} · nieuwste v${versions[0].version}` : 'nog geen ontwerp' },
+      { id: 'brochure', label: 'Brochure', status: 'voor de klant, zonder prijzen' },
+    ],
+    geld: [
+      { id: 'kost', label: 'Kostprijs', status: !n ? '' : n.nCost ? `${fmtEur(n.cost)}${n.noPrice ? ` · ${n.noPrice} zonder prijs` : ''}` : 'nog niet berekend', bad: !!n?.noPrice },
+      { id: 'offerte', label: 'Offerte', status: !n ? '' : n.quote ? [n.quote.number, n.quote.status, n.quote.total_incl != null ? fmtEur(n.quote.total_incl) : null].filter(Boolean).join(' · ') : 'nog geen offerte' },
+      { id: 'facturen', label: 'Facturen', status: !n ? '' : n.nInv ? `${fmtEur(n.paid)} van ${fmtEur(n.inv)} betaald` : 'na de offerte' },
+      { id: 'nacalculatie', label: 'Nacalculatie', status: stage === 'closed' ? 'klaar om na te kijken' : 'na de plaatsing' },
+    ],
+    uitvoering: [
+      { id: 'bestellingen', label: 'Bestellingen', status: !n ? '' : !n.orders.n ? 'nog geen bestellingen' : [n.orders.toOrder ? `${n.orders.toOrder} te bestellen` : null, n.orders.late ? `${n.orders.late} te laat` : null, `${n.orders.inside} van ${n.orders.n} binnen`].filter(Boolean).join(' · '), bad: !!n?.orders.late },
+      { id: 'productie', label: 'Productie', status: !n?.partner ? (after('production') ? 'productiepakket' : 'productiepakket en partner') : n.partner.picked_up_at ? 'opgehaald' : n.partner.ready_at ? 'klaar bij de partner' : n.partner.status === 'doorgegeven' ? (n.partner.pickup_date ? `ophalen ${day(n.partner.pickup_date)}` : 'ophaaldatum ontbreekt') : 'nog niet doorgegeven', bad: n?.partner?.status === 'doorgegeven' && !n.partner.pickup_date && !n.partner.ready_at },
+      { id: 'opdrachten', label: 'Plaatsing en opdrachten', status: [t?.install_start ? `plaatsing ${day(t.install_start)}` : t?.target_install_week ? `plaatsing week ${t.target_install_week.split('-W')[1]}` : 'nog geen plaatsingsdatum', n?.jobsAhead ? `${n.jobsAhead} ${n.jobsAhead === 1 ? 'opdracht' : 'opdrachten'}` : null].filter(Boolean).join(' · ') },
+      { id: 'oplevering', label: 'Oplevering', status: stage === 'closed' ? 'opgeleverd' : stage === 'installation' ? 'PV en werkpunten' : 'na de plaatsing' },
+    ],
+    dossier: [
+      { id: 'mails', label: 'Mails' },
+      { id: 'documenten', label: 'Documenten' },
+      { id: 'tijdlijn', label: 'Activiteit' },
+    ],
+  }
   let body: ReactNode = null
   if (project && ph.data) {
-    if (tab === 'mails') body = <MailList project={code} title="Mails" limit={60} />
-    else if (tab === 'brochure') body = <BrochurePanel project={code} />
-    else if (tab === 'documenten') body = <DocumentsPanel project={code} />
-    else if (tab === 'nacalculatie') body = <NacalcPanel project={code} />
-    else if (tab === 'oplevering') body = <HandoverPanel project={code} />
-    else if (tab === 'facturen') body = <><Invoices project={code} /><div className="panel"><h2>In Yuki</h2><p className="muted small">Alle facturen en betalingen van deze klant in de boekhouding (ook van vóór de app), met de pdf.</p><YukiHistory clientId={project.client_id} /></div></>
-    else if (tab === 'offerte') body = <QuotePanel project={code} />
-    else if (tab === 'kost') body = <ProjectCost project={code} onQuote={() => setTab('offerte')} />
-    else if (tab === 'productie') body = <ProductionPanel project={code} />
-    else if (tab === 'bestellingen') body = <><Orders project={code} /><div className="panel"><h2>Uit de mailbox</h2><p className="muted small">Orderbevestigingen, facturen en leveringsbons van leveranciers die aan dit project gekoppeld zijn (bijlage gelezen). Na te kijken: Planning → Bestellingen → Uit je mailbox.</p><MailDocs project={code} /></div></>
-    else if (tab === 'vragenlijst') body = <>{!['lead', 'intake', 'survey'].includes(project.phase) && <LeadActions p={project} onDone={pq.reload} />}<SurveyPanel code={code} focus={focus === 'survey'} /></>
-    else if (tab === 'tijdlijn') body = <EventFeed project={code} title="Tijdlijn" limit={40} />
-    else if (tab === 'ontwerp') body = q.loading ? <Loading /> : (
+    if (tab === 'overzicht') body = null
+    else if (sub === 'mails') body = <MailList project={code} title="Mails" limit={60} />
+    else if (sub === 'brochure') body = <BrochurePanel project={code} />
+    else if (sub === 'documenten') body = <DocumentsPanel project={code} />
+    else if (sub === 'nacalculatie') body = <NacalcPanel project={code} />
+    else if (sub === 'oplevering') body = <HandoverPanel project={code} />
+    else if (sub === 'facturen') body = <><Invoices project={code} /><div className="panel"><h2>In Yuki</h2><p className="muted small">Alle facturen en betalingen van deze klant in de boekhouding (ook van vóór de app), met de pdf.</p><YukiHistory clientId={project.client_id} /></div></>
+    else if (sub === 'offerte') body = <QuotePanel project={code} />
+    else if (sub === 'kost') body = <ProjectCost project={code} onQuote={() => setTab('offerte')} />
+    else if (sub === 'productie') body = <ProductionPanel project={code} />
+    else if (sub === 'bestellingen') body = <><Orders project={code} /><div className="panel"><h2>Uit de mailbox</h2><p className="muted small">Orderbevestigingen, facturen en leveringsbons van leveranciers die aan dit project gekoppeld zijn (bijlage gelezen). Na te kijken: Planning → Bestellingen → Uit je mailbox.</p><MailDocs project={code} /></div></>
+    else if (sub === 'vragenlijst') body = <>{!['lead', 'intake', 'survey'].includes(project.phase) && <LeadActions p={project} onDone={pq.reload} />}<IntakeCard code={code} /><SurveyPanel code={code} focus={focus === 'survey'} /></>
+    else if (sub === 'opdrachten') body = <PlanningPanel project={project} />
+    else if (sub === 'tijdlijn') body = <EventFeed project={code} title="Tijdlijn" limit={40} />
+    else if (sub === 'versies') body = q.loading ? <Loading /> : (
       <>
         {versions.length === 0 ? <p className="muted">Nog geen ontwerp uit PaletteCAD. Gebruik projectcode <b>{code}</b> in het veld "Project" en klik op de knop Supabase.</p> : (
           <DataTable
@@ -119,13 +189,14 @@ export function ProjectDetail() {
         )}
       </>
     )
-    else body = (
+    if (tab === 'overzicht') body = (
       <>
         {['lead', 'intake', 'survey'].includes(project.phase) && <LeadActions p={project} onDone={pq.reload} />}
         {project.stage === 'lead' && <IntakeCard code={code} />}
-        <Overview project={project} t={tl.t} gates={tl.gates} saveDates={tl.save} onTab={(t) => setTab(t)} onSaved={() => { pq.reload(); tl.load() }} />
+        <Overview project={project} t={tl.t} gates={tl.gates} nums={nums.data} saveDates={tl.save} onTab={(t) => setTab(t)} onSaved={() => { pq.reload(); tl.load(); nums.reload() }} />
       </>
     )
+    else body = <><Steps items={STEPS[tab]} active={sub} onPick={setTab} plain={tab === 'dossier'} />{body}</>
   }
 
   return (
@@ -150,7 +221,10 @@ export function ProjectDetail() {
       {project && (showClient || clientFocus) && <div className="pd-client"><ClientPanel project={project} focus={clientFocus} onSaved={pq.reload} /></div>}
       {project && ph.data && <PhaseBar project={project} gates={tl.gates} phases={ph.data} onSaved={() => { pq.reload(); tl.load() }} focus={focus === 'fase'} />}
       <nav className="pd-tabs" aria-label="Onderdelen van het project" ref={tabsRef}>
-        {TABS.map(([id, label]) => <button key={id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{label}</button>)}
+        {MAIN.map(([id, label]) => {
+          const o = n?.open[id]
+          return <button key={id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{label}{o && tab !== id && <span className={'pd-badge' + (o.urgent ? ' red' : '')} title={`${o.n} open ${o.n === 1 ? 'punt' : 'punten'}`}>{o.n}</span>}</button>
+        })}
       </nav>
       <ErrorBox error={q.error ?? pq.error} />
       {pq.loading ? <Loading /> : !project ? <p className="muted">Project {code} niet gevonden.</p> : <div className="pd-body">{body}</div>}

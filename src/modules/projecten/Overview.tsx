@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { supabase } from '../../core/supabase'
-import { useQuery } from '../../core/useQuery'
 import { toast } from '../../core/toast'
 import { fmtEur } from '../../core/format'
 import { PhaseSelect, type Phase, type ProjectRow } from '../../core/projects'
 import { actionFor, cleanTitle, dueText, InlineProposal, keyOf, type Flag } from '../controltower/ControlTower'
 import { DatesForm, dayLabel, type Gate, type Timeline } from './KeyDates'
 import { useProjectPlanning } from './PlanningPanel'
+import type { ProjectNumbers } from './projectStatus'
 
 /**
  * Overzicht van een project (voorstel 6 nov 2026, stap 1): één Verloop + Kerncijfers.
@@ -70,8 +70,8 @@ function LineRow({ l, dateText }: { l: Line; dateText?: string }) {
   )
 }
 
-export function Overview({ project, t, gates, saveDates, onTab, onSaved }: {
-  project: ProjectRow; t: Timeline | null; gates: Gate[]; saveDates: (p: Partial<Timeline>) => Promise<void>; onTab: (tab: string) => void; onSaved: () => void
+export function Overview({ project, t, gates, nums, saveDates, onTab, onSaved }: {
+  project: ProjectRow; t: Timeline | null; nums: ProjectNumbers | null; gates: Gate[]; saveDates: (p: Partial<Timeline>) => Promise<void>; onTab: (tab: string) => void; onSaved: () => void
 }) {
   const code = project.project_code
   const [items, setItems] = useState<CheckItem[] | null>(null)
@@ -279,34 +279,13 @@ export function Overview({ project, t, gates, saveDates, onTab, onSaved }: {
         {plan.modals}
       </section>
 
-      <KeyFigures code={code} t={t} onTab={onTab} onDates={() => setDates(true)} />
+      <KeyFigures d={nums} t={t} onTab={onTab} onDates={() => setDates(true)} />
     </div>
   )
 }
 
-/** Vier kerncijfers; elk vakje opent de plek waar het vandaan komt. */
-function KeyFigures({ code, t, onTab, onDates }: { code: string; t: Timeline | null; onTab: (tab: string) => void; onDates: () => void }) {
-  type Q = { number: string | null; status: string; total_incl: number | null; margin_pct: number | null; external: boolean | null }
-  const q = useQuery<{ quote: Q | null; cost: number; noPrice: number; nCost: number; inv: number; paid: number; nInv: number }>(async () => {
-    const [a, b, c] = await Promise.all([
-      supabase.from('app_quotes').select('number,status,total_incl,margin_pct,external,created_at').eq('project_code', code).order('created_at', { ascending: false }),
-      supabase.from('app_project_cost_groups').select('cost,n_no_price,n_lines').eq('project_code', code),
-      supabase.from('app_invoices').select('amount_incl,paid_amount,status').eq('project_code', code),
-    ])
-    const quotes = (a.data ?? []) as Q[]
-    const rank = (s: string) => (s === 'aanvaard' ? 0 : s === 'verstuurd' ? 1 : s === 'concept' ? 2 : 3)
-    const quote = [...quotes].sort((x, y) => rank(x.status) - rank(y.status))[0] ?? null
-    const groups = (b.data ?? []) as { cost: number; n_no_price: number; n_lines: number }[]
-    const inv = (c.data ?? []) as { amount_incl: number | null; paid_amount: number | null; status: string }[]
-    return {
-      data: {
-        quote, cost: groups.reduce((s, g) => s + Number(g.cost ?? 0), 0), noPrice: groups.reduce((s, g) => s + Number(g.n_no_price ?? 0), 0), nCost: groups.reduce((s, g) => s + Number(g.n_lines ?? 0), 0),
-        inv: inv.reduce((s, i) => s + Number(i.amount_incl ?? 0), 0), paid: inv.reduce((s, i) => s + Number(i.paid_amount ?? 0), 0), nInv: inv.length,
-      },
-      error: a.error ?? b.error ?? c.error,
-    }
-  }, [code])
-  const d = q.data
+/** Vier kerncijfers; elk vakje opent de plek waar het vandaan komt. Cijfers: useProjectNumbers (projectStatus.ts). */
+function KeyFigures({ d, t, onTab, onDates }: { d: ProjectNumbers | null; t: Timeline | null; onTab: (tab: string) => void; onDates: () => void }) {
   const qs = d?.quote
   return (
     <section className="panel ov-figs">
