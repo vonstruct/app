@@ -23,6 +23,12 @@ export function ClientPanel({ project, focus, onSaved }: { project: ProjectRow; 
   const [msg, setMsg] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
   const box = useRef<HTMLDivElement>(null)
+  // vinkje "werf = adres van de klant" (projects.site_same_as_client; de database neemt het klantadres over, ook bij latere wijzigingen)
+  const sq = useQuery<{ site_same_as_client: boolean } | null>(async () => {
+    const { data, error } = await supabase.from('projects').select('site_same_as_client').eq('project_code', project.project_code).maybeSingle()
+    return { data: data as { site_same_as_client: boolean } | null, error }
+  }, [project.project_code])
+  const same = sq.data?.site_same_as_client ?? false
   useEffect(() => { if (focus && q.data) box.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }, [focus, q.data])
   if (!q.data) return null
   const c = q.data
@@ -43,6 +49,11 @@ export function ClientPanel({ project, focus, onSaved }: { project: ProjectRow; 
     onSaved()
   }
   const site = [project.site_street, [project.site_postal_code, project.site_city].filter(Boolean).join(' ')].filter(Boolean).join(', ')
+  const setSame = async (on: boolean) => {
+    const { error } = await supabase.from('projects').update({ site_same_as_client: on }).eq('project_code', project.project_code)
+    setMsg(error ? 'Niet bewaard: ' + error.message : on ? 'Werf = adres van de klant' : 'Bewaard')
+    sq.reload(); onSaved()
+  }
   // gewoon bekijken = korte kaart; volledige gegevens bij Relaties. Komt de gebruiker voor een ontbrekend veld (focus), dan het formulier.
   if (!focus && !editing) {
     const name = [c.first_name, c.last_name].filter(Boolean).join(' ') || c.company || '—'
@@ -59,7 +70,7 @@ export function ClientPanel({ project, focus, onSaved }: { project: ProjectRow; 
           {c.phone && <a href={`tel:${c.phone}`}>{c.phone}</a>}
           {addr && <span className="muted">{addr}</span>}
           {c.language && c.language !== 'nl' && <span className="muted">Taal: {c.language === 'en' ? 'Engels' : 'Duits'}</span>}
-          <span className="muted">Werf: {site || <button className="link small bad-txt" onClick={() => setEditing(true)}>adres van de werf invullen</button>}</span>
+          <span className="muted">Werf: {same ? 'zelfde als het adres van de klant' : site || <button className="link small bad-txt" onClick={() => setEditing(true)}>adres van de werf invullen</button>}</span>
         </div>
       </div>
     )
@@ -93,10 +104,11 @@ export function ClientPanel({ project, focus, onSaved }: { project: ProjectRow; 
           </select>
         </label>
         <h3 className="wide cp-site">Adres van de werf <span className="muted small">(staat op opdrachten en het PV)</span></h3>
-        {([['site_street', 'Straat', true], ['site_postal_code', 'Postcode', false], ['site_city', 'Gemeente', false]] as const).map(([k, label, wide]) => (
+        <label className="wide check cp-same"><input type="checkbox" checked={same} disabled={!sq.data} onChange={(e) => setSame(e.target.checked)} /> Zelfde als het adres van de klant</label>
+        {same ? <p className="wide muted small cp-same-addr">{[c.street, [c.postal_code, c.city].filter(Boolean).join(' ')].filter(Boolean).join(', ') || 'Het adres van de klant is nog leeg: vul het hierboven in.'}</p> : ([['site_street', 'Straat', true], ['site_postal_code', 'Postcode', false], ['site_city', 'Gemeente', false]] as const).map(([k, label, wide]) => (
           <label key={k} className={wide ? 'wide' : undefined}>
             {label}
-            <input defaultValue={project[k] ?? ''} className={focus === 'gegevens' && !project[k] ? 'focus-input' : undefined}
+            <input key={k + (project[k] ?? '')} defaultValue={project[k] ?? ''} className={focus === 'gegevens' && !project[k] ? 'focus-input' : undefined}
               onBlur={(e) => saveSite(k, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} />
           </label>
         ))}

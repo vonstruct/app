@@ -1916,3 +1916,4 @@ summary.vd-h::-webkit-details-marker { display: none; }
 .pcost-sum > button.warn { display: grid; gap: 2px; min-width: 0; text-align: left; background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; }
 .cp-site { margin: 10px 0 0; font-size: 14px; }
 .pcost-lines td.nowrap .link + .link { margin-left: 12px; }
+.cp-same { flex-direction: row !important; align-items: center; gap: 8px; font-weight: 500; } .cp-same-addr { margin: 0; }
