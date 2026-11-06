@@ -1891,3 +1891,5 @@ summary.vd-h::-webkit-details-marker { display: none; }
   .ov-tiles { grid-template-columns: minmax(0, 1fr); }
 }
 .ov-link.b { font-weight: 600; }
+/* iPhone: een invulvak of keuzelijst met letters kleiner dan 16px laat de pagina inzoomen bij het aantikken (en dan valt de rechterkant weg) */
+@media (hover: none) and (pointer: coarse) { input, select, textarea, .ov-phase .phase-select { font-size: 16px !important; } }

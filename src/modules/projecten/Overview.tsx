@@ -347,9 +347,9 @@ export function PhaseBar({ project, gates, phases, onSaved, focus }: { project: 
         {gates.map((g) => {
           const st = g.passed ? 'done' : g === cur && !closed ? 'now' : ''
           return (
-            <li key={g.stage} className={st} title={g.gate_label}>
+            <li key={g.stage} className={st} title={g.passed && g.done_at ? `${g.gate_label} · klaar ${short(g.done_at)}` : g.gate_label}>
               <b>{g.label}</b>
-              <small>{g.passed ? (g.done_at ? short(g.done_at) : '✓') : st === 'now' ? `nu · ${g.n_done}/${g.n}${g.due ? ` · tegen ${short(g.due)}` : ''}` : g.due ? `tegen ${short(g.due)}` : ''}</small>
+              <small>{g.passed ? '✓ klaar' : st === 'now' ? `nu · ${g.n_done}/${g.n}${g.due ? ` · tegen ${short(g.due)}` : ''}` : g.due ? `tegen ${short(g.due)}` : ''}</small>
             </li>
           )
         })}
