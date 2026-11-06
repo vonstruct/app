@@ -36,12 +36,14 @@ export const actionFor = (f: Flag): { to: string; label: string } => {
     case 'taak': return { to: f.link ?? proj, label: 'Openen' }
     case 'inkoop_docs': return { to: '/bestellingen?tab=mailbox', label: 'Nakijken' }
     case 'levertijd': return { to: `${proj}?tab=bestellingen`, label: 'Levertijd invullen' }
-    case 'prijzen': return { to: `${ver}?tab=kosten&focus=prijzen`, label: 'Prijzen invullen' }
-    case 'kosten': return { to: `${ver}?tab=kosten`, label: 'Kosten bekijken' }
+    case 'prijzen': return { to: `${proj}?tab=kost&focus=prijzen`, label: 'Prijzen invullen' }
+    case 'kosten': return { to: `${proj}?tab=kost`, label: 'Kosten bekijken' }
     case 'optimalisatie': return { to: `${ver}?tab=platen`, label: 'Platen bekijken' }
     case 'stuklijst_fout': return { to: `${ver}?tab=controle`, label: 'Fouten bekijken' }
     case 'stuklijst_opm': return { to: `${ver}?tab=controle`, label: 'Nakijken' }
     case 'klant_email': return { to: `${proj}?focus=email`, label: 'E-mail invullen' }
+    case 'gegevens': return { to: `${proj}?focus=gegevens`, label: 'Invullen' }
+    case 'datums': return { to: `${proj}?focus=datums`, label: 'Datum invullen' }
     case 'partner_email': return { to: `/relaties?tab=partners&focus=${f.ref}:email`, label: 'E-mail invullen' }
     case 'stilstand': return { to: `${proj}?focus=fase`, label: 'Fase aanpassen' }
     case 'survey_nieuw': return { to: `${proj}?focus=survey`, label: 'Vragenlijst bekijken' }

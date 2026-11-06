@@ -34,6 +34,15 @@ export function ClientPanel({ project, focus, onSaved }: { project: ProjectRow; 
     q.reload()
     onSaved()
   }
+  // adres van de werf staat op het project (projects.site_*)
+  const saveSite = async (key: 'site_street' | 'site_postal_code' | 'site_city', value: string) => {
+    const v = value.trim() === '' ? null : value.trim()
+    if (v === (project[key] ?? null)) return
+    const { error } = await supabase.from('projects').update({ [key]: v }).eq('project_code', project.project_code)
+    setMsg(error ? 'Niet bewaard: ' + error.message : 'Bewaard')
+    onSaved()
+  }
+  const site = [project.site_street, [project.site_postal_code, project.site_city].filter(Boolean).join(' ')].filter(Boolean).join(', ')
   // gewoon bekijken = korte kaart; volledige gegevens bij Relaties. Komt de gebruiker voor een ontbrekend veld (focus), dan het formulier.
   if (!focus && !editing) {
     const name = [c.first_name, c.last_name].filter(Boolean).join(' ') || c.company || '—'
@@ -50,6 +59,7 @@ export function ClientPanel({ project, focus, onSaved }: { project: ProjectRow; 
           {c.phone && <a href={`tel:${c.phone}`}>{c.phone}</a>}
           {addr && <span className="muted">{addr}</span>}
           {c.language && c.language !== 'nl' && <span className="muted">Taal: {c.language === 'en' ? 'Engels' : 'Duits'}</span>}
+          <span className="muted">Werf: {site || <button className="link small bad-txt" onClick={() => setEditing(true)}>adres van de werf invullen</button>}</span>
         </div>
       </div>
     )
@@ -57,6 +67,7 @@ export function ClientPanel({ project, focus, onSaved }: { project: ProjectRow; 
   return (
     <div ref={box} className={'panel client-panel' + (focus ? ' focus' : '')}>
       <h2>Klant {project.client_number != null && <span className="muted">nr. {project.client_number}</span>}</h2>
+      {focus === 'gegevens' && <p className="notice">Vul de gegevens in die nog ontbreken (oranje omrand). Elk veld wordt bewaard zodra je het verlaat.</p>}
       {focus === 'email' && !c.email && <p className="notice">Vul het e-mailadres van de klant in. Daarmee kan je de klant later uitnodigen voor het klantenportaal.</p>}
       <div className="form-grid">
         {FIELDS.map((f) => (
@@ -67,7 +78,7 @@ export function ClientPanel({ project, focus, onSaved }: { project: ProjectRow; 
               defaultValue={c[f.key] ?? ''}
               placeholder={f.placeholder}
               autoFocus={focus === f.key}
-              className={focus === f.key && !c[f.key] ? 'focus-input' : undefined}
+              className={(focus === f.key || (focus === 'gegevens' && ['street', 'postal_code', 'city', 'phone'].includes(f.key))) && !c[f.key] ? 'focus-input' : undefined}
               onBlur={(e) => save(f.key, e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
             />
@@ -81,6 +92,14 @@ export function ClientPanel({ project, focus, onSaved }: { project: ProjectRow; 
             <option value="de">Duits</option>
           </select>
         </label>
+        <h3 className="wide cp-site">Adres van de werf <span className="muted small">(staat op opdrachten en het PV)</span></h3>
+        {([['site_street', 'Straat', true], ['site_postal_code', 'Postcode', false], ['site_city', 'Gemeente', false]] as const).map(([k, label, wide]) => (
+          <label key={k} className={wide ? 'wide' : undefined}>
+            {label}
+            <input defaultValue={project[k] ?? ''} className={focus === 'gegevens' && !project[k] ? 'focus-input' : undefined}
+              onBlur={(e) => saveSite(k, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} />
+          </label>
+        ))}
       </div>
       <p className="muted small">De taal bepaalt de mails, de berichten en het klantenportaal (de klant kan daar zelf ook wisselen).</p>
       {msg && <p className="muted small">{msg}</p>}

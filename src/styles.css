@@ -1912,3 +1912,7 @@ summary.vd-h::-webkit-details-marker { display: none; }
   .pd-steps small { white-space: normal; }
 }
 @media (max-width: 560px) { .pd-tabs button { padding: 8px 7px; } .pd-badge { margin-left: 4px; } }
+.vt-h { margin-top: 22px; }
+.pcost-sum > button.warn { display: grid; gap: 2px; min-width: 0; text-align: left; background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+.cp-site { margin: 10px 0 0; font-size: 14px; }
+.pcost-lines td.nowrap .link + .link { margin-left: 12px; }

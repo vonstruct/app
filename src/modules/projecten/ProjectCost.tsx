@@ -4,6 +4,8 @@ import { useQuery } from '../../core/useQuery'
 import { ErrorBox, Loading } from '../../core/ui'
 import { fmtEur, fmtNum } from '../../core/format'
 import { toast } from '../../core/toast'
+import { useSearchParams } from 'react-router'
+import { OwnArticleEditor } from '../../core/OwnArticle'
 
 /**
  * Tab "Projectkost" op de projectpagina: de kostprijs van het project op detailniveau, in groepen.
@@ -41,6 +43,11 @@ export function ProjectCost({ project, onQuote }: { project: string; onQuote: ()
     return { data: ((data ?? []) as never[])[0] ?? null, error }
   }, [project])
   const [open, setOpen] = useState<Record<string, boolean>>({})
+  // ?focus=prijzen (vanuit Vandaag of het Verloop): de groepen met artikels zonder prijs meteen open
+  const [params] = useSearchParams()
+  const focusPrices = params.get('focus') === 'prijzen'
+  const openNoPrice = () => setOpen(Object.fromEntries((gq.data ?? []).filter((g) => g.n_no_price > 0).map((g) => [g.group_name, true])))
+  useEffect(() => { if (focusPrices && gq.data) openNoPrice() }, [focusPrices, gq.data]) // eslint-disable-line react-hooks/exhaustive-deps
   const [adding, setAdding] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const reload = () => { gq.reload(); lq.reload() }
@@ -124,7 +131,7 @@ export function ProjectCost({ project, onQuote }: { project: string; onQuote: ()
       <div className="pcost-sum">
         <div><span className="lbl">Kostprijs</span><b>{fmtEur(totCost)}</b><small className="muted">{version ? `stuklijst v${version} + eigen regels` : 'nog geen berekende stuklijst'}</small></div>
         <div><span className="lbl">Voor de klant (± {fmtNum(projectMargin, 0)} % marge)</span><b>{fmtEur(totSell)}</b><small className="muted">excl. btw, per groep afgerond in de offerte</small></div>
-        {noPrice > 0 && <div className="warn"><span className="lbl">Zonder prijs</span><b>{noPrice}</b><small>open de groep en klik "prijs zoeken"</small></div>}
+        {noPrice > 0 && <button className="warn" onClick={openNoPrice}><span className="lbl">Zonder prijs</span><b>{noPrice}</b><small>toon ze · "prijs zoeken" of "zelf invullen"</small></button>}
         <div className="pcost-vat"><span className="lbl">Btw</span>
           <select value={vatChoice} onChange={(e) => saveVat(e.target.value)} aria-label="Btw van het project">
             <option value="">{mq.data?.new_build ? 'standaard: 21 % (nieuwbouw)' : 'standaard: 6 % (renovatie)'}</option>
@@ -217,6 +224,9 @@ function GroupSettings({ g, others, onSave, onMerge }: { g: Group; others: strin
 
 function LineRow({ l, groups, onMove, onStock, onRemove, onSaved }: { l: Line; groups: string[]; onMove: (to: string) => void; onStock: () => void; onRemove: () => void; onSaved: () => void }) {
   const [find, setFind] = useState(false)
+  const [own, setOwn] = useState(false)
+  // eenheidsprijs van beslag en rubrieken uit de stuklijst aanpassen = eigen prijs (geldt ook voor volgende projecten)
+  const priceEditable = l.kind === 'stuklijst' && !l.no_price && !['Platen', 'Kanten', 'Productiekosten', 'Lades'].includes(l.rubriek ?? '')
   return (
     <>
       <tr className={l.no_price ? 'warn-row' : ''}>
@@ -232,7 +242,7 @@ function LineRow({ l, groups, onMove, onStock, onRemove, onSaved }: { l: Line; g
         </td>
         <td>{l.supplier}{l.article_no && <div className="small muted">{l.article_no}</div>}</td>
         <td className="num">{l.qty == null ? '' : `${fmtNum(l.qty, 2)}${l.unit ? ' ' + l.unit : ''}`}</td>
-        <td className="num">{l.unit_price == null ? '' : fmtEur(l.unit_price)}</td>
+        <td className="num">{priceEditable ? <PriceEdit l={l} onSaved={onSaved} /> : l.unit_price == null ? '' : fmtEur(l.unit_price)}</td>
         <td className="num">{fmtEur(l.total)}</td>
         <td>
           <select value={l.group_name} onChange={(e) => onMove(e.target.value)} aria-label="Groep">
@@ -243,10 +253,17 @@ function LineRow({ l, groups, onMove, onStock, onRemove, onSaved }: { l: Line; g
         </td>
         <td className="pc-stock"><input type="checkbox" checked={l.in_stock} onChange={onStock} aria-label="Op voorraad" /></td>
         <td className="nowrap">
-          {l.no_price && <button className="link small" onClick={() => setFind((x) => !x)}>prijs zoeken</button>}
+          {l.no_price && <button className="link small" onClick={() => { setFind((x) => !x); setOwn(false) }}>prijs zoeken</button>}
+          {l.no_price && <button className="link small" onClick={() => { setOwn((x) => !x); setFind(false) }} title="Herkomst (bestellen, zelf maken, negeren) en prijs per stuk">zelf invullen</button>}
           {l.kind === 'eigen' && <button className="link small" onClick={onRemove}>weg</button>}
         </td>
       </tr>
+      {own && (
+        <tr className="find-row"><td colSpan={8}>
+          <p className="small muted">Bestellen = bij een leverancier · Zelf maken = niet op een bestellijst · Negeren = telt nergens mee. Herkend op artikelnummer, anders op naam, ook in volgende projecten.</p>
+          <OwnArticleEditor articleNo={l.article_no} description={l.description} supplier={l.supplier} onSaved={(m) => { toast(m); setOwn(false); onSaved() }} />
+        </td></tr>
+      )}
       {find && (
         <tr className="find-row"><td colSpan={8}>
           <PriceFinder query={l.description} onPick={async (h) => {
@@ -259,6 +276,22 @@ function LineRow({ l, groups, onMove, onStock, onRemove, onSaved }: { l: Line; g
       )}
     </>
   )
+}
+
+/** Eenheidsprijs aanklikken en wijzigen; bewaard als eigen prijs (RPC set_manual_price), ook voor volgende projecten. */
+function PriceEdit({ l, onSaved }: { l: Line; onSaved: () => void }) {
+  const [edit, setEdit] = useState(false)
+  const [val, setVal] = useState('')
+  const save = async () => {
+    setEdit(false)
+    const v = val.trim().replace(/\./g, '').replace(',', '.')
+    if (v === '' || isNaN(Number(v)) || Number(v) === Number(l.unit_price)) return
+    const { error } = await supabase.rpc('set_manual_price', { p_article_no: l.article_no ?? '', p_description: l.description, p_supplier: l.supplier, p_price: Number(v) })
+    if (error) return toast(error.message, 'err')
+    toast(`Prijs voor "${l.description}" bewaard. Geldt ook voor volgende projecten.`); onSaved()
+  }
+  if (edit) return <input autoFocus className="price-input" inputMode="decimal" value={val} onChange={(e) => setVal(e.target.value)} onBlur={save} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') setEdit(false) }} />
+  return <button type="button" className="price-btn" title="Prijs aanpassen (eigen prijs)" onClick={() => { setVal(l.unit_price == null ? '' : String(l.unit_price).replace('.', ',')); setEdit(true) }}>{l.unit_price == null ? '—' : fmtEur(l.unit_price)}</button>
 }
 
 /** Zoekt in eigen artikels, prijslijsten (Häfele, Du Pont, …) en de regels van bestellingen en facturen uit je mailbox. */

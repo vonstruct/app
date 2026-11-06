@@ -104,7 +104,7 @@ export function ProjectDetail() {
   }, [tab])
   const tl = useTimeline(code, pq.reload)
   // klantgegevens: klein blok onder de kop; opent vanzelf als je komt om een ontbrekend veld in te vullen (?focus=email …)
-  const clientFocus = focus && !['fase', 'survey', 'mails'].includes(focus) ? focus : null
+  const clientFocus = focus && !['fase', 'survey', 'mails', 'datums', 'prijzen'].includes(focus) ? focus : null
   const [showClient, setShowClient] = useState(false)
   const versions = q.data ?? []
   const [a, setA] = useState<number | null>(null)

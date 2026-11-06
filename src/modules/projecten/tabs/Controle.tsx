@@ -9,14 +9,17 @@ import { ItemWhere } from '../../../core/ItemWhere'
 type Row = { id: string; level: string; code: string; message: string; cabinet: string | null; part: string | null; resolved: boolean; resolution: string | null }
 
 /** Meldingen uit PaletteCAD. "Beslag zonder artikelnummer" los je hier op door het een eigen artikel te maken. */
-export function Controle({ dvId }: { dvId: string }) {
+export function Controle({ dvId, compact }: { dvId: string; compact?: boolean }) {
   const q = useQuery<Row[]>(() => supabase.from('app_checks').select('*').eq('design_version_id', dvId).order('level'), [dvId])
   const [msg, setMsg] = useState<string | null>(null)
   if (q.loading && !q.data) return <Loading />
   const rows = q.data ?? []
   const open = rows.filter((r) => !r.resolved)
+  // op het Overzicht van de versie: enkel tonen als er meldingen zijn
+  if (compact && rows.length === 0) return null
   return (
     <>
+      {compact && <h2 className="vt-h">Meldingen uit PaletteCAD {open.length > 0 && <span className="warn-text">{open.length} open</span>}</h2>}
       <ErrorBox error={q.error} />
       <p className="muted">
         {open.length === 0 ? 'Alle meldingen zijn opgelost.' : `${open.length} open melding${open.length === 1 ? '' : 'en'}.`} Beslag zonder

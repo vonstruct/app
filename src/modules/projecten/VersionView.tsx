@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router'
+import { Link, Navigate, useParams, useSearchParams } from 'react-router'
 import { supabase } from '../../core/supabase'
 import { useQuery } from '../../core/useQuery'
 import { ErrorBox, Loading, Stat, Tabs } from '../../core/ui'
 import { fmtDate, fmtInt } from '../../core/format'
-import { versionTabs } from './tabs'
+import { versionTabs, VERSION_TAB_ALIAS } from './tabs'
 import { RecalcButton } from './RecalcButton'
 
 type DV = {
@@ -22,7 +22,9 @@ type DV = {
 export function VersionView() {
   const { code = '', version = '' } = useParams()
   const [params, setParams] = useSearchParams()
-  const tab = versionTabs.some((t) => t.id === params.get('tab')) ? params.get('tab')! : versionTabs[0].id
+  const asked = params.get('tab') ?? ''
+  const wanted = VERSION_TAB_ALIAS[asked] ?? asked
+  const tab = versionTabs.some((t) => t.id === wanted) ? wanted : versionTabs[0].id
   const setTab = (id: string) => setParams({ tab: id }, { replace: true })
   const q = useQuery<DV>(
     () =>
@@ -39,6 +41,8 @@ export function VersionView() {
   const dv = q.data
   const p = dv?.payload.project ?? {}
   const Active = versionTabs.find((t) => t.id === tab)!.component
+  // Kosten staat voortaan op het project: Geld › Kostprijs (oude links ?tab=kosten&focus=prijzen blijven werken)
+  if (asked === 'kosten') return <Navigate replace to={`/projecten/${encodeURIComponent(code)}?tab=kost${params.get('focus') === 'prijzen' ? '&focus=prijzen' : ''}`} />
 
   return (
     <section>
