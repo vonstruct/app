@@ -6,6 +6,7 @@ import { fmtEur } from '../../core/format'
 import { toast } from '../../core/toast'
 import { QuoteDoc, printQuote, lineAmount, quoteTotals, lineOn, type Company, type QLang, type QSignature } from '../../core/QuoteDoc'
 import { RuleLink } from '../../core/RuleLink'
+import { DateInput } from '../../core/DateInput'
 
 /**
  * Tab "Offerte" op de projectpagina. Sinds 6 nov 2026 enkel opgeladen offertes (pdf; app_quotes toont enkel quotes.external).
@@ -332,10 +333,10 @@ function ImportQuote({ project, onDone }: { project: string; onDone: (id: string
       {note && <p className="small muted">{note}</p>}
       <div className="new-rel-grid">
         <label>Nummer<input value={f.number} onChange={set('number')} placeholder="bv. OFF1" /></label>
-        <label>Datum<input type="date" value={f.date} onChange={set('date')} /></label>
+        <label>Datum<DateInput value={f.date} onChange={set('date')} /></label>
         <label>Omschrijving<input value={f.title} onChange={set('title')} placeholder="bv. Keuken" /></label>
         <label>Status<select value={f.status} onChange={set('status')}><option value="aanvaard">Aanvaard</option><option value="verstuurd">Verstuurd (wacht op antwoord)</option><option value="geweigerd">Geweigerd</option></select></label>
-        {f.status === 'aanvaard' && <label>Aanvaard op (optioneel)<input type="date" value={f.accepted} onChange={set('accepted')} /></label>}
+        {f.status === 'aanvaard' && <label>Aanvaard op (optioneel)<DateInput value={f.accepted} onChange={set('accepted')} /></label>}
       </div>
       <div className="iq-lines">
         <b className="small">Bedragen excl. btw per tarief</b>

@@ -5,6 +5,7 @@ import { useQuery } from '../../core/useQuery'
 import { ErrorBox, Loading } from '../../core/ui'
 import { fmtEur } from '../../core/format'
 import { toast } from '../../core/toast'
+import { DateInput } from '../../core/DateInput'
 
 /**
  * Betalingsschema en facturen (tabel `invoices`, view `app_invoices`). Na een ondertekende offerte maakt de database de schijven
@@ -161,7 +162,7 @@ function InvoiceDetail({ i, onSave }: { i: Inv; onSave: (p: Partial<Inv>) => voi
       {(i.status === 'te factureren' || i.status === 'gepland') && (
         <div className="inv-make">
           <label>Of met de hand: factuurnummer<input value={nr} onChange={(e) => setNr(e.target.value)} placeholder="bv. VF2026-0123" /></label>
-          <label>Factuurdatum<input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
+          <label>Factuurdatum<DateInput value={date} onChange={(e) => setDate(e.target.value)} /></label>
           <button className="primary" onClick={() => onSave({ status: 'gefactureerd', invoice_number: nr || null, invoice_date: date, due_date: null })}>Gefactureerd</button>
           {i.status === 'gepland' && <button onClick={() => onSave({ status: 'te factureren', ready_at: new Date().toISOString() })}>Nu al factureren</button>}
         </div>

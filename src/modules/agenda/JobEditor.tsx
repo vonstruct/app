@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import { supabase } from '../../core/supabase'
 import { AddressFields, RouteLinks } from '../../core/address'
 import { JobCard, fromAdminRow } from '../../portal/Jobs'
+import { DateInput, DateTimeInput } from '../../core/DateInput'
 
 /** Opdracht voor een onderaannemer of partner. Zichtbaar in de agenda en in hun portaal. */
 export type Job = {
@@ -314,9 +315,9 @@ export function JobEditor({ draft, onClose, onSaved }: { draft: JobDraft; onClos
                   <button type="button" className={!slot ? 'on' : ''} onClick={() => setSlot(null)}>Vast uur</button>
                 </div>
               </div>
-              {slot && <label>Datum<input type="date" value={dayInput(j.start_at!)} onChange={(e) => e.target.value && setSlot(slot, new Date(e.target.value + 'T12:00'))} /></label>}
+              {slot && <label>Datum<DateInput value={dayInput(j.start_at!)} onChange={(e) => e.target.value && setSlot(slot, new Date(e.target.value + 'T12:00'))} /></label>}
               {slot === 'dag' && <label>Aantal dagen<input type="number" min={1} max={30} value={days} onChange={(e) => setSlot('dag', new Date(j.start_at!), Math.max(1, Number(e.target.value)))} /></label>}
-              {!slot && <label>Begin<input type="datetime-local" value={toLocalInput(j.start_at!)} onChange={(e) => { const s = new Date(e.target.value); const d = new Date(j.end_at!).getTime() - new Date(j.start_at!).getTime(); set({ start_at: s.toISOString(), end_at: new Date(s.getTime() + d).toISOString() }) }} /></label>}
+              {!slot && <label>Begin<DateTimeInput value={toLocalInput(j.start_at!)} onChange={(e) => { const s = new Date(e.target.value); const d = new Date(j.end_at!).getTime() - new Date(j.start_at!).getTime(); set({ start_at: s.toISOString(), end_at: new Date(s.getTime() + d).toISOString() }) }} /></label>}
               {!slot && <label>Duur (uur)<input type="number" min={0.25} step={0.25} value={dur} onChange={(e) => set({ end_at: new Date(new Date(j.start_at!).getTime() + Number(e.target.value) * 3600000).toISOString() })} /></label>}
               <label>Type werk
                 <select value={j.job_type ?? ''} onChange={(e) => set({ job_type: (e.target.value || null) as Job['job_type'] })}>

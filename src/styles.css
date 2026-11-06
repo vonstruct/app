@@ -1844,10 +1844,10 @@ summary.vd-h::-webkit-details-marker { display: none; }
 .ov-now { background: color-mix(in srgb, #b38b3a 11%, var(--panel)); border-radius: 10px; padding: 4px 12px 6px; margin: 0 -6px; }
 .ov-now .ov-sec { color: #9c7629; }
 .ov-empty { margin: 6px 0; }
-.ov-add { padding: 2px 0 2px 92px; }
+.ov-add { padding: 2px 0 2px 110px; }
 .ov-add input { font: inherit; font-size: 13.5px; min-width: 0; flex: 1 1 200px; }
 .ov-list { list-style: none; margin: 0; padding: 0; display: grid; }
-.ov-l { display: grid; grid-template-columns: 78px 14px minmax(0, 1fr) auto; gap: 2px 10px; align-items: start; padding: 7px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.ov-l { display: grid; grid-template-columns: 96px 14px minmax(0, 1fr) auto; gap: 2px 10px; align-items: start; padding: 7px 0; border-top: 1px solid var(--line); font-size: 14px; }
 .ov-now .ov-l { border-top-color: color-mix(in srgb, #b38b3a 25%, transparent); }
 .ov-list > .ov-l:first-child { border-top: 0; }
 .ov-l time { font-size: 12.5px; line-height: 1.3; color: var(--muted); padding-top: 2px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
@@ -1886,7 +1886,7 @@ summary.vd-h::-webkit-details-marker { display: none; }
 @media (max-width: 900px) { .ov-grid { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 560px) {
   .ov-bar { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 8px; }
-  .ov-l { grid-template-columns: 62px 12px minmax(0, 1fr); }
+  .ov-l { grid-template-columns: 78px 12px minmax(0, 1fr); }
   .ov-act { grid-column: 3; justify-content: flex-start; }
   .ov-add { padding-left: 0; }
   .ov-tiles { grid-template-columns: minmax(0, 1fr); }
@@ -1917,3 +1917,17 @@ summary.vd-h::-webkit-details-marker { display: none; }
 .cp-site { margin: 10px 0 0; font-size: 14px; }
 .pcost-lines td.nowrap .link + .link { margin-left: 12px; }
 .cp-same { flex-direction: row !important; align-items: center; gap: 8px; font-weight: 500; } .cp-same-addr { margin: 0; }
+
+/* Datumvak DD/MM/YYYY (core/DateInput.tsx) */
+.date-in { position: relative; display: inline-flex; align-items: center; min-width: 0; max-width: 100%; }
+.date-in > input[type="text"] { width: 100%; min-width: 0; padding-right: 30px; font-variant-numeric: tabular-nums; }
+.date-in.bad > input[type="text"] { border-color: var(--bad); }
+.date-in-cal { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); border: 0; background: none; padding: 3px; color: var(--muted); cursor: pointer; line-height: 0; }
+.date-in-cal:hover { color: var(--accent); }
+.date-in-cal svg { width: 16px; height: 16px; }
+.date-in-native { position: absolute; right: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; border: 0; padding: 0; }
+label > .date-in, .kd-fields .date-in, .po-edit .date-in { width: 100%; }
+.datetime-in { display: inline-flex; gap: 6px; align-items: center; max-width: 100%; }
+.datetime-in .date-in { flex: 1 1 140px; }
+.time-in { width: 72px; font-variant-numeric: tabular-nums; }
+.time-in.bad { border-color: var(--bad); }

@@ -7,6 +7,7 @@ import { SignaturePad } from '../../core/SignaturePad'
 import { HandoverDoc } from '../../core/HandoverDoc'
 import { printQuote, type Company } from '../../core/QuoteDoc'
 import { RuleLink } from '../../core/RuleLink'
+import { DateInput } from '../../core/DateInput'
 
 /**
  * Tab "Oplevering" op de projectpagina: werkpunten (wie, tegen wanneer, foto's, klaar), proces-verbaal van oplevering
@@ -131,7 +132,7 @@ function Punch({ project, items, subs, partners, onChange }: { project: string; 
           {subs.length > 0 && <optgroup label="Onderaannemer">{subs.map((s) => <option key={s.id} value={'onderaannemer:' + s.id}>{s.name}</option>)}</optgroup>}
           {partners.length > 0 && <optgroup label="Partner">{partners.map((s) => <option key={s.id} value={'partner:' + s.id}>{s.name}</option>)}</optgroup>}
         </select>
-        <input type="date" value={f.due} onChange={(e) => setF({ ...f, due: e.target.value })} title="tegen wanneer" />
+        <DateInput value={f.due} onChange={(e) => setF({ ...f, due: e.target.value })} title="tegen wanneer" />
         <label className="qcheck"><input type="checkbox" checked={f.show_client} onChange={(e) => setF({ ...f, show_client: e.target.checked })} /> klant ziet het</label>
         <input type="file" accept="image/*" multiple capture="environment" onChange={(e) => setFiles(e.target.files)} />
         <button className="primary" disabled={busy} onClick={add}>{busy ? 'Bezig…' : '+ Werkpunt'}</button>
@@ -179,7 +180,7 @@ function Pv({ h, items, project, client, company, onChange }: { h: Handover; ite
       </div>
       {editable && (
         <div className="qedit-head">
-          <label>Datum van oplevering<input type="date" defaultValue={h.handover_date ?? ''} onBlur={(e) => e.target.value !== (h.handover_date ?? '') && save({ handover_date: e.target.value || null })} /></label>
+          <label>Datum van oplevering<DateInput defaultValue={h.handover_date ?? ''} onBlur={(e) => e.target.value !== (h.handover_date ?? '') && save({ handover_date: e.target.value || null })} /></label>
           <label>Garantie (maanden)<input type="number" defaultValue={h.warranty_months ?? 24} onBlur={(e) => Number(e.target.value) !== h.warranty_months && save({ warranty_months: Number(e.target.value) })} /></label>
           <label>Tekst<textarea rows={4} defaultValue={h.text_body ?? ''} onBlur={(e) => e.target.value !== (h.text_body ?? '') && save({ text_body: e.target.value })} /></label>
           <label>Opmerkingen (optioneel)<textarea rows={4} defaultValue={h.notes ?? ''} onBlur={(e) => e.target.value !== (h.notes ?? '') && save({ notes: e.target.value || null })} /></label>

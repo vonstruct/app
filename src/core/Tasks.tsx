@@ -5,6 +5,7 @@ import { useDictation, dueFromText } from './useDictation'
 import { toast } from './toast'
 import { NewEvent } from '../modules/agenda/Agenda'
 import { JobEditor } from '../modules/agenda/JobEditor'
+import { DateInput } from './DateInput'
 
 /** Takenlijst van Olivier (tabel `tasks`): ingesproken via Siri/VON of hier getypt. Overal dezelfde component. */
 export type Task = { id: string; text: string; project_code: string | null; due_date: string | null; done_at: string | null; source: string; created_at: string; proposal_ids?: string[] | null; kind?: 'buiten' | 'app'; link?: string | null }
@@ -102,7 +103,7 @@ export function Tasks({ project, limit, title = 'Mijn taken', showAdd = true, ki
               {dict.listening ? '■' : '🎤'}
             </button>
           )}
-          <input type="date" value={due} onChange={(e) => setDue(e.target.value)} title="Tegen wanneer" />
+          <DateInput value={due} onChange={(e) => setDue(e.target.value)} title="Tegen wanneer" />
           <button type="submit" disabled={!text.trim()}>+</button>
         </form>
       )}

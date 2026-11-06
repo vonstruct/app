@@ -4,6 +4,7 @@ import { tr, type Lang } from './i18n'
 import { RouteLinks } from '../core/address'
 import { downloadIcs } from '../core/ics'
 import { SLOTS, type Slot } from '../modules/agenda/JobEditor'
+import { DateInput } from '../core/DateInput'
 
 export type PortalJob = Job
 export type ViewAs = { kind: 'onderaannemer' | 'partner'; id: string }
@@ -209,7 +210,7 @@ export function MomentForm({ j, lang, onDone, onCancel }: { j: { id: string; sta
         <button type="button" className={!slot ? 'on' : ''} onClick={() => setSlot('')}>{t.jobs.fixedTime}</button>
       </div>
       <div className="form-grid" style={{ marginTop: 10 }}>
-        <label>{t.jobs.date}<input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
+        <label>{t.jobs.date}<DateInput value={date} onChange={(e) => setDate(e.target.value)} /></label>
         {slot === 'dag' && <label>{t.jobs.days}<input type="number" min={1} max={30} value={days} onChange={(e) => setDays(Math.max(1, Number(e.target.value)))} /></label>}
         {!slot && <label>{t.jobs.from}<input type="time" value={from} onChange={(e) => setFrom(e.target.value)} /></label>}
         {!slot && <label>{t.jobs.to}<input type="time" value={to} onChange={(e) => setTo(e.target.value)} /></label>}

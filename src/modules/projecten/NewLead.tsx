@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { supabase } from '../../core/supabase'
+import { DateTimeInput } from '../../core/DateInput'
 
 /** Nieuwe aanvraag met de hand (de Bookings-koppeling doet hetzelfde automatisch). */
 export function NewLead({ onClose }: { onClose: () => void }) {
@@ -30,7 +31,7 @@ export function NewLead({ onClose }: { onClose: () => void }) {
           <label>E-mail<input type="email" value={f.email} onChange={set('email')} /></label>
           <label>Telefoon<input type="tel" value={f.phone} onChange={set('phone')} /></label>
           <label>Bron<select value={f.source} onChange={set('source')}><option value=""></option>{['WhatsApp', 'Bookings', 'Telefoon', 'Website', 'Aanbeveling', 'Instagram', 'Andere'].map((x) => <option key={x}>{x}</option>)}</select></label>
-          <label>Kennismaking<input type="datetime-local" value={f.intro} onChange={set('intro')} /></label>
+          <label>Kennismaking<DateTimeInput value={f.intro} onChange={set('intro')} /></label>
           <label className="wide">Notitie<textarea rows={2} value={f.notes} onChange={set('notes')} /></label>
         </div>
         {err && <p className="error">{err}</p>}

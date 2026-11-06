@@ -1,5 +1,6 @@
 import { supabase } from '../../core/supabase'
 import { toast } from '../../core/toast'
+import { DateInput } from '../../core/DateInput'
 
 /**
  * Datums van een project (view app_project_timeline) en de stage gates (view app_project_gates: due / done_at / passed).
@@ -29,17 +30,17 @@ export function DatesForm({ t, save, onClose }: { t: Timeline; save: (patch: Par
     <div className="ov-dates">
       <div className="kd-fields">
         <label>Deadline klant
-          <input type="date" defaultValue={t.deadline ?? ''} key={'dl' + t.deadline} onBlur={(e) => (e.target.value || null) !== t.deadline && save({ deadline: e.target.value || null })} />
+          <DateInput defaultValue={t.deadline ?? ''} key={'dl' + t.deadline} onBlur={(e) => (e.target.value || null) !== t.deadline && save({ deadline: e.target.value || null })} />
         </label>
         <label>Reden (optioneel)
           <input defaultValue={t.deadline_reason ?? ''} key={'dr' + t.deadline_reason} placeholder="bv. verhuis, feest" onBlur={(e) => (e.target.value.trim() || null) !== t.deadline_reason && save({ deadline_reason: e.target.value.trim() || null })} />
         </label>
         <label>Start van de werken
-          <input type="date" defaultValue={t.works_start ?? ''} key={'ws' + t.works_start} onBlur={(e) => (e.target.value || null) !== t.works_start && save({ works_start: e.target.value || null })} />
+          <DateInput defaultValue={t.works_start ?? ''} key={'ws' + t.works_start} onBlur={(e) => (e.target.value || null) !== t.works_start && save({ works_start: e.target.value || null })} />
           <small className="muted">eerste werfdag: afbraak, onderaannemers of plaatsing</small>
         </label>
         <label>Plaatsing vanaf
-          <input type="date" defaultValue={t.install_start ?? ''} key={'is' + t.install_start} onBlur={(e) => (e.target.value || null) !== t.install_start && save({ install_start: e.target.value || null })} />
+          <DateInput defaultValue={t.install_start ?? ''} key={'is' + t.install_start} onBlur={(e) => (e.target.value || null) !== t.install_start && save({ install_start: e.target.value || null })} />
           {!t.install_start && t.target_install_week && <small className="muted">nu enkel week {t.target_install_week.split('-W')[1]}</small>}
         </label>
         <label>Dagen plaatsing (ook weekend)

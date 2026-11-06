@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router'
 import { supabase } from '../../core/supabase'
 import { RouteLinks } from '../../core/address'
 import { JOB_STATUS, SLOTS, JobEditor, type Job, type JobDraft } from './JobEditor'
+import { DateTimeInput } from '../../core/DateInput'
 
 /** Item in de agenda: Outlook (info@vonstruct.com), Bookings (klantafspraken) of planning uit de projecten. */
 type Ev = {
@@ -578,7 +579,7 @@ function Detail({ ev, cat, note, project, projects, onClose, onChanged, onJob }:
         {mode === 'edit' && (
           <div className="form-grid agenda-form">
             {ev.source === 'outlook' && <label className="wide">Titel<input value={title} onChange={(e) => setTitle(e.target.value)} /></label>}
-            {timeEditable && <label>Begin<input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} /></label>}
+            {timeEditable && <label>Begin<DateTimeInput value={start} onChange={(e) => setStart(e.target.value)} /></label>}
             {timeEditable && <label>Duur (min)<input type="number" min={15} step={15} value={dur} onChange={(e) => setDur(Number(e.target.value))} /></label>}
             {ev.source === 'outlook' && <label className="wide">Locatie<input value={loc} onChange={(e) => setLoc(e.target.value)} /></label>}
             <InfoFields note={info} setNote={setInfo} cat={c} setCat={setC} project={proj} setProject={setProj} projects={projects} />
@@ -634,7 +635,7 @@ export function NewEvent({ day, projects, onClose, onCreated, project = '', init
         <h2>Nieuwe afspraak</h2>
         <div className="form-grid agenda-form">
           <label className="wide">Titel<input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Bv. Opmeting 209902 Geel" /></label>
-          <label>Begin<input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} /></label>
+          <label>Begin<DateTimeInput value={start} onChange={(e) => setStart(e.target.value)} /></label>
           <label>Duur (min)<input type="number" min={15} step={15} value={dur} onChange={(e) => setDur(Number(e.target.value))} /></label>
           <label className="wide">Locatie<input value={loc} onChange={(e) => setLoc(e.target.value)} /></label>
           <InfoFields note={info} setNote={setInfo} cat={c} setCat={setC} project={proj} setProject={setProj} projects={projects} />

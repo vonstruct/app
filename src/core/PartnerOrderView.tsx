@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from './supabase'
 import { fmtNum } from './format'
+import { DateInput } from './DateInput'
 
 /**
  * Bestelling en ophaling bij de productiepartner, zoals de partner ze ziet: platen en kantenband bestellen (per leverancier
@@ -59,7 +60,7 @@ export function PartnerOrderView({ o, act, onChange }: { o: PartnerOrder; act: b
               <ul className="po-lines">{(x.lines ?? []).map((l, i) => <li key={i}><span className="po-qty">{fmtNum(l.qty, l.unit === 'm' ? 1 : 0)} {l.unit === 'plaat' ? (Number(l.qty) === 1 ? 'plaat' : 'platen') : l.unit}</span> {l.description}{l.article_no && <small className="muted"> · {l.article_no}</small>}</li>)}</ul>
               {x.status === 'te bestellen' && (
                 <div className="po-act">
-                  <label className="small">Verwacht binnen op <input type="date" value={exp[x.id] ?? ''} onChange={(e) => setExp({ ...exp, [x.id]: e.target.value })} disabled={!act} /></label>
+                  <label className="small">Verwacht binnen op <DateInput value={exp[x.id] ?? ''} onChange={(e) => setExp({ ...exp, [x.id]: e.target.value })} disabled={!act} /></label>
                   <input className="po-ref" placeholder="bestelnummer (mag leeg)" value={ref[x.id] ?? ''} onChange={(e) => setRef({ ...ref, [x.id]: e.target.value })} disabled={!act} />
                   <button className="primary" disabled={!act || busy === x.id || !exp[x.id]} title={!exp[x.id] ? 'Vul eerst de verwachte leverdatum in' : ''}
                     onClick={() => run(x.id, () => supabase.rpc('portal_partner_supplier', { p_order: x.id, p_action: 'besteld', p_expected: exp[x.id], p_ref: ref[x.id] || null }))}>Besteld</button>

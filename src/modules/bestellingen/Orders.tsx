@@ -5,6 +5,7 @@ import { useQuery } from '../../core/useQuery'
 import { ErrorBox, Loading } from '../../core/ui'
 import { fmtEur } from '../../core/format'
 import { toast } from '../../core/toast'
+import { DateInput } from '../../core/DateInput'
 
 /**
  * Bestellingen per leverancier (tabel `orders`, view `app_orders` berekent "bestellen vóór" uit
@@ -138,8 +139,8 @@ function NewOrder({ project, onDone }: { project: string; onDone: () => void }) 
         <label>Leverancier<input value={f.supplier} onChange={set('supplier')} list="order-suppliers" /></label>
         <label>Status<select value={f.status} onChange={set('status')}>{STATUSES.slice(0, 4).map((s) => <option key={s}>{s}</option>)}</select></label>
         <label>Bestelnummer<input value={f.reference} onChange={set('reference')} /></label>
-        <label>Besteld op<input type="date" value={f.ordered_at} onChange={set('ordered_at')} /></label>
-        <label>Verwacht op<input type="date" value={f.expected_at} onChange={set('expected_at')} /></label>
+        <label>Besteld op<DateInput value={f.ordered_at} onChange={set('ordered_at')} /></label>
+        <label>Verwacht op<DateInput value={f.expected_at} onChange={set('expected_at')} /></label>
         <label>Bedrag (€)<input value={f.amount} onChange={set('amount')} inputMode="decimal" /></label>
         <label>Wat<input value={f.note} onChange={set('note')} placeholder="bv. oven en kookplaat" /></label>
       </div>

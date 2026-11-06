@@ -4,6 +4,7 @@ import { useQuery } from '../../core/useQuery'
 import { ErrorBox } from '../../core/ui'
 import { toast } from '../../core/toast'
 import { PartnerOrderView, palletName, type PartnerOrder } from '../../core/PartnerOrderView'
+import { DateInput } from '../../core/DateInput'
 
 /**
  * Blok "Bestelling en ophaling bij de partner" bovenaan de tab Productie (tabel partner_orders, view app_partner_orders).
@@ -81,7 +82,7 @@ export function PartnerOrderPanel({ project, test }: { project: string; test: bo
       {!sent && <p className="small muted">Gaat vanzelf naar {r.partner} zodra het voorschot betaald is{test ? ' (testmodus: enkel naar info@)' : ''}. Of geef het nu door met de knop.</p>}
 
       <div className="po-edit">
-        <label>Ophaaldatum <input type="date" key={'d' + (r.pickup_date ?? '')} defaultValue={r.pickup_date ?? ''} onBlur={(e) => e.target.value !== (r.pickup_date ?? '') && save({ pickup_date: e.target.value || null })} /></label>
+        <label>Ophaaldatum <DateInput key={'d' + (r.pickup_date ?? '')} defaultValue={r.pickup_date ?? ''} onBlur={(e) => e.target.value !== (r.pickup_date ?? '') && save({ pickup_date: e.target.value || null })} /></label>
         <label>Dagdeel
           <select value={r.pickup_slot ?? ''} onChange={(e) => save({ pickup_slot: e.target.value || null, pickup_date: r.pickup_date })}>
             <option value="">—</option><option value="voormiddag">voormiddag</option><option value="namiddag">namiddag</option><option value="dag">hele dag</option>

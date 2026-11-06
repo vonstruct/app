@@ -5,6 +5,7 @@ import { ErrorBox, Loading } from '../../core/ui'
 import { fmtEur } from '../../core/format'
 import { toast } from '../../core/toast'
 import { RuleLink } from '../../core/RuleLink'
+import { DateInput } from '../../core/DateInput'
 
 /**
  * Tab "Nacalculatie" op de projectpagina: offerte (omzet) tegenover werkelijke kosten (bestellingen met werkelijk factuurbedrag,
@@ -95,7 +96,7 @@ export function NacalcPanel({ project }: { project: string }) {
         <div key={w.id} className="nc-row"><span>{new Date(w.work_date + 'T12:00').toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' })}</span><span>{w.who} · {w.activity ?? ''}{w.note ? ' · ' + w.note : ''}</span><b>{w.hours} u</b><button onClick={() => remove('work_hours', w.id)}>×</button></div>
       ))}
       <div className="ho-new nc-new">
-        <input type="date" value={h.date} onChange={(e) => setH({ ...h, date: e.target.value })} />
+        <DateInput value={h.date} onChange={(e) => setH({ ...h, date: e.target.value })} />
         <select value={h.activity} onChange={(e) => setH({ ...h, activity: e.target.value })}>{(acts.data?.value?.lijst ?? ['Plaatsing']).map((a) => <option key={a}>{a}</option>)}</select>
         <input placeholder="Wie" value={h.person} onChange={(e) => setH({ ...h, person: e.target.value })} />
         <input placeholder="Uren" inputMode="decimal" value={h.hours} onChange={(e) => setH({ ...h, hours: e.target.value })} />
