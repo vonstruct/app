@@ -23,7 +23,8 @@ type Group = {
   project_code: string; group_name: string; sort: number; client_title: string; client_text: string | null; vat_rate: number | null; margin_pct: number | null
   show_lines: boolean; is_custom: boolean; n_lines: number; cost: number; n_no_price: number; group_id: string | null; sell?: number | null; margin_eff?: number | null; vat_eff?: number | null
 }
-type Hit = { src: string; supplier: string | null; article_no: string | null; description: string; unit_price: number | null; unit: string | null; ref: string; seen: string | null }
+/** Zoekresultaat (RPC cost_search2): unit_price = per stuk; pack_qty/pack_price = verpakking (doos van N); pack_sure = al gedeeld door N. */
+type Hit = { src: string; supplier: string | null; article_no: string | null; description: string; unit_price: number | null; unit: string | null; ref: string; seen: string | null; pack_qty?: number | null; pack_price?: number | null; pack_sure?: boolean | null }
 
 const SRC: Record<string, string> = { stuklijst: 'stuklijst', hand: 'met de hand', prijslijst: 'prijslijst', mail: 'uit een mail', artikel: 'nieuw artikel', eigen: 'eigen artikel' }
 const num = (s: string) => { const v = Number(String(s).trim().replace(/\./g, '').replace(',', '.')); return isFinite(v) ? v : NaN }
@@ -294,7 +295,7 @@ function PriceFinder({ query, onPick }: { query: string; onPick: (h: Hit) => voi
   const [busy, setBusy] = useState(false)
   const run = async (text = q) => {
     setBusy(true)
-    const { data, error } = await supabase.rpc('cost_search', { p_q: text, p_limit: 15 })
+    const { data, error } = await supabase.rpc('cost_search2', { p_q: text, p_limit: 15 })
     setBusy(false)
     if (error) return toast(error.message, 'err')
     setHits((data ?? []) as Hit[])
@@ -315,8 +316,18 @@ function PriceFinder({ query, onPick }: { query: string; onPick: (h: Hit) => voi
               <tr key={i}>
                 <td><span className={'tag t-' + h.src}>{h.src === 'mail' ? 'mail' : h.src === 'eigen' ? 'eigen artikel' : 'prijslijst'}</span></td>
                 <td>{h.description}<div className="small muted">{[h.supplier, h.article_no, h.seen && new Date(h.seen).toLocaleDateString('nl-BE')].filter(Boolean).join(' · ')}</div></td>
-                <td className="num">{h.unit_price == null ? '' : fmtEur(h.unit_price)}{h.unit ? <small className="muted"> / {h.unit}</small> : null}</td>
-                <td><button className="small" disabled={h.unit_price == null} onClick={() => onPick(h)}>Kies</button></td>
+                <td className="num">
+                  {h.unit_price == null ? '' : fmtEur(h.unit_price)}{h.unit ? <small className="muted"> / {h.unit}</small> : null}
+                  {h.pack_qty && h.pack_price != null && h.pack_sure && <div className="small muted">doos van {fmtNum(h.pack_qty, 0)}: {fmtEur(h.pack_price)}</div>}
+                  {h.pack_qty && h.pack_price != null && !h.pack_sure && <div className="small muted">verpakking per {fmtNum(h.pack_qty, 0)}</div>}
+                </td>
+                <td className="nowrap">
+                  <button className="small" disabled={h.unit_price == null} onClick={() => onPick(h)}>{h.pack_qty && !h.pack_sure ? 'Kies (per stuk)' : 'Kies'}</button>
+                  {/* twijfel: is de prijs per stuk of per verpakking van N? dan kies je zelf */}
+                  {h.pack_qty && !h.pack_sure && h.pack_price != null && (
+                    <button className="small" title={`De prijs geldt voor de verpakking van ${h.pack_qty}: delen door ${h.pack_qty}`} onClick={() => onPick({ ...h, unit_price: Math.round((h.pack_price! / h.pack_qty!) * 10000) / 10000 })}>÷ {fmtNum(h.pack_qty, 0)}</button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
