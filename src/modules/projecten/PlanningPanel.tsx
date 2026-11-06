@@ -29,7 +29,8 @@ const ymd = (iso: string) => { const d = new Date(iso); return `${d.getFullYear(
  * Alles wat gepland is voor één project: afspraken uit de agenda (Outlook/Bookings, gekoppeld via projectcode in de titel,
  * het gekozen project of de Bookings-aanvraag), opdrachten met hun bevestigingen, mijlpalen en de laatste activiteit.
  */
-export function PlanningPanel({ project }: { project: ProjectRow }) {
+/** Afspraken (agenda) en opdrachten van één project, met de formulieren "+ Opdracht" / "+ Afspraak" (ook via ?nieuw=opdracht|afspraak). */
+export function useProjectPlanning(project: ProjectRow) {
   const code = project.project_code
   const [jobs, setJobs] = useState<JobRow[] | null>(null)
   const [events, setEvents] = useState<AgendaEv[] | null>(null)
@@ -92,12 +93,26 @@ export function PlanningPanel({ project }: { project: ProjectRow }) {
   const now = Date.now()
   const upcoming = items.filter((i) => !i.end || new Date(i.end).getTime() >= now - 3600000)
   const done = items.filter((i) => i.end && new Date(i.end).getTime() < now - 3600000).reverse()
-  const shown = past ? done : upcoming
   const pending = (jobs ?? []).filter((j) => j.status === 'gepland' && new Date(j.end_at).getTime() > now)
   const address = [project.site_street, [project.site_postal_code, project.site_city].filter(Boolean).join(' ')].filter(Boolean).join(', ')
   const newJob = (): JobDraft => ({ project_code: code, address: address || null, contact_name: project.client_name ?? null, contact_phone: (project as ProjectRow & { client_phone?: string | null }).client_phone ?? null })
   const jobName = (id: string) => (jobs ?? []).find((j) => j.id === id)?.title ?? 'opdracht'
+  const modals = (
+    <>
+      {open && <JobEditor draft={open} onClose={() => setOpen(null)} onSaved={loadJobs} />}
+      {newEv && (
+        <NewEvent day={new Date()} project={code}
+          projects={[{ project_code: code, title: project.title, client_name: project.client_name, intro_at: project.intro_at, target_install_week: project.target_install_week, phase: project.phase }]}
+          onClose={() => setNewEv(false)} onCreated={() => { setNewEv(false); loadEvents() }} />
+      )}
+    </>
+  )
+  return { code, jobs, events, evErr, log, items, upcoming, done, pending, past, setPast, setOpen, setNewEv, newJob, jobName, modals, loadJobs, loadEvents }
+}
 
+export function PlanningPanel({ project }: { project: ProjectRow }) {
+  const { jobs, events, evErr, log, upcoming, done, pending, past, setPast, setOpen, setNewEv, newJob, jobName, modals } = useProjectPlanning(project)
+  const shown = past ? done : upcoming
   return (
     <div className="panel planning-panel">
       <div className="planning-head">
@@ -159,12 +174,7 @@ export function PlanningPanel({ project }: { project: ProjectRow }) {
           <ul>{log.map((l, k) => <li key={k}><span className="muted small">{new Date(l.at).toLocaleString('nl-BE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} · {l.actor === 'info@vonstruct.com' ? 'jij' : l.actor ?? '—'}</span> {jobName(l.job_id)}: {l.what}</li>)}</ul>
         </details>
       )}
-      {open && <JobEditor draft={open} onClose={() => setOpen(null)} onSaved={loadJobs} />}
-      {newEv && (
-        <NewEvent day={new Date()} project={code}
-          projects={[{ project_code: code, title: project.title, client_name: project.client_name, intro_at: project.intro_at, target_install_week: project.target_install_week, phase: project.phase }]}
-          onClose={() => setNewEv(false)} onCreated={() => { setNewEv(false); loadEvents() }} />
-      )}
+      {modals}
     </div>
   )
 }

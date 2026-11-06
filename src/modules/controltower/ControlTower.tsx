@@ -16,7 +16,7 @@ import { toast } from '../../core/toast'
  * aanleiding / voorstel / waarom en kunnen aangeleerd worden. Onderaan: één regel per agent met wat die zelf deed (uitklappen = nakijken).
  * Bron: app_today (= app_control_tower + mailboxdocumenten + levertijd onbekend + in-app te doen), app_agent_activity, app_autonomy_offers.
  */
-type Flag = {
+export type Flag = {
   prio: 1 | 2 | 3; kind: string; project_code: string | null; last_version: number | null; ref: string | null; title: string; detail: string | null; since: string | null
   category: string; kind_label: string; due_date: string | null; due_reason: string | null; context: string | null; reason: string | null; agent: string | null
   proposal_kind: string | null; proposal_title: string | null; proposal_summary: string | null; plan: string | null; link: string | null; client_name: string | null
@@ -29,7 +29,7 @@ type Offer = { agent_id: string; agent_name: string; kind: string; kind_label: s
 const AGENT_NAME: Record<string, string> = { inbox: 'Inbox', planning: 'Planning', nakijker: 'Nakijker', von_watch: 'VON', von: 'VON', inkoop: 'Inkoop', intake: 'Intake', controle: 'Controle' }
 
 /** Waar je het punt oplost, en wat er op de knop staat. Nieuwe soort = één case. */
-const actionFor = (f: Flag): { to: string; label: string } => {
+export const actionFor = (f: Flag): { to: string; label: string } => {
   const proj = f.project_code ? `/projecten/${encodeURIComponent(f.project_code)}` : '/projecten'
   const ver = f.last_version ? `${proj}/v/${f.last_version}` : proj
   switch (f.kind) {
@@ -75,8 +75,8 @@ const actionFor = (f: Flag): { to: string; label: string } => {
   }
 }
 
-const cleanTitle = (f: Flag) => f.title.replace(/^VON stelt voor:\s*/, '').replace(/^Wacht op antwoord:\s*/, '')
-const keyOf = (f: { kind: string; ref: string | null; project_code: string | null; title: string }) => `${f.kind}:${f.ref ?? f.project_code ?? f.title}`
+export const cleanTitle = (f: Flag) => f.title.replace(/^VON stelt voor:\s*/, '').replace(/^Wacht op antwoord:\s*/, '')
+export const keyOf = (f: { kind: string; ref: string | null; project_code: string | null; title: string }) => `${f.kind}:${f.ref ?? f.project_code ?? f.title}`
 
 const ICON: Record<string, string> = {
   von: 'M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18',
@@ -87,14 +87,14 @@ const ICON: Record<string, string> = {
   kwaliteit: 'M9 12.5l2 2 4-4.5M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z',
   systeem: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1',
 }
-const Ico = ({ name }: { name: string }) => (
+export const Ico = ({ name }: { name: string }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={ICON[name] ?? ICON.kwaliteit} /></svg>
 )
 const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x }
 const hm = (iso: string) => new Date(iso).toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })
 const isoToday = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Brussels' })
 /** "tegen vr 13/11" of "te laat sinds 4/11", enkel bij een gekende datum. */
-const dueText = (d: string | null) => {
+export const dueText = (d: string | null) => {
   if (!d) return null
   const t = isoToday(), tm = new Date(Date.now() + 864e5).toLocaleDateString('sv-SE', { timeZone: 'Europe/Brussels' })
   const f = new Date(d + 'T12:00:00').toLocaleDateString('nl-BE', { weekday: 'short', day: 'numeric', month: 'numeric' })
@@ -283,7 +283,7 @@ export function ControlTower() {
 }
 
 /** VON-voorstel in de lijst zelf: tekst lezen/aanpassen, goedkeuren of aanleren. */
-function InlineProposal({ id, onDone }: { id: string; onDone: () => void }) {
+export function InlineProposal({ id, onDone }: { id: string; onDone: () => void }) {
   const [p, setP] = useState<any>(null)
   useEffect(() => { supabase.from('von_proposals').select('*').eq('id', id).maybeSingle().then(({ data }) => setP(data)) }, [id])
   if (!p) return <div className="vd-draft muted small">Laden…</div>

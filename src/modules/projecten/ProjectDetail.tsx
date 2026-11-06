@@ -1,5 +1,6 @@
 import { YukiHistory } from '../../core/YukiHistory'
-import { KeyDates } from './KeyDates'
+import { useTimeline } from './KeyDates'
+import { Overview, PhaseBar } from './Overview'
 import { BrochurePanel } from '../brochure/BrochurePanel'
 import { DocumentsPanel } from '../documenten/DocumentsPanel'
 import { NacalcPanel } from '../nacalculatie/NacalcPanel'
@@ -18,16 +19,12 @@ import { DataTable } from '../../core/DataTable'
 import { ErrorBox, Loading } from '../../core/ui'
 import { fmtDate, fmtInt } from '../../core/format'
 import { Compare } from './Compare'
-import { ProjectCard, usePhases, type ProjectRow } from '../../core/projects'
+import { usePhases, type ProjectRow } from '../../core/projects'
 import { ClientPanel } from './ClientPanel'
 import { SurveyPanel } from './SurveyPanel'
 import { MailList } from '../../core/MailList'
 import { LeadActions } from './LeadActions'
-import { PlanningPanel } from './PlanningPanel'
-import { ChecklistPanel } from './ChecklistPanel'
 import { EventFeed } from '../../core/EventFeed'
-import { Tasks } from '../../core/Tasks'
-import { ProposalList } from '../von/VonPage'
 
 export type Version = {
   id: string
@@ -60,6 +57,10 @@ export function ProjectDetail() {
   const tab = ((t) => (t === 'planning' ? 'overzicht' : t))(params.get('tab') ?? (focus === 'survey' ? 'vragenlijst' : focus === 'mails' ? 'mails' : 'overzicht'))
   const setTab = (t: string) => setParams(t === 'overzicht' ? {} : { tab: t }, { replace: true })
   const project = pq.data?.[0]
+  const tl = useTimeline(code, pq.reload)
+  // klantgegevens: klein blok onder de kop; opent vanzelf als je komt om een ontbrekend veld in te vullen (?focus=email …)
+  const clientFocus = focus && !['fase', 'survey', 'mails'].includes(focus) ? focus : null
+  const [showClient, setShowClient] = useState(false)
   const versions = q.data ?? []
   const [a, setA] = useState<number | null>(null)
   const [b, setB] = useState<number | null>(null)
@@ -114,20 +115,9 @@ export function ProjectDetail() {
     )
     else body = (
       <>
-        <div className="pdetail-top">
-          <div className={'pcard-wide' + (focus === 'fase' ? ' focus' : '')}>
-            {focus === 'fase' && <p className="notice">Kies rechtsboven in de kaart de fase waarin het project nu zit.</p>}
-            <ProjectCard p={project} phases={ph.data} onSaved={pq.reload} hideSteps />
-          </div>
-          <ClientPanel project={project} focus={focus === 'fase' || focus === 'survey' ? null : focus} onSaved={pq.reload} />
-        </div>
-        <ProjectProposals code={code} />
-        <KeyDates code={code} onSaved={pq.reload} />
-        <PlanningPanel project={project} />
-        <IntakeCard code={code} />
         {['lead', 'intake', 'survey'].includes(project.phase) && <LeadActions p={project} onDone={pq.reload} />}
-        <ChecklistPanel code={code} currentStage={project.stage} />
-        <Tasks project={code} title="Taken" />
+        {project.stage === 'lead' && <IntakeCard code={code} />}
+        <Overview project={project} t={tl.t} gates={tl.gates} saveDates={tl.save} onTab={(t) => setTab(t)} onSaved={() => { pq.reload(); tl.load() }} />
       </>
     )
   }
@@ -138,33 +128,27 @@ export function ProjectDetail() {
       <header className="pd-head">
         <div className="pd-title">
           <h1><span className="pd-code">{code}</span>{project?.client_name ?? ''}</h1>
-          {project && <p className="muted">{[project.title, project.site_city, project.phase_label].filter(Boolean).join(' · ')}</p>}
+          {project && <p className="muted">{[project.title, project.site_city].filter(Boolean).join(' · ')}</p>}
         </div>
         {project && (
           <div className="pd-quick">
             {project.client_email && <a className="pd-q" href={`mailto:${project.client_email}?subject=${encodeURIComponent(`Je project bij Vonstruct (${code})`)}`}>Mail</a>}
             {project.client_phone && <a className="pd-q" href={`tel:${project.client_phone}`}>Bel</a>}
             {project.client_phone && wa && <a className="pd-q" href={`https://wa.me/${wa}`} target="_blank" rel="noreferrer">WhatsApp</a>}
+            <button className={'pd-q' + (showClient || clientFocus ? ' on' : '')} onClick={() => setShowClient(!showClient)}>Klantgegevens</button>
             <button className="pd-q gold" onClick={() => setParams({ tab: 'overzicht', nieuw: 'opdracht' }, { replace: true })}>+ Opdracht</button>
             <button className="pd-q" onClick={() => setParams({ tab: 'overzicht', nieuw: 'afspraak' }, { replace: true })}>+ Afspraak</button>
           </div>
         )}
       </header>
+      {project && (showClient || clientFocus) && <div className="pd-client"><ClientPanel project={project} focus={clientFocus} onSaved={pq.reload} /></div>}
+      {project && ph.data && <PhaseBar project={project} gates={tl.gates} phases={ph.data} onSaved={() => { pq.reload(); tl.load() }} focus={focus === 'fase'} />}
       <nav className="pd-tabs" aria-label="Onderdelen van het project">
         {TABS.map(([id, label]) => <button key={id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{label}</button>)}
       </nav>
       <ErrorBox error={q.error ?? pq.error} />
       {pq.loading ? <Loading /> : !project ? <p className="muted">Project {code} niet gevonden.</p> : <div className="pd-body">{body}</div>}
     </section>
-  )
-}
-
-/** Open VON-voorstellen voor dit project (enkel getoond als er zijn). */
-function ProjectProposals({ code }: { code: string }) {
-  return (
-    <div className="pd-von">
-      <ProposalList project={code} compact />
-    </div>
   )
 }
 
