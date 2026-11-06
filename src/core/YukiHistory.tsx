@@ -13,16 +13,27 @@ export async function openYukiPdf(documentId: string) {
 
 /** Facturen en betalingen van een klant uit Yuki (klantenrekening, view app_client_ledger; elke nacht bijgewerkt), met pdf uit het archief. Offertes uit Yuki zijn niet op te halen (niet in het archief).
  *  Enkel facturen die horen bij een opgeladen offerte of een factuur van de app (+ hun betalingen); met `project` enkel die van dat project (6 nov 2026). */
-type L = { project_code: string | null; yuki_id: string; entry_date: string; kind: 'factuur' | 'creditnota' | 'betaling'; invoice_no: string | null; description: string | null; amount: number; paid: boolean | null; client_balance: number; document_id: string | null }
+type L = { client_id: string; project_code: string | null; yuki_id: string; entry_date: string; kind: 'factuur' | 'creditnota' | 'betaling'; invoice_no: string | null; description: string | null; amount: number; paid: boolean | null; client_balance: number; document_id: string | null }
 const d = (v: string) => new Date(v + 'T12:00').toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', year: 'numeric' })
 const clean = (s: string | null) => (s ?? '').replace(/^Binnenlandse overschrijvingen - SEPA credit transfers : /, '').replace(/\s*\|.*$/, '').replace(/Netto bedrag: [\d,.]+ : /, '').slice(0, 90)
+
+// Alle klantenrekeningen in één verzoek, gedeeld door alle kaarten (Relaties toonde er één per klant: 89 zware verzoeken tegelijk
+// legden de database plat, 6 nov 2026). Een minuut bewaard; per project blijft het een eigen, klein verzoek.
+let allLedger: { at: number; p: Promise<L[]> } | null = null
+const ledgerAll = () => {
+  if (!allLedger || Date.now() - allLedger.at > 60000)
+    allLedger = { at: Date.now(), p: Promise.resolve(supabase.from('app_client_ledger').select('*').order('entry_date')).then(({ data }) => (data as L[]) ?? []) }
+  return allLedger.p
+}
 
 export function useClientLedger(clientId: string | null | undefined, project?: string) {
   const [rows, setRows] = useState<L[] | null>(null)
   useEffect(() => {
     if (!clientId && !project) return setRows([])
-    const q = supabase.from('app_client_ledger').select('*').order('entry_date')
-    ;(project ? q.eq('project_code', project) : q.eq('client_id', clientId!)).then(({ data }) => setRows((data as L[]) ?? []))
+    let alive = true
+    if (project) supabase.from('app_client_ledger').select('*').eq('project_code', project).order('entry_date').then(({ data }) => alive && setRows((data as L[]) ?? []))
+    else ledgerAll().then((all) => alive && setRows(all.filter((r) => r.client_id === clientId)))
+    return () => { alive = false }
   }, [clientId, project])
   return rows
 }
