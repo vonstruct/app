@@ -1476,7 +1476,8 @@ summary.vd-h::-webkit-details-marker { display: none; }
 .update-bar { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 3000; background: #0e1729; color: #f4f1ea; border: 1px solid #c9a24a; border-radius: 12px; padding: 10px 14px; display: flex; gap: 12px; align-items: center; box-shadow: 0 6px 24px rgba(0,0,0,.25); font-size: 14px; }
 @media (min-width: 861px) { .update-bar { bottom: 24px; } }
 /* projecttabbladen op de gsm: alles zichtbaar (op meerdere regels) in plaats van verborgen achter scrollen */
-@media (max-width: 860px) { .pd-tabs { flex-wrap: wrap; overflow-x: visible; row-gap: 0; } .pd-tabs button { padding: 8px 10px; font-size: 13.5px; } }
+/* gsm: zoals op de website één rij tabbladen, horizontaal te schuiven (6 nov 2026; was: op meerdere rijen) */
+@media (max-width: 860px) { .pd-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; } .pd-tabs::-webkit-scrollbar { display: none; } .pd-tabs button { padding: 8px 10px; font-size: 13.5px; } }
 /* Kopbalk op de gsm (laatste woord): compacte zoekknop, geen "Vraag VON" (die zit als ronde knop boven de tabbalk) */
 @media (max-width: 860px) {
   .topbar { gap: 10px; padding-left: 14px; padding-right: 14px; }
