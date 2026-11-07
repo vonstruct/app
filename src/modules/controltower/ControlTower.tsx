@@ -206,45 +206,60 @@ export function ControlTower() {
     await supabase.from('tasks').update({ done_at: new Date().toISOString() }).eq('id', t.id)
     hide('taak-buiten:' + t.id, 'Afgevinkt', () => supabase.from('tasks').update({ done_at: null }).eq('id', t.id))
   }
+  // "Geleverd? <leverancier>": verwachte datum voorbij, nog niet aangeduid → met één klik geleverd (met ongedaan maken)
+  const markDelivered = async (f: Flag) => {
+    const { data: before } = await supabase.from('orders').select('status,delivered_at').eq('id', f.ref!).single()
+    const { error } = await supabase.from('orders').update({ status: 'geleverd', delivered_at: today }).eq('id', f.ref!)
+    if (error) { toast.show('Niet bewaard: ' + error.message); return }
+    hide(keyOf(f), 'Aangeduid als geleverd', () => supabase.from('orders').update({ status: before?.status ?? 'bevestigd', delivered_at: before?.delivered_at ?? null }).eq('id', f.ref!))
+  }
   const proposalDone = (f: Flag) => { setGone((s) => new Set(s).add(keyOf(f))); setOpen(null); toast.show('Voorstel afgehandeld'); flags.reload() }
 
   const list = sel === 'von' ? von : work.filter((f) => f.category === sel).sort((a, b) => a.prio - b.prio)
 
+  /** Eén regel in kolommen: Wat · Voor wie · Waarom (bron, datum) · knop. Lange taken: tekst vóór ":" = wat, erna = waarom. */
   const Row = ({ f }: { f: Flag }) => {
     const k = keyOf(f), act = actionFor(f), isVon = f.kind === 'von_voorstel' && !!f.ref, isOpen = isVon && open === k
     const due = dueShort(f.due_date)
-    const sub = [f.client_name ?? f.project_code, isVon ? 'VON stelt voor' : null].filter(Boolean).join(' · ')
-    const title = isVon ? (f.proposal_title ?? cleanTitle(f)) : cleanTitle(f)
+    let what = isVon ? (f.proposal_title ?? cleanTitle(f)) : cleanTitle(f)
+    let why = isVon ? (f.reason ?? f.proposal_summary ?? f.detail ?? '') : (f.detail ?? f.due_reason ?? '')
+    if (!why && f.kind === 'taak' && what.includes(': ')) { const i = what.indexOf(': '); why = what.slice(i + 2); what = what.slice(0, i) }
+    const delivered = f.kind === 'bestelling' && !!f.ref && f.title.startsWith('Geleverd?')
     return (
       <div className={'vd5-item' + (f.prio === 3 ? ' info' : '')}>
         <div className="vd5-row">
           <span className={'vd5-dot' + (f.prio === 1 ? ' now' : isVon ? ' von' : '')} aria-hidden="true" />
-          <span className="vd5-txt" title={[f.detail, f.reason].filter(Boolean).join(' · ') || undefined}>
-            <span className="vd5-t">{title}</span>
-            {(sub || due) && <span className="vd5-s">{sub}{sub && due ? ' · ' : ''}{due && <b className={due.cls}>{due.text}</b>}</span>}
+          {isVon || act.to.startsWith('http')
+            ? <span className="vd5-what" title={what}>{what}</span>
+            : <Link to={act.to} className="vd5-what" title={what}>{what}</Link>}
+          <span className="vd5-who">{f.client_name ?? f.project_code ?? ''}{isVon && <span className="vd5-tag">VON</span>}</span>
+          <span className="vd5-why" title={why}>{due && <b className={due.cls}>{due.text}</b>}{due && why ? ' · ' : ''}{why}</span>
+          <span className="vd5-acts">
+            {isVon ? (
+              <button className={'vd5-btn' + (f.prio === 1 ? ' gold' : '')} onClick={() => setOpen(isOpen ? null : k)} aria-expanded={isOpen}>{isOpen ? 'Sluiten' : 'Bekijken'}</button>
+            ) : delivered ? (
+              <button className="vd5-btn" onClick={() => markDelivered(f)}>Geleverd</button>
+            ) : act.to.startsWith('http') ? (
+              <a href={act.to} target="_blank" rel="noreferrer" className="vd5-btn nav" aria-label={act.label}><span className="t">{act.label}</span></a>
+            ) : (
+              <Link to={act.to} className={'vd5-btn nav' + (f.prio === 1 ? ' gold' : '')} aria-label={act.label}><span className="t">{act.label}</span></Link>
+            )}
+            {f.kind === 'mail_antwoord' && f.ref && <button className="vd5-ico-btn" onClick={() => dismissMail(f)} aria-label="Geen antwoord nodig" title="Geen antwoord nodig"><SmallIco d={CHECK} /></button>}
+            {f.kind === 'taak' && f.ref && <button className="vd5-ico-btn" onClick={() => taskDone(f)} aria-label="Klaar" title="Klaar"><SmallIco d={CHECK} /></button>}
+            {!isVon && <button className="vd5-ico-btn" onClick={() => later(f)} aria-label="Morgen weer tonen" title="Morgen weer tonen"><SmallIco d={LATER} /></button>}
           </span>
-          {isVon ? (
-            <button className={'vd5-btn' + (f.prio === 1 ? ' gold' : '')} onClick={() => setOpen(isOpen ? null : k)} aria-expanded={isOpen}>{isOpen ? 'Sluiten' : 'Bekijken'}</button>
-          ) : act.to.startsWith('http') ? (
-            <a href={act.to} target="_blank" rel="noreferrer" className="vd5-btn">{act.label}</a>
-          ) : (
-            <Link to={act.to} className={'vd5-btn' + (f.prio === 1 ? ' gold' : '')}>{act.label}</Link>
-          )}
-          {f.kind === 'mail_antwoord' && f.ref && <button className="vd5-ico-btn" onClick={() => dismissMail(f)} aria-label="Geen antwoord nodig" title="Geen antwoord nodig"><SmallIco d={CHECK} /></button>}
-          {f.kind === 'taak' && f.ref && <button className="vd5-ico-btn" onClick={() => taskDone(f)} aria-label="Klaar" title="Klaar"><SmallIco d={CHECK} /></button>}
-          {!isVon && <button className="vd5-ico-btn" onClick={() => later(f)} aria-label="Morgen weer tonen" title="Morgen weer tonen"><SmallIco d={LATER} /></button>}
         </div>
         {isOpen && <InlineProposal id={f.ref!} onDone={() => proposalDone(f)} />}
       </div>
     )
   }
+  const Cols = () => <div className="vd5-cols" aria-hidden="true"><span /><span>Wat</span><span>Voor wie</span><span>Waarom</span><span /></div>
 
   const loading = !flags.data || !cats.data
   return (
     <section className="vd5">
       <header className="vd5-head">
         <h1>Vandaag</h1>
-        <button className="vd5-btn" onClick={() => setHours({ job: null })}>+ Uren</button>
       </header>
       {hours && <HoursQuickAdd jobId={hours.job} onClose={() => setHours(null)} onSaved={() => flags.reload()} />}
       <ErrorBox error={flags.error ?? cats.error} />
@@ -283,21 +298,22 @@ export function ControlTower() {
               <h2>{selLabel}</h2>
               {sel === 'taken' ? (
                 <>
-                  {openTasks.length === 0 && <p className="vd5-empty">Geen open taken.</p>}
+                  {openTasks.length === 0 ? <p className="vd5-empty">Geen open taken.</p> : <Cols />}
                   {openTasks.map((t) => {
                     const due = dueShort(t.due_date)
                     return (
                       <div key={t.id} className="vd5-item"><div className="vd5-row">
                         <span className={'vd5-dot' + (t.due_date && t.due_date <= today ? ' now' : '')} aria-hidden="true" />
-                        <span className="vd5-txt"><span className="vd5-t">{t.text}</span>
-                          {(t.project_code || due) && <span className="vd5-s">{t.project_code}{t.project_code && due ? ' · ' : ''}{due && <b className={due.cls}>{due.text}</b>}</span>}</span>
-                        <button className="vd5-ico-btn" onClick={() => ownTaskDone(t)} aria-label="Klaar" title="Klaar"><SmallIco d={CHECK} /></button>
+                        <span className="vd5-what" title={t.text}>{t.text}</span>
+                        <span className="vd5-who">{t.project_code ?? ''}</span>
+                        <span className="vd5-why">{due && <b className={due.cls}>{due.text}</b>}</span>
+                        <span className="vd5-acts"><button className="vd5-ico-btn" onClick={() => ownTaskDone(t)} aria-label="Klaar" title="Klaar"><SmallIco d={CHECK} /></button></span>
                       </div></div>
                     )
                   })}
                   <Link to="/taken" className="vd5-more">Alle taken · nieuwe taak ›</Link>
                 </>
-              ) : list.length === 0 ? <p className="vd5-empty">Niets te doen bij {selLabel.toLowerCase()}.</p> : list.map((f) => <Row key={keyOf(f)} f={f} />)}
+              ) : list.length === 0 ? <p className="vd5-empty">Niets te doen bij {selLabel.toLowerCase()}.</p> : <><Cols />{list.map((f) => <Row key={keyOf(f)} f={f} />)}</>}
             </section>
           </div>
           <aside className="vd5-side"><YourDay /><ActiveProjects projects={active} /></aside>
