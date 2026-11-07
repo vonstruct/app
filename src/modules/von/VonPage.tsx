@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router'
 import { supabase } from '../../core/supabase'
 import { Von } from '../../core/Von'
 import { toast } from '../../core/toast'
+import { useQuery } from '../../core/useQuery'
 
 /**
  * VON (fase 4): het commandocentrum. Wacht op jou (voorstellen, per plan), Gesprek, Wat VON deed (met ongedaan maken),
@@ -302,6 +303,126 @@ function Watching() {
   )
 }
 
+
+// Verhuisd van Vandaag naar hier (Vandaag v5, 7 nov 2026): wat de agents zelf deden en "mag … voortaan zelf?".
+type Act = { agent: string; agent_name: string; source: string; ref: string; at: string; project_code: string | null; title: string; detail: string | null; link: string | null; can_undo: boolean; what: string | null; verdict: string | null; review_note: string | null }
+type Offer = { agent_id: string; agent_name: string; kind: string; kind_label: string; n: number }
+
+/** "Mag Inkoop dit voortaan zelf doen?" na 5× goedkeuren zonder wijzigen (app_autonomy_offers). */
+export function AutonomyOffers() {
+  const q = useQuery<Offer[]>(() => supabase.from('app_autonomy_offers').select('*'), [])
+  const decide = async (o: Offer, mode: 'zelf' | 'vragen') => {
+    const { error } = await supabase.from('agent_autonomy').insert({ agent_id: o.agent_id, kind: o.kind, mode, decided_by: 'Vandaag' })
+    toast(error ? 'Niet bewaard: ' + error.message : mode === 'zelf' ? `${o.agent_name} doet dit voortaan zelf` : 'Blijft vragen', error ? 'err' : 'ok')
+    q.reload()
+  }
+  if (!q.data?.length) return null
+  return (
+    <>{q.data.map((o) => (
+      <section key={o.agent_id + o.kind} className="panel vd-offer">
+        <span className="vd-vdot">V</span>
+        <div>
+          <b>Mag {o.agent_name} “{o.kind_label}” voortaan zelf doen?</b>
+          <p className="small muted">Je keurde de laatste 5 voorstellen van deze soort goed zonder iets te wijzigen. Voortaan doet {o.agent_name} het zelf (enkel binnen de app, nooit iets naar buiten) en zie je het bij VON → “Wat VON deed”, met ongedaan maken. Terugdraaien kan in VON → Team.</p>
+          <span className="toolbar"><button className="primary" onClick={() => decide(o, 'zelf')}>Ja, voortaan zelf</button><button onClick={() => decide(o, 'vragen')}>Nee, blijf het vragen</button></span>
+        </div>
+      </section>
+    ))}</>
+  )
+}
+
+/** Wat de agents zelf deden: één regel per agent, uitklappen = elke handeling nakijken (klopt / fout / aanleren / ongedaan maken). */
+export function AgentActivity() {
+  const q = useQuery<Act[]>(() => supabase.from('app_agent_activity').select('*').order('at', { ascending: false }).limit(400), [])
+  const [open, setOpen] = useState<string | null>(null)
+  const [teach, setTeach] = useState<string | null>(null)
+  const [showChecked, setShowChecked] = useState(false)
+  const list = q.data ?? []
+  const groups = useMemo(() => {
+    const m = new Map<string, Act[]>()
+    for (const a of list) m.set(a.agent, [...(m.get(a.agent) ?? []), a])
+    return [...m.entries()].sort((a, b) => b[1].length - a[1].length)
+  }, [list])
+  const review = async (a: Act, verdict: 'ok' | 'fout' | 'geleerd', note?: string) => {
+    const { error } = await supabase.from('agent_reviews').upsert({ source: a.source, ref: a.ref, verdict, note: note ?? null, at: new Date().toISOString(), by: 'Vandaag' })
+    if (error) toast('Niet bewaard: ' + error.message, 'err')
+    q.reload()
+  }
+  const allOk = async (items: Act[]) => {
+    const rows = items.filter((a) => !a.verdict).map((a) => ({ source: a.source, ref: a.ref, verdict: 'ok', at: new Date().toISOString(), by: 'Vandaag' }))
+    if (!rows.length) return
+    const { error } = await supabase.from('agent_reviews').upsert(rows)
+    toast(error ? 'Niet bewaard: ' + error.message : `${rows.length} nagekeken`, error ? 'err' : 'ok'); q.reload()
+  }
+  const undo = async (a: Act) => {
+    const { data, error } = await supabase.functions.invoke('von-action', { body: { action: 'undo', id: a.ref } })
+    const d = data as { ok?: boolean; error?: string } | null
+    toast(error ? 'Mislukt' : d?.error ?? 'Ongedaan gemaakt', error || d?.error ? 'err' : 'ok'); review(a, 'fout')
+  }
+  const summary = (items: Act[]) => {
+    const c = (re: RegExp) => items.filter((a) => re.test(a.title)).length
+    const parts = [
+      [c(/^Gekoppeld aan/), 'gekoppeld'], [c(/^Geen project/), 'zonder project gelaten'], [c(/^Aankoopfactuur gekoppeld/), 'aankoopfactuur gekoppeld'],
+      [c(/^Taak gemaakt/), 'taak|taken'], [c(/^Te doen gezet/), 'te doen in de app'], [c(/^Zelf gedaan/), 'zelf gedaan'], [c(/^Intake/), 'intake|intakes'],
+      [c(/^Automatisch naar/), 'project naar de volgende fase|projecten naar de volgende fase'],
+    ].filter(([n]) => n).map(([n, t]) => [n, String(t).includes('|') ? String(t).split('|')[Number(n) === 1 ? 0 : 1] : t]) as [number, string][]
+    const rest = items.length - parts.reduce((x, [n]) => x + n, 0)
+    return [...parts.map(([n, t]) => `${n} ${t}`), ...(rest > 0 ? [`${rest} andere`] : [])].join(' · ')
+  }
+  return (
+    <section className="panel vd-panel">
+      <div className="vd-h"><h2>Wat de agents deden</h2><span className="vd-more">laatste 7 dagen</span></div>
+      {!q.data ? <p className="muted small vd-pad">Laden…</p> : groups.length === 0 ? <p className="muted small vd-pad">De agents deden deze week niets zelf.</p> : groups.map(([agent, items]) => {
+        const todo = items.filter((a) => !a.verdict)
+        const shown = (showChecked ? items : todo).slice(0, 60)
+        const isOpen = open === agent
+        return (
+          <div key={agent} className={'vd-agent' + (isOpen ? ' open' : '')}>
+            <button className="vd-agent-line" onClick={() => setOpen(isOpen ? null : agent)} aria-expanded={isOpen}>
+              <b>{items[0].agent_name}</b>
+              <span className="vd-s">{summary(items)}</span>
+              <span className={'vd-badge' + (todo.length ? ' k' : '')}>{todo.length ? `${todo.length} na te kijken` : '✓ nagekeken'}</span>
+              <span className="vd-chev">{isOpen ? '▴' : '▾'}</span>
+            </button>
+            {isOpen && (
+              <div className="vd-agent-body">
+                <div className="toolbar small">
+                  {todo.length > 0 && <button onClick={() => allOk(todo)}>✓ Alles klopt ({todo.length})</button>}
+                  <label className="check"><input type="checkbox" checked={showChecked} onChange={(e) => setShowChecked(e.target.checked)} /> ook nagekeken tonen</label>
+                </div>
+                {shown.length === 0 && <p className="muted small">Alles nagekeken.</p>}
+                {shown.map((a) => (
+                  <div key={a.source + a.ref} className={'vd-act' + (a.verdict ? ' done ' + a.verdict : '')}>
+                    <div className="vd-act-row">
+                      <span className="vd-what">
+                        <span className="vd-t">{a.project_code && <span className="vd-code">{a.project_code}</span>}{a.title}</span>
+                        {a.detail && <span className="vd-s">{a.detail}</span>}
+                        {a.review_note && <span className="vd-s">Geleerd: {a.review_note}</span>}
+                      </span>
+                      <span className="vd-acts">
+                        {a.link && <Link className="vd-btn ghost" to={a.link}>Openen</Link>}
+                        {!a.verdict && <button className="vd-btn" onClick={() => review(a, 'ok')}>✓ Klopt</button>}
+                        {!a.verdict && <button className="vd-btn ghost" onClick={() => setTeach(teach === a.source + a.ref ? null : a.source + a.ref)}>Fout / aanleren</button>}
+                        {a.verdict && <span className="vd-age">{a.verdict === 'ok' ? '✓ klopt' : a.verdict === 'geleerd' ? 'aangeleerd' : 'fout'}</span>}
+                      </span>
+                    </div>
+                    {teach === a.source + a.ref && (
+                      <TeachBox agentId={a.agent} kind={a.what} source={a.source} refId={a.ref} example={a.title}
+                        extra={a.can_undo ? { label: 'Ongedaan maken', run: () => undo(a) } : undefined}
+                        onSaved={(lesson) => { setTeach(null); review(a, 'geleerd', lesson) }} />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </section>
+  )
+}
+
+
 // VON-instellingen (niet in het menu, sinds 4 nov 2026): beslissen gebeurt in Vandaag; hier controle, logboek en ongedaan maken.
 const TABS: [string, string][] = [['wacht', 'Wacht op jou'], ['gedaan', 'Wat VON deed'], ['oog', 'In het oog'], ['team', 'Team'], ['gesprek', 'Gesprek']]
 
@@ -323,9 +444,9 @@ export function VonPage() {
       <nav className="pd-tabs">
         {TABS.map(([id, label]) => <button key={id} className={tab === id ? 'on' : ''} onClick={() => setParams(id === 'wacht' ? {} : { tab: id })}>{label}{id === 'wacht' && n ? <span className="nav-badge">{n}</span> : null}</button>)}
       </nav>
-      {tab === 'wacht' && <ProposalList />}
+      {tab === 'wacht' && <><AutonomyOffers /><ProposalList /></>}
       {tab === 'gesprek' && <Von embedded />}
-      {tab === 'gedaan' && <Done />}
+      {tab === 'gedaan' && <><AgentActivity /><Done /></>}
       {tab === 'oog' && <Watching />}
       {tab === 'team' && <Team />}
     </section>

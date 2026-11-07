@@ -1,14 +1,11 @@
-import { Tasks } from '../../core/Tasks'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { HoursQuickAdd } from '../../core/Hours'
 import { supabase } from '../../core/supabase'
 import { useQuery } from '../../core/useQuery'
 import { ErrorBox, Loading } from '../../core/ui'
-import { fmtEur } from '../../core/format'
-import { relDays, useProjects, type ProjectProgress, type ProjectRow } from '../../core/projects'
-import { ProposalCard, TeachBox } from '../von/VonPage'
-import { toast } from '../../core/toast'
+import { ProposalCard } from '../von/VonPage'
+import { useProjects, type ProjectProgress, type ProjectRow } from '../../core/projects'
 
 /**
  * Vandaag v4 (5 nov 2026): enkel wat jou nodig heeft. Bovenaan "Vandaag" (alles met een deadline vandaag/morgen of te laat, over de
@@ -24,10 +21,7 @@ export type Flag = {
 }
 type Cat = { key: string; label: string; hint: string | null; sort: number }
 type DayItem = { id: string; start: string; end: string; title: string; sub?: string; to: string; kind: 'afspraak' | 'opdracht'; ok?: boolean; allDay?: boolean }
-type Act = { agent: string; agent_name: string; source: string; ref: string; at: string; project_code: string | null; title: string; detail: string | null; link: string | null; can_undo: boolean; what: string | null; verdict: string | null; review_note: string | null }
-type Offer = { agent_id: string; agent_name: string; kind: string; kind_label: string; n: number }
 
-const AGENT_NAME: Record<string, string> = { inbox: 'Inbox', planning: 'Planning', nakijker: 'Nakijker', von_watch: 'VON', von: 'VON', inkoop: 'Inkoop', intake: 'Intake', controle: 'Controle' }
 
 /** Waar je het punt oplost, en wat er op de knop staat. Nieuwe soort = één case. */
 export const actionFor = (f: Flag): { to: string; label: string } => {
@@ -92,6 +86,8 @@ const ICON: Record<string, string> = {
   klanten: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 20c1.5-3.5 4.5-5 8-5s6.5 1.5 8 5',
   facturen: 'M17 6.5A6.5 6.5 0 1 0 17 17.5M4 10.5h9M4 13.5h9',
   kwaliteit: 'M9 12.5l2 2 4-4.5M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z',
+  taken: 'M9 11l3 3 8-8M20 12v6.5A1.5 1.5 0 0 1 18.5 20h-13A1.5 1.5 0 0 1 4 18.5v-13A1.5 1.5 0 0 1 5.5 4H15',
+  agenda: 'M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z',
   systeem: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1',
 }
 export const Ico = ({ name }: { name: string }) => (
@@ -124,15 +120,36 @@ function useToast() {
   return { show, el }
 }
 
+type OpenTask = { id: string; text: string; project_code: string | null; due_date: string | null }
+const LATER = 'M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z'
+const CHECK = 'M5 12.5l4.5 4.5L19 7.5'
+const SmallIco = ({ d }: { d: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg>
+)
+/** korte datum voor de tweede regel: "te laat", "vandaag", "morgen", "vr 13/11" */
+const dueShort = (d: string | null) => {
+  const x = dueText(d)
+  if (!x) return null
+  return { text: x.text.startsWith('te laat') ? 'te laat' : x.text.replace(/^tegen /, ''), cls: x.cls }
+}
+
+/**
+ * Vandaag v5 (7 nov 2026, keuze van Olivier: "C · tegels per onderwerp"). Weinig tekst: één tegel per onderwerp met enkel een getal
+ * (rood = er moet vandaag iets), klik op een tegel = de korte lijst van dat onderwerp, één regel per punt met één knop.
+ * VON-voorstellen: één gouden regel bovenaan. Systemen enkel als er iets mis is. Rechts de agenda en de lopende projecten (op de gsm eronder).
+ * "Wat de agents deden" en "Mag … voortaan zelf?" staan sinds v5 op de VON-pagina; lopende projecten onder Projecten.
+ * Bron: RPC today_items (app_today), today_categories, ct_snooze, tasks (taken buiten de app).
+ */
 export function ControlTower() {
-  // RPC today_items = app_today met een bewaard plan (snelheid, 6 nov 2026)
   const flags = useQuery<Flag[]>(async () => { const { data, error } = await supabase.rpc('today_items'); return { data: (data ?? []) as Flag[], error } }, [])
   const cats = useQuery<Cat[]>(() => supabase.from('today_categories').select('*').order('sort'), [])
   const projects = useProjects()
-  // uren invullen: knop "+ Uren" of punt "Uren invullen" (/overzicht?uren=<opdracht>), 7 nov 2026
+  const active = (projects.data ?? []).filter((p) => p.phase_active !== false)
+  const tasks = useQuery<OpenTask[]>(() => supabase.from('tasks').select('id,text,project_code,due_date').is('done_at', null).eq('kind', 'buiten')
+    .order('due_date', { ascending: true, nullsFirst: false }).limit(50), [])
   const [params, setParams] = useSearchParams()
   const [hours, setHours] = useState<{ job: string | null } | null>(null)
-  useEffect(() => { const j = params.get('uren'); if (j) { setHours({ job: j }); setParams({}, { replace: true }) } }, [params, setParams])
+  useEffect(() => { const j = params.get('uren'); if (j) { setHours({ job: j }); setParams((p) => { p.delete('uren'); return p }, { replace: true }) } }, [params, setParams])
   const [snoozed, setSnoozed] = useState<Set<string>>(new Set())
   const [gone, setGone] = useState<Set<string>>(new Set())
   const [open, setOpen] = useState<string | null>(null)
@@ -145,14 +162,23 @@ export function ControlTower() {
   const all = (flags.data ?? []).filter((f) => !snoozed.has(keyOf(f)) && !gone.has(keyOf(f)))
   const sys = all.filter((f) => f.category === 'systeem')
   const work = all.filter((f) => f.category !== 'systeem')
-  const today = work.filter((f) => f.prio === 1)
-  const catList = (cats.data ?? []).filter((c) => c.key !== 'systeem')
-  const catLabel = (k: string) => cats.data?.find((c) => c.key === k)?.label ?? k
+  const von = work.filter((f) => f.kind === 'von_voorstel' && !!f.ref)
+  const openTasks = (tasks.data ?? []).filter((t) => !gone.has('taak-buiten:' + t.id))
+  const today = isoToday()
 
-  const ps = projects.data ?? []
-  const active = ps.filter((p) => p.phase_active !== false)
-  const hour = new Date().getHours()
-  const greet = hour < 12 ? 'Goedemorgen' : hour < 18 ? 'Goedemiddag' : 'Goedenavond'
+  // tegels: één per onderwerp (+ Taken, + Agenda enkel op de gsm); getal = te doen (prio 1 en 2), rood = vandaag of te laat
+  type Tile = { key: string; label: string; icon: string; n: number; urgent: number }
+  const tiles: Tile[] = useMemo(() => [
+    ...(cats.data ?? []).filter((c) => c.key !== 'systeem').map((c) => {
+      const mine = work.filter((f) => f.category === c.key && f.prio < 3)
+      return { key: c.key, label: c.label.split(' ')[0], icon: c.key, n: mine.length, urgent: mine.filter((f) => f.prio === 1).length }
+    }),
+    { key: 'taken', label: 'Taken', icon: 'taken', n: openTasks.length, urgent: openTasks.filter((t) => t.due_date && t.due_date <= today).length },
+  ], [cats.data, work, openTasks, today])
+  const firstBusy = tiles.find((t) => t.urgent > 0) ?? tiles.find((t) => t.n > 0) ?? tiles[0]
+  const sel = params.get('v') ?? firstBusy?.key ?? 'klanten'
+  const pick = (key: string) => { setOpen(null); setParams((p) => { p.set('v', key); return p }, { replace: true }) }
+  const selLabel = sel === 'von' ? 'Voorstellen van VON' : tiles.find((t) => t.key === sel)?.label ?? ''
 
   const later = async (f: Flag) => {
     const until = new Date(); until.setDate(until.getDate() + 1); until.setHours(6, 0, 0, 0)
@@ -164,131 +190,117 @@ export function ControlTower() {
       setSnoozed((s) => { const n = new Set(s); n.delete(key); return n })
     })
   }
-  const hide = (f: Flag, text: string, undo?: () => PromiseLike<unknown>) => {
-    const key = keyOf(f)
+  const hide = (key: string, text: string, undo?: () => PromiseLike<unknown>) => {
     setGone((s) => new Set(s).add(key))
     toast.show(text, undo ? async () => { await undo(); setGone((s) => { const n = new Set(s); n.delete(key); return n }) } : undefined)
   }
   const dismissMail = async (f: Flag) => {
     await supabase.from('mail_messages').update({ dismissed_at: new Date().toISOString() }).eq('id', f.ref!)
-    hide(f, 'Geen antwoord nodig', () => supabase.from('mail_messages').update({ dismissed_at: null }).eq('id', f.ref!))
+    hide(keyOf(f), 'Geen antwoord nodig', () => supabase.from('mail_messages').update({ dismissed_at: null }).eq('id', f.ref!))
   }
   const taskDone = async (f: Flag) => {
     await supabase.from('tasks').update({ done_at: new Date().toISOString() }).eq('id', f.ref!)
-    hide(f, 'Afgevinkt', () => supabase.from('tasks').update({ done_at: null }).eq('id', f.ref!))
+    hide(keyOf(f), 'Afgevinkt', () => supabase.from('tasks').update({ done_at: null }).eq('id', f.ref!))
+  }
+  const ownTaskDone = async (t: OpenTask) => {
+    await supabase.from('tasks').update({ done_at: new Date().toISOString() }).eq('id', t.id)
+    hide('taak-buiten:' + t.id, 'Afgevinkt', () => supabase.from('tasks').update({ done_at: null }).eq('id', t.id))
   }
   const proposalDone = (f: Flag) => { setGone((s) => new Set(s).add(keyOf(f))); setOpen(null); toast.show('Voorstel afgehandeld'); flags.reload() }
 
-  // één zin: wat er vandaag is, en waar de rest zit
-  const byCat = (list: Flag[]) => catList.map((c) => ({ c, n: list.filter((f) => f.category === c.key).length })).filter((x) => x.n)
-  const weekCount = work.filter((f) => f.prio === 2).length
-  const sentence = today.length
-    ? `Vandaag ${today.length === 1 ? 'is er 1 punt' : `zijn er ${today.length} punten`}: ${byCat(today).map((x) => `${x.n} bij ${x.c.label.split(' ')[0].toLowerCase()}`).join(', ')}.` + (weekCount ? ` Daarna ${weekCount} voor deze week.` : '')
-    : weekCount ? `Niets voor vandaag. ${weekCount} ${weekCount === 1 ? 'punt' : 'punten'} voor deze week.` : 'Niets dringends. Een rustige dag.'
+  const list = sel === 'von' ? von : work.filter((f) => f.category === sel).sort((a, b) => a.prio - b.prio)
 
-  const Row = ({ f, showCat = false }: { f: Flag; showCat?: boolean }) => {
+  const Row = ({ f }: { f: Flag }) => {
     const k = keyOf(f), act = actionFor(f), isVon = f.kind === 'von_voorstel' && !!f.ref, isOpen = isVon && open === k
-    const due = dueText(f.due_date)
+    const due = dueShort(f.due_date)
+    const sub = [f.client_name ?? f.project_code, isVon ? 'VON stelt voor' : null].filter(Boolean).join(' · ')
+    const title = isVon ? (f.proposal_title ?? cleanTitle(f)) : cleanTitle(f)
     return (
-      <div className={'vd-item' + (isOpen ? ' open' : '')}>
-        <div className="vd-row">
-          <span className={'vd-ico' + (isVon ? ' is-von' : '')}><Ico name={isVon ? 'von' : f.category} /></span>
-          <span className="vd-what">
-            <span className="vd-t">
-              {f.project_code && <Link to={`/projecten/${encodeURIComponent(f.project_code)}`} className="vd-code">{f.project_code}</Link>}
-              {isVon ? (f.proposal_title ?? cleanTitle(f)) : cleanTitle(f)}
-            </span>
-            <span className="vd-meta">
-              {showCat && <span className="vd-cat">{catLabel(f.category)}</span>}
-              {isVon && f.agent && <span className="vd-cat agent">{AGENT_NAME[f.agent] ?? f.agent} stelt voor</span>}
-              {f.kind === 'taak' && <span className="vd-cat">te doen in de app</span>}
-              {f.client_name && <span>{f.client_name}</span>}
-              {due && <span className={'vd-due ' + due.cls}>{due.text}{f.due_reason ? ` · ${f.due_reason}` : ''}</span>}
-            </span>
-            {isVon && !isOpen ? (
-              <span className="vd-why">
-                {f.context && <span><b>Aanleiding</b> {f.context}</span>}
-                <span><b>Waarom</b> {f.reason ?? f.proposal_summary ?? f.detail ?? '—'}</span>
-              </span>
-            ) : !isOpen && f.detail && <span className="vd-s">{f.detail}</span>}
+      <div className={'vd5-item' + (f.prio === 3 ? ' info' : '')}>
+        <div className="vd5-row">
+          <span className={'vd5-dot' + (f.prio === 1 ? ' now' : isVon ? ' von' : '')} aria-hidden="true" />
+          <span className="vd5-txt" title={[f.detail, f.reason].filter(Boolean).join(' · ') || undefined}>
+            <span className="vd5-t">{title}</span>
+            {(sub || due) && <span className="vd5-s">{sub}{sub && due ? ' · ' : ''}{due && <b className={due.cls}>{due.text}</b>}</span>}
           </span>
-          <span className="vd-acts">
-            {isVon ? (
-              <button className={isOpen ? 'vd-btn ghost' : 'vd-btn gold'} onClick={() => setOpen(isOpen ? '' : k)}>{isOpen ? 'Inklappen' : 'Bekijken'}</button>
-            ) : act.to.startsWith('http') ? (
-              <a href={act.to} target="_blank" rel="noreferrer" className="vd-btn">{act.label} ↗</a>
-            ) : (
-              <Link to={act.to} className={'vd-btn' + (f.prio === 1 ? ' gold' : '')}>{act.label}</Link>
-            )}
-            {f.kind === 'mail_antwoord' && f.ref && <button className="vd-btn ghost" onClick={() => dismissMail(f)} title="Geen antwoord nodig">Klaar</button>}
-            {f.kind === 'taak' && f.ref && <button className="vd-btn ghost" onClick={() => taskDone(f)} title="Afvinken">Klaar</button>}
-            {!isVon && <button className="vd-btn ghost" onClick={() => later(f)} title="Verbergen tot morgen">Later</button>}
-            <span className="vd-age">{relDays(f.since)}</span>
-          </span>
+          {isVon ? (
+            <button className={'vd5-btn' + (f.prio === 1 ? ' gold' : '')} onClick={() => setOpen(isOpen ? null : k)} aria-expanded={isOpen}>{isOpen ? 'Sluiten' : 'Bekijken'}</button>
+          ) : act.to.startsWith('http') ? (
+            <a href={act.to} target="_blank" rel="noreferrer" className="vd5-btn">{act.label}</a>
+          ) : (
+            <Link to={act.to} className={'vd5-btn' + (f.prio === 1 ? ' gold' : '')}>{act.label}</Link>
+          )}
+          {f.kind === 'mail_antwoord' && f.ref && <button className="vd5-ico-btn" onClick={() => dismissMail(f)} aria-label="Geen antwoord nodig" title="Geen antwoord nodig"><SmallIco d={CHECK} /></button>}
+          {f.kind === 'taak' && f.ref && <button className="vd5-ico-btn" onClick={() => taskDone(f)} aria-label="Klaar" title="Klaar"><SmallIco d={CHECK} /></button>}
+          {!isVon && <button className="vd5-ico-btn" onClick={() => later(f)} aria-label="Morgen weer tonen" title="Morgen weer tonen"><SmallIco d={LATER} /></button>}
         </div>
         {isOpen && <InlineProposal id={f.ref!} onDone={() => proposalDone(f)} />}
       </div>
     )
   }
 
+  const loading = !flags.data || !cats.data
   return (
-    <section className="vd">
-      <header className="vd-hello">
-        <div>
-          <div className="vd-date">{new Date().toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
-          <h1>{greet}, Olivier</h1>
-          <p className="vd-von"><span className="vd-vdot">V</span><span>{sentence}</span></p>
-        </div>
-        <div className="vd-pills">
-          <span className="vd-pill now"><i /> <b>{today.length}</b> vandaag</span>
-          <span className="vd-pill week"><i /> <b>{weekCount}</b> deze week</span>
-          <Link to="/projecten" className="vd-pill good"><i /> <b>{active.length}</b> lopend{active.length === 1 ? ' project' : 'e projecten'}</Link>
-          <button className="vd-pill hours-btn" onClick={() => setHours({ job: null })}>+ Uren</button>
-        </div>
+    <section className="vd5">
+      <header className="vd5-head">
+        <h1>Vandaag</h1>
+        <button className="vd5-btn" onClick={() => setHours({ job: null })}>+ Uren</button>
       </header>
       {hours && <HoursQuickAdd jobId={hours.job} onClose={() => setHours(null)} onSaved={() => flags.reload()} />}
-      <ErrorBox error={flags.error ?? projects.error ?? cats.error} />
-      {!flags.data || !projects.data || !cats.data ? (flags.error || projects.error || cats.error ? null : <Loading />) : (
-        <div className="vd-grid">
-          <div className="vd-col">
-            <AutonomyOffers />
-            <section className="panel vd-panel">
-              <div className="vd-h"><h2>Vandaag</h2><span className="vd-more">te laat, vandaag of morgen</span></div>
-              {today.length === 0
-                ? <div className="vd-empty"><b>Niets voor vandaag</b>Wat later moet, staat hieronder per categorie.</div>
-                : <div className="vd-group">{today.map((f) => <Row key={keyOf(f)} f={f} showCat />)}</div>}
-            </section>
-            {catList.map((c) => {
-              const list = work.filter((f) => f.category === c.key && f.prio === 2)
-              const info = work.filter((f) => f.category === c.key && f.prio === 3)
-              const nToday = today.filter((f) => f.category === c.key).length
-              if (!list.length && !info.length) return null
-              return (
-                <section key={c.key} className="panel vd-panel vd-catp">
-                  <div className="vd-h"><span className="vd-hico"><Ico name={c.key} /></span><h2>{c.label}</h2><span className="vd-more">{list.length ? `${list.length} deze week` : ''}{nToday ? ` · ${nToday} bij vandaag` : ''}</span></div>
-                  {list.length > 0 && <div className="vd-group">{list.map((f) => <Row key={keyOf(f)} f={f} />)}</div>}
-                  {info.length > 0 && <details className="vd-info"><summary>Ter info · {info.length} {info.length === 1 ? 'punt' : 'punten'}</summary>{info.map((f) => <Row key={keyOf(f)} f={f} />)}</details>}
-                </section>
-              )
-            })}
-            <AgentActivity />
-          </div>
-
-          <aside className="vd-col">
-            <YourDay projects={ps} />
-            <div className="vd-tasks"><Tasks limit={6} title="Taken buiten de app" kind="buiten" /></div>
-            <ActiveProjects projects={active} />
-            {sys.length === 0 ? (
-              <div className="panel vd-sys"><i className="ok" />Alle systemen in orde</div>
-            ) : (
-              <div className="panel vd-sys bad">
-                <i className="bad" />
-                <span>{sys.map((f) => { const a = actionFor(f); return a.to.startsWith('http')
-                  ? <a key={keyOf(f)} href={a.to} target="_blank" rel="noreferrer">{f.title}</a>
-                  : <Link key={keyOf(f)} to={a.to}>{f.title}</Link> })}</span>
-              </div>
+      <ErrorBox error={flags.error ?? cats.error} />
+      {sys.length > 0 && (
+        <div className="vd5-sys" role="alert">
+          <span className="vd5-dot now" aria-hidden="true" />
+          <span>{sys.map((f) => { const a = actionFor(f); return a.to.startsWith('http')
+            ? <a key={keyOf(f)} href={a.to} target="_blank" rel="noreferrer">{f.title}</a>
+            : <Link key={keyOf(f)} to={a.to}>{f.title}</Link> })}</span>
+        </div>
+      )}
+      {loading ? (flags.error || cats.error ? null : <Loading />) : (
+        <div className="vd5-grid">
+          <div className="vd5-main">
+            {von.length > 0 && (
+              <button className={'vd5-von' + (sel === 'von' ? ' on' : '')} onClick={() => pick('von')}>
+                <span className="vd-vdot" aria-hidden="true">V</span>
+                <span><b>{von.length} {von.length === 1 ? 'voorstel' : 'voorstellen'} van VON</b> {von.length === 1 ? 'wacht' : 'wachten'} op jou</span>
+                <span className="vd5-von-go">Bekijken ›</span>
+              </button>
             )}
-          </aside>
+            <div className="vd5-tiles" role="group" aria-label="Onderwerpen">
+              {tiles.map((t) => (
+                <button key={t.key} className={'vd5-tile' + (sel === t.key ? ' on' : '') + (t.n ? '' : ' empty')}
+                  aria-pressed={sel === t.key} onClick={() => pick(t.key)}>
+                  <span className="vd5-tile-top">
+                    <span className={'vd5-tico c-' + t.icon}><Ico name={t.icon} /></span>
+                    {t.urgent > 0 && <span className="vd5-urgent">{t.urgent} nu</span>}
+                  </span>
+                  <span className="vd5-n">{t.n}</span>
+                  <span className="vd5-l">{t.label}</span>
+                </button>
+              ))}
+            </div>
+            <section className="vd5-list" aria-label={selLabel}>
+              <h2>{selLabel}</h2>
+              {sel === 'taken' ? (
+                <>
+                  {openTasks.length === 0 && <p className="vd5-empty">Geen open taken.</p>}
+                  {openTasks.map((t) => {
+                    const due = dueShort(t.due_date)
+                    return (
+                      <div key={t.id} className="vd5-item"><div className="vd5-row">
+                        <span className={'vd5-dot' + (t.due_date && t.due_date <= today ? ' now' : '')} aria-hidden="true" />
+                        <span className="vd5-txt"><span className="vd5-t">{t.text}</span>
+                          {(t.project_code || due) && <span className="vd5-s">{t.project_code}{t.project_code && due ? ' · ' : ''}{due && <b className={due.cls}>{due.text}</b>}</span>}</span>
+                        <button className="vd5-ico-btn" onClick={() => ownTaskDone(t)} aria-label="Klaar" title="Klaar"><SmallIco d={CHECK} /></button>
+                      </div></div>
+                    )
+                  })}
+                  <Link to="/taken" className="vd5-more">Alle taken · nieuwe taak ›</Link>
+                </>
+              ) : list.length === 0 ? <p className="vd5-empty">Niets te doen bij {selLabel.toLowerCase()}.</p> : list.map((f) => <Row key={keyOf(f)} f={f} />)}
+            </section>
+          </div>
+          <aside className="vd5-side"><YourDay /><ActiveProjects projects={active} /></aside>
         </div>
       )}
       {toast.el}
@@ -304,122 +316,8 @@ export function InlineProposal({ id, onDone }: { id: string; onDone: () => void 
   return <div className="vd-draft"><ProposalCard p={p} onDone={() => { supabase.from('von_proposals').select('status').eq('id', id).single().then(({ data }) => { if (data?.status !== 'voorstel') onDone() }) }} /></div>
 }
 
-/** "Mag Inkoop dit voortaan zelf doen?" na 5× goedkeuren zonder wijzigen (app_autonomy_offers). */
-function AutonomyOffers() {
-  const q = useQuery<Offer[]>(() => supabase.from('app_autonomy_offers').select('*'), [])
-  const decide = async (o: Offer, mode: 'zelf' | 'vragen') => {
-    const { error } = await supabase.from('agent_autonomy').insert({ agent_id: o.agent_id, kind: o.kind, mode, decided_by: 'Vandaag' })
-    toast(error ? 'Niet bewaard: ' + error.message : mode === 'zelf' ? `${o.agent_name} doet dit voortaan zelf` : 'Blijft vragen', error ? 'err' : 'ok')
-    q.reload()
-  }
-  if (!q.data?.length) return null
-  return (
-    <>{q.data.map((o) => (
-      <section key={o.agent_id + o.kind} className="panel vd-offer">
-        <span className="vd-vdot">V</span>
-        <div>
-          <b>Mag {o.agent_name} “{o.kind_label}” voortaan zelf doen?</b>
-          <p className="small muted">Je keurde de laatste 5 voorstellen van deze soort goed zonder iets te wijzigen. Voortaan doet {o.agent_name} het zelf (enkel binnen de app, nooit iets naar buiten) en zie je het onderaan bij “Wat de agents deden”, met ongedaan maken. Terugdraaien kan in VON → Team.</p>
-          <span className="toolbar"><button className="primary" onClick={() => decide(o, 'zelf')}>Ja, voortaan zelf</button><button onClick={() => decide(o, 'vragen')}>Nee, blijf het vragen</button></span>
-        </div>
-      </section>
-    ))}</>
-  )
-}
-
-/** Wat de agents zelf deden: één regel per agent, uitklappen = elke handeling nakijken (klopt / fout / aanleren / ongedaan maken). */
-function AgentActivity() {
-  const q = useQuery<Act[]>(() => supabase.from('app_agent_activity').select('*').order('at', { ascending: false }).limit(400), [])
-  const [open, setOpen] = useState<string | null>(null)
-  const [teach, setTeach] = useState<string | null>(null)
-  const [showChecked, setShowChecked] = useState(false)
-  const list = q.data ?? []
-  const groups = useMemo(() => {
-    const m = new Map<string, Act[]>()
-    for (const a of list) m.set(a.agent, [...(m.get(a.agent) ?? []), a])
-    return [...m.entries()].sort((a, b) => b[1].length - a[1].length)
-  }, [list])
-  const review = async (a: Act, verdict: 'ok' | 'fout' | 'geleerd', note?: string) => {
-    const { error } = await supabase.from('agent_reviews').upsert({ source: a.source, ref: a.ref, verdict, note: note ?? null, at: new Date().toISOString(), by: 'Vandaag' })
-    if (error) toast('Niet bewaard: ' + error.message, 'err')
-    q.reload()
-  }
-  const allOk = async (items: Act[]) => {
-    const rows = items.filter((a) => !a.verdict).map((a) => ({ source: a.source, ref: a.ref, verdict: 'ok', at: new Date().toISOString(), by: 'Vandaag' }))
-    if (!rows.length) return
-    const { error } = await supabase.from('agent_reviews').upsert(rows)
-    toast(error ? 'Niet bewaard: ' + error.message : `${rows.length} nagekeken`, error ? 'err' : 'ok'); q.reload()
-  }
-  const undo = async (a: Act) => {
-    const { data, error } = await supabase.functions.invoke('von-action', { body: { action: 'undo', id: a.ref } })
-    const d = data as { ok?: boolean; error?: string } | null
-    toast(error ? 'Mislukt' : d?.error ?? 'Ongedaan gemaakt', error || d?.error ? 'err' : 'ok'); review(a, 'fout')
-  }
-  const summary = (items: Act[]) => {
-    const c = (re: RegExp) => items.filter((a) => re.test(a.title)).length
-    const parts = [
-      [c(/^Gekoppeld aan/), 'gekoppeld'], [c(/^Geen project/), 'zonder project gelaten'], [c(/^Aankoopfactuur gekoppeld/), 'aankoopfactuur gekoppeld'],
-      [c(/^Taak gemaakt/), 'taak|taken'], [c(/^Te doen gezet/), 'te doen in de app'], [c(/^Zelf gedaan/), 'zelf gedaan'], [c(/^Intake/), 'intake|intakes'],
-      [c(/^Automatisch naar/), 'project naar de volgende fase|projecten naar de volgende fase'],
-    ].filter(([n]) => n).map(([n, t]) => [n, String(t).includes('|') ? String(t).split('|')[Number(n) === 1 ? 0 : 1] : t]) as [number, string][]
-    const rest = items.length - parts.reduce((x, [n]) => x + n, 0)
-    return [...parts.map(([n, t]) => `${n} ${t}`), ...(rest > 0 ? [`${rest} andere`] : [])].join(' · ')
-  }
-  return (
-    <section className="panel vd-panel">
-      <div className="vd-h"><span className="vd-hico"><Ico name="von" /></span><h2>Wat de agents deden</h2><span className="vd-more">laatste 7 dagen</span></div>
-      {!q.data ? <p className="muted small vd-pad">Laden…</p> : groups.length === 0 ? <p className="muted small vd-pad">De agents deden deze week niets zelf.</p> : groups.map(([agent, items]) => {
-        const todo = items.filter((a) => !a.verdict)
-        const shown = (showChecked ? items : todo).slice(0, 60)
-        const isOpen = open === agent
-        return (
-          <div key={agent} className={'vd-agent' + (isOpen ? ' open' : '')}>
-            <button className="vd-agent-line" onClick={() => setOpen(isOpen ? null : agent)} aria-expanded={isOpen}>
-              <b>{items[0].agent_name}</b>
-              <span className="vd-s">{summary(items)}</span>
-              <span className={'vd-badge' + (todo.length ? ' k' : '')}>{todo.length ? `${todo.length} na te kijken` : '✓ nagekeken'}</span>
-              <span className="vd-chev">{isOpen ? '▴' : '▾'}</span>
-            </button>
-            {isOpen && (
-              <div className="vd-agent-body">
-                <div className="toolbar small">
-                  {todo.length > 0 && <button onClick={() => allOk(todo)}>✓ Alles klopt ({todo.length})</button>}
-                  <label className="check"><input type="checkbox" checked={showChecked} onChange={(e) => setShowChecked(e.target.checked)} /> ook nagekeken tonen</label>
-                </div>
-                {shown.length === 0 && <p className="muted small">Alles nagekeken.</p>}
-                {shown.map((a) => (
-                  <div key={a.source + a.ref} className={'vd-act' + (a.verdict ? ' done ' + a.verdict : '')}>
-                    <div className="vd-act-row">
-                      <span className="vd-what">
-                        <span className="vd-t">{a.project_code && <span className="vd-code">{a.project_code}</span>}{a.title}</span>
-                        {a.detail && <span className="vd-s">{a.detail}</span>}
-                        {a.review_note && <span className="vd-s">Geleerd: {a.review_note}</span>}
-                      </span>
-                      <span className="vd-acts">
-                        {a.link && <Link className="vd-btn ghost" to={a.link}>Openen</Link>}
-                        {!a.verdict && <button className="vd-btn" onClick={() => review(a, 'ok')}>✓ Klopt</button>}
-                        {!a.verdict && <button className="vd-btn ghost" onClick={() => setTeach(teach === a.source + a.ref ? null : a.source + a.ref)}>Fout / aanleren</button>}
-                        {a.verdict && <span className="vd-age">{a.verdict === 'ok' ? '✓ klopt' : a.verdict === 'geleerd' ? 'aangeleerd' : 'fout'}</span>}
-                      </span>
-                    </div>
-                    {teach === a.source + a.ref && (
-                      <TeachBox agentId={a.agent} kind={a.what} source={a.source} refId={a.ref} example={a.title}
-                        extra={a.can_undo ? { label: 'Ongedaan maken', run: () => undo(a) } : undefined}
-                        onSaved={(lesson) => { setTeach(null); review(a, 'geleerd', lesson) }} />
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )
-      })}
-    </section>
-  )
-}
-
 /** Je dag: afspraken (Outlook/Bookings) en opdrachten, vandaag en morgen, als tijdlijn. */
-function YourDay({ projects }: { projects: ProjectRow[] }) {
+function YourDay() {
   const [items, setItems] = useState<DayItem[] | null>(null)
   useEffect(() => {
     const from = startOfDay(new Date()), to = new Date(from.getTime() + 2 * 86400000)
@@ -439,14 +337,13 @@ function YourDay({ projects }: { projects: ProjectRow[] }) {
     })
   }, [])
   const today = startOfDay(new Date())
-  const intros = projects.filter((p) => p.intro_at && new Date(p.intro_at) >= today && new Date(p.intro_at) < new Date(today.getTime() + 2 * 86400000))
   const groups = [0, 1].map((n) => {
     const d = new Date(today.getTime() + n * 86400000)
     return { label: n === 0 ? 'Vandaag' : 'Morgen', list: (items ?? []).filter((i) => new Date(i.start) < new Date(d.getTime() + 86400000) && new Date(i.end) > d) }
   })
   return (
     <section className="panel vd-panel">
-      <div className="vd-h"><h2>Je dag</h2><Link to="/agenda" className="vd-more">Agenda</Link></div>
+      <div className="vd-h"><h2>Agenda</h2><Link to="/agenda" className="vd-more">Week</Link></div>
       <div className="vd-tl">
         {items === null ? <p className="muted small">Laden…</p> : groups.map((g) => (
           <div key={g.label}>
@@ -460,31 +357,26 @@ function YourDay({ projects }: { projects: ProjectRow[] }) {
             ))}
           </div>
         ))}
-        {intros.length > 0 && items !== null && !items.some((i) => i.title.toLowerCase().includes('kennismak')) && (
-          <p className="muted small">Kennismaking: {intros.map((p) => p.client_name).join(', ')}</p>
-        )}
       </div>
     </section>
   )
 }
 
-/** Lopende projecten: fase, voortgang in de fase, volgende stap. */
+/** Lopende projecten (rechts onder de agenda, op vraag van Olivier 7/11): naam, fase en voortgang in de fase. */
 function ActiveProjects({ projects }: { projects: ProjectRow[] }) {
   const [prog, setProg] = useState<Record<string, ProjectProgress>>({})
   useEffect(() => { supabase.from('app_project_progress').select('*').then(({ data }) => setProg(Object.fromEntries(((data ?? []) as ProjectProgress[]).map((r) => [r.project_code, r])))) }, [])
-  const list = useMemo(() => [...projects].sort((a, b) => (b.last_activity ?? '').localeCompare(a.last_activity ?? '')).slice(0, 5), [projects])
+  const list = useMemo(() => [...projects].sort((a, b) => (b.last_activity ?? '').localeCompare(a.last_activity ?? '')).slice(0, 6), [projects])
   return (
-    <section className="panel vd-panel">
+    <section className="panel vd-panel vd5-projects">
       <div className="vd-h"><h2>Lopende projecten</h2><Link to="/projecten" className="vd-more">Alle</Link></div>
       {list.length === 0 ? <p className="muted small vd-pad">Geen lopende projecten.</p> : list.map((p) => {
-        const g = prog[p.project_code] as (ProjectProgress & { stage_done?: number; stage_total?: number; next_item?: string }) | undefined
+        const g = prog[p.project_code] as (ProjectProgress & { stage_done?: number; stage_total?: number }) | undefined
         const pct = g?.stage_total ? Math.round(((g.stage_done ?? 0) / g.stage_total) * 100) : null
         return (
-          <Link key={p.project_id} to={`/projecten/${encodeURIComponent(p.project_code)}`} className="vd-proj">
-            <span className="vd-ptop"><span className="vd-code">{p.project_code}</span><b>{p.client_name ?? p.title}</b><span className="vd-phase">{p.phase_label}</span></span>
-            <span className="vd-s">{[p.title, p.site_city, p.cost_total != null ? `raming ${fmtEur(p.cost_total)}` : null].filter(Boolean).join(' · ')}</span>
-            {pct != null && <span className="vd-prog" role="img" aria-label={`${g?.stage_done} van ${g?.stage_total} punten in deze fase`}><i style={{ width: `${pct}%` }} /></span>}
-            {g?.next_item && <span className="vd-s">Volgende stap: {g.next_item}</span>}
+          <Link key={p.project_id} to={`/projecten/${encodeURIComponent(p.project_code)}`} className="vd5-proj">
+            <span className="vd5-proj-top"><b>{p.client_name ?? p.title ?? p.project_code}</b><span className="vd-phase">{p.phase_label}</span></span>
+            {pct != null && <span className="vd-prog" role="img" aria-label={`${g?.stage_done} van ${g?.stage_total} stappen in deze fase`}><i style={{ width: `${pct}%` }} /></span>}
           </Link>
         )
       })}

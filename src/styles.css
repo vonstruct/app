@@ -2009,3 +2009,88 @@ label > .date-in, .kd-fields .date-in, .po-edit .date-in { width: 100%; }
 .cf-note { margin: 0; font-size: 12.5px; }
 @media (max-width: 640px) { .cf-m { grid-template-columns: 30px minmax(0, 1fr) 96px; } .cf-mv small { display: none; } .cf-v { font-size: 21px; } .cf-kpi { padding: 12px; } .cf-pipe { grid-template-columns: repeat(2, minmax(0, 1fr)); } .cf-card h2 small { display: block; margin: 2px 0 0; } .cf-table td, .cf-table th { padding: 6px 5px; } }
 @media (prefers-color-scheme: dark) { .cf-bar.inv, .cf-sw.inv { background: #9fb3d6; } .cf-mv small { color: #e0b45a; } }
+
+/* Vandaag v5 (7 nov 2026): tegels per onderwerp, weinig tekst */
+.vd5 { --g: #c9a24a; --navy: #0d1626; display: flex; flex-direction: column; gap: 16px; padding-top: 18px; }
+.vd5-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.vd5-head h1 { font: 500 32px/1.15 "Jost", "Avenir Next", system-ui, sans-serif; margin: 0; }
+.vd5-grid { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+.vd5-main { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.vd5-side { flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.vd5-sys { display: flex; align-items: center; gap: 10px; background: color-mix(in srgb, var(--bad) 10%, var(--panel)); border: 1px solid color-mix(in srgb, var(--bad) 35%, transparent); border-radius: 12px; padding: 10px 14px; }
+.vd5-sys a { color: var(--bad); font-weight: 600; margin-right: 12px; }
+.vd5-von { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: #fbf5e6; border: 1px solid #ead9ad; border-radius: 14px; padding: 12px 16px; min-height: 56px; cursor: pointer; font: inherit; color: var(--ink); }
+.vd5-von.on { border: 2px solid var(--navy); }
+.vd5-von > span:nth-child(2) { flex: 1; }
+.vd5-von-go { font-weight: 600; color: #6b5214; }
+.vd5-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 12px; }
+.vd5-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 14px; border-radius: 16px; background: var(--panel); border: 2px solid var(--line); cursor: pointer; font: inherit; color: var(--ink); text-align: left; min-height: 140px; }
+.vd5-tile:hover { box-shadow: 0 8px 20px -14px rgba(13, 22, 38, .5); }
+.vd5-tile.on { border-color: var(--navy); }
+.vd5-tile.empty { opacity: .55; }
+.vd5-tile-top { display: flex; justify-content: space-between; align-items: flex-start; width: 100%; }
+.vd5-tico { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #eef0f3; color: #16233a; }
+.vd5-tico svg { width: 20px; height: 20px; }
+.vd5-tico.c-klanten { background: #e7eef8; color: #1d4f91; }
+.vd5-tico.c-bestellingen { background: #f6ece0; color: #8a4b0f; }
+.vd5-tico.c-planning { background: #e6f2ec; color: #2a6a4e; }
+.vd5-tico.c-facturen { background: #f3e9d2; color: #7a5a12; }
+.vd5-tico.c-kwaliteit { background: #ece9f6; color: #4b3f8f; }
+.vd5-tico.c-taken { background: #eef0f3; color: #16233a; }
+.vd5-urgent { font-size: 12.5px; font-weight: 700; color: #fff; background: var(--bad); border-radius: 999px; padding: 2px 9px; }
+.vd5-n { font: 500 40px/1 "Jost", "Avenir Next", system-ui, sans-serif; margin-top: 10px; }
+.vd5-l { font-weight: 600; }
+.vd5-list { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.vd5-list h2 { margin: 0; padding: 14px 18px 8px; font: 500 19px "Jost", "Avenir Next", system-ui, sans-serif; }
+.vd5-list > .panel { border: 0; border-radius: 0; border-top: 1px solid var(--line); }
+.vd5-item { border-top: 1px solid var(--line); }
+.vd5-item.info { opacity: .75; }
+.vd5-row { display: flex; align-items: center; gap: 12px; padding: 10px 18px; min-height: 60px; box-sizing: border-box; }
+.vd5-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; background: #d9d5cc; }
+.vd5-dot.now { background: var(--bad); }
+.vd5-dot.von { background: var(--g); }
+.vd5-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.vd5-t { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vd5-s { color: var(--muted); font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vd5-s b { font-weight: 600; }
+.vd5-s b.bad { color: var(--bad); }
+.vd5-s b.warn { color: var(--warn); }
+.vd5-btn { flex: none; display: inline-flex; align-items: center; min-height: 40px; padding: 8px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: inherit; font-weight: 600; font-size: 14px; cursor: pointer; text-decoration: none; white-space: nowrap; }
+.vd5-btn:hover { text-decoration: none; filter: brightness(.97); }
+.vd5-btn.gold { background: var(--g); border-color: var(--g); color: #1f1a0e; }
+.vd5-ico-btn { flex: none; width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.vd5-ico-btn svg { width: 18px; height: 18px; }
+.vd5-ico-btn:hover { color: var(--ink); }
+.vd5-empty { margin: 0; padding: 18px; color: var(--muted); border-top: 1px solid var(--line); }
+.vd5-more { display: block; padding: 12px 18px; border-top: 1px solid var(--line); font-weight: 500; }
+.vd5-proj { display: flex; flex-direction: column; gap: 6px; padding: 10px 16px; border-top: 1px solid var(--line); color: var(--ink); }
+.vd5-proj:hover { text-decoration: none; background: color-mix(in srgb, var(--ink) 3%, transparent); }
+.vd5-proj-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.vd5-proj-top b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vd5 .vd-vdot { flex: none; }
+@media (max-width: 760px) {
+  .vd5 { padding-top: 10px; gap: 12px; }
+  .vd5-head h1 { font-size: 26px; }
+  .vd5-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .vd5-tile { min-height: 104px; padding: 10px; border-radius: 14px; }
+  .vd5-tico { width: 30px; height: 30px; }
+  .vd5-tico svg { width: 16px; height: 16px; }
+  .vd5-urgent { padding: 1px 7px; font-size: 11.5px; }
+  .vd5-n { font-size: 28px; margin-top: 6px; }
+  .vd5-l { font-size: 12.5px; }
+  .vd5-row { padding: 10px 12px; gap: 10px; }
+  .vd5-btn { padding: 8px 10px; font-size: 13.5px; }
+  .vd5-ico-btn { width: 36px; height: 36px; }
+  .vd5-t { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+}
+@media (prefers-color-scheme: dark) {
+  .vd5-von { background: #2e2716; border-color: #5a4a22; color: var(--ink); }
+  .vd5-von-go { color: #e6c67f; }
+  .vd5-tico { filter: brightness(.85); }
+}
+.vd5 { --vd-navy: #0e1729; --vd-navy-ink: #e9e6dd; --vd-gold: #b38b3a; --vd-gold-hi: #e6c67f; --vd-gold-soft: #f3ead6; --vd-gold-ink: #7a5c1f; --vd-soft: color-mix(in srgb, var(--ink) 5%, transparent); --vd-display: "Jost", "Avenir Next", "Segoe UI", sans-serif; }
+.vd5 .vd-panel { border-radius: 16px; }
+.vd5 .vd-h { background: none; border-bottom: 1px solid var(--line); padding: 14px 16px 10px; margin: 0; }
+.vd5 .vd-h h2 { font: 500 19px var(--vd-display); letter-spacing: 0; text-transform: none; color: var(--ink); }
+.vd5 .vd-more { color: var(--accent) !important; opacity: 1; }
+.vd5-list .vd-panel { border-radius: 0; }
