@@ -2240,3 +2240,10 @@ a.vd5-sup:hover { color: var(--accent); }
 }
 .inko .order-lines td.num { white-space: nowrap; }
 .inko-btn.lnk { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; box-sizing: border-box; }
+/* Relaties: aanvrager / klant (7 nov 2026) */
+.rc-filter { margin: 0 0 12px; flex-wrap: wrap; }
+.rc-filter button { min-height: 36px; }
+.rc-status { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 600; vertical-align: 2px; background: #eef0f3; color: #16233a; }
+.rc-status.klant { background: #e6f2ec; color: #2a6a4e; }
+.rc-status.aanvrager { background: #fbf5e6; color: #6b5214; }
+.rc-status.niet-doorgegaan { background: #f3f1ee; color: #6d6a64; }

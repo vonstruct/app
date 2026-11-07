@@ -144,6 +144,7 @@ const projectPage = (code) => {
 }
 
 const tables = {
+  app_client_status: [{ client_id: 'c1', status: 'klant' }, { client_id: 'c2', status: 'aanvrager' }, { client_id: 'c3', status: 'klant' }, { client_id: 'c4', status: 'niet doorgegaan' }],
   app_projects: projects, project_phases: phases, today_categories: cats, clients, partners, subcontractors, jobs, tasks,
   von_proposals: proposals, app_mail_messages: mails, mail_messages: mails, app_orders: orders, app_invoices: invoices, rule_settings: rules,
   app_partner_orders: [

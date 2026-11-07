@@ -12,7 +12,7 @@ type Section = { id: string; label: string; table: string; intro: string; column
 const SECTIONS: Section[] = [
   {
     id: 'klanten', label: 'Klanten', table: 'clients', orderBy: 'client_number', newRow: { last_name: 'Nieuwe klant' }, canDelete: false,
-    intro: 'Klanten komen vanzelf binnen: elke nacht uit Yuki, bij een nieuwe aanvraag (Bookings) en bij de eerste upload uit PaletteCAD. Bestaande gegevens in de app worden nooit overschreven door Yuki, enkel lege velden aangevuld.',
+    intro: 'Iemand met enkel een aanvraag is een aanvrager; hij wordt klant zodra je hem een offerte verstuurt (of al gefactureerd is in Yuki). Ze komen vanzelf binnen: elke nacht uit Yuki, bij een nieuwe aanvraag (Bookings) en bij de eerste upload uit PaletteCAD. Bestaande gegevens worden nooit overschreven door Yuki, enkel lege velden aangevuld.',
     columns: [
       { key: 'client_number', label: 'Nr', type: 'number', width: 60 },
       { key: 'first_name', label: 'Voornaam' },
