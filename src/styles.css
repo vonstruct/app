@@ -1945,3 +1945,10 @@ label > .date-in, .kd-fields .date-in, .po-edit .date-in { width: 100%; }
   .portal-top-right { width: 100%; justify-content: space-between; }
   .portal-logo { width: 104px; }
 }
+
+/* Gsm (7 nov 2026): VON als knop in de kopbalk (enkel de V) in plaats van de ronde knop die actieknoppen bedekte */
+@media (max-width: 860px) {
+  .topbar .tb-von { display: inline-flex !important; padding: 0 6px; height: 36px; }
+  .topbar .tb-von-label { display: none; }
+  .von-fab { display: none !important; }
+}

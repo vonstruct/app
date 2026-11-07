@@ -1,3 +1,4 @@
+import { INKOOP, Section } from '../../core/Section'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { supabase } from '../../core/supabase'
@@ -23,22 +24,18 @@ type P = { project_code: string; title: string | null; client_name: string | nul
 const KIND: Record<string, string> = { bestelling: 'Bestelling', levering: 'Levering', leveringsbon: 'Leveringsbon', aankoopfactuur: 'Factuur', offerte_leverancier: 'Offerte leverancier' }
 const d = (v: string | null | undefined) => (v ? new Date(v.length === 10 ? v + 'T12:00' : v).toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', year: '2-digit' }) : '—')
 
-/** Planning → Bestellingen: tabs "Bestellingen" en "Uit je mailbox". */
+/** Inkoop › Bestellingen en Inkoop › Uit je mailbox (?tab=mailbox); de tabs komen uit de Section (menu Inkoop, 7 nov 2026). */
 export function OrdersPage() {
-  const [params, setParams] = useSearchParams()
+  const [params] = useSearchParams()
   const tab = params.get('tab') === 'mailbox' ? 'mailbox' : 'orders'
   const n = useQuery<number>(async () => {
     const { count } = await supabase.from('mail_documents').select('id', { count: 'exact', head: true }).in('status', ['nieuw', 'gelezen'])
     return { data: count ?? 0, error: null }
   }, [tab])
   return (
-    <>
-      <div className="segmented small" style={{ marginBottom: 12 }}>
-        <button className={tab === 'orders' ? 'on' : ''} onClick={() => setParams({}, { replace: true })}>Bestellingen</button>
-        <button className={tab === 'mailbox' ? 'on' : ''} onClick={() => setParams({ tab: 'mailbox' }, { replace: true })}>Uit je mailbox{n.data ? ` (${n.data} na te kijken)` : ''}</button>
-      </div>
-      {tab === 'orders' ? <Orders /> : <MailDocs />}
-    </>
+    <Section title="Inkoop" tabs={INKOOP}>
+      {tab === 'orders' ? <>{n.data ? <p className="small"><Link to="/bestellingen?tab=mailbox">{n.data} {n.data === 1 ? 'document' : 'documenten'} uit je mailbox na te kijken →</Link></p> : null}<Orders /></> : <MailDocs />}
+    </Section>
   )
 }
 

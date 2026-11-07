@@ -8,6 +8,7 @@ const projecten: AppModule = {
   id: 'projecten',
   label: 'Projecten',
   path: '/projecten',
+  also: ['/facturen'],
   routes: [
     { path: '/projecten', element: createElement(ProjectList) },
     { path: '/projecten/:code', element: createElement(ProjectDetail) },

@@ -10,4 +10,6 @@ export type AppModule = {
   path: string // startpagina van de module, bv. '/projecten'
   routes: { path: string; element: ReactNode }[]
   inMenu?: boolean
+  /** andere adressen waarop dit menu-item oplicht, bv. ['/opdrachten'] of '/facturen?tab=aankoop' */
+  also?: string[]
 }

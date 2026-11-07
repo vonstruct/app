@@ -22,7 +22,7 @@ export function DatesForm({ t, save, onClose }: { t: Timeline; save: (patch: Par
     if (!t.deadline) return
     const { data, error } = await supabase.rpc('latest_free_install_week', { p_deadline: t.deadline })
     if (error) return toast(error.message, 'err')
-    if (!data) return toast('Geen vrije week meer vóór de deadline (Planning → Capaciteit)', 'err')
+    if (!data) return toast('Geen vrije week meer vóór de deadline (Agenda → Capaciteit)', 'err')
     if (confirm(`Plaatsing op maandag ${dayLabel(data as string)} zetten (laatste vrije week vóór de deadline)?`)) save({ install_start: data as string, install_days: t.install_days ?? 4 })
   }
   const late = !!(t.deadline && t.install_end && t.install_end > t.deadline)

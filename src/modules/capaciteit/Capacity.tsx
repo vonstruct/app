@@ -4,7 +4,7 @@ import { useQuery } from '../../core/useQuery'
 import { ErrorBox, Loading } from '../../core/ui'
 import { RuleLink } from '../../core/RuleLink'
 
-/** Planning → Capaciteit: 16 weken vooruit, ingeplande dagen (eigen opdrachten, plaatsingsweken) tegenover beschikbare dagen. View app_capacity_weeks. */
+/** Agenda → Capaciteit: 16 weken vooruit, ingeplande dagen (eigen opdrachten, plaatsingsweken) tegenover beschikbare dagen. View app_capacity_weeks. */
 type W = { week_start: string; iso_week: string; my_job_days: number; sub_job_days: number; installs: number; install_projects: { code: string; title: string | null }[]; jobs: { title: string; code: string | null; days: number; me: boolean }[]; capacity_days: number; planned_days: number }
 
 export function Capacity() {

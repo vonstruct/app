@@ -1,15 +1,24 @@
 import type { ReactNode } from 'react'
 import { Link, useLocation } from 'react-router'
 
-/** Een menu-onderdeel met tabs (Planning, Instellingen). Elke tab is een eigen adres, zodat links en terugknop werken. */
+/**
+ * Een menu-onderdeel met tabs. Elke tab is een eigen adres, zodat links en terugknop werken.
+ * Menu met vijf vaste plaatsen (7 nov 2026): Vandaag · Agenda · Projecten · Inkoop · Relaties. Elk ding heeft één thuis.
+ */
 export type Tab = { to: string; label: string }
-export const PLANNING: Tab[] = [
+export const AGENDA: Tab[] = [
   { to: '/agenda', label: 'Agenda' },
   { to: '/opdrachten', label: 'Opdrachten' },
-  { to: '/bestellingen', label: 'Bestellingen' },
-  { to: '/facturen', label: 'Facturen' },
   { to: '/capaciteit', label: 'Capaciteit' },
-  { to: '/taken', label: 'Taken' },
+]
+export const INKOOP: Tab[] = [
+  { to: '/bestellingen', label: 'Bestellingen' },
+  { to: '/bestellingen?tab=mailbox', label: 'Uit je mailbox' },
+  { to: '/facturen?tab=aankoop', label: 'Aankoopfacturen' },
+]
+export const PROJECTEN: Tab[] = [
+  { to: '/projecten', label: 'Projecten' },
+  { to: '/facturen', label: 'Verkoopfacturen' },
 ]
 export const INBOX: Tab[] = [{ to: '/inbox', label: 'Mails' }]
 export const SETTINGS: Tab[] = [
@@ -19,14 +28,24 @@ export const SETTINGS: Tab[] = [
   { to: '/portaal', label: 'Portaal (voorbeeld)' },
 ]
 
-export function Section({ title, intro, tabs, children }: { title: string; intro?: string; tabs: Tab[]; children: ReactNode }) {
+/** actief = zelfde pad, en (als de tab een ?tab= heeft) dezelfde tab */
+function useIsOn() {
   const loc = useLocation()
-  // actief = zelfde pad, en (als de tab een ?tab= heeft) dezelfde tab
-  const isOn = (to: string) => {
+  return (to: string) => {
     const [path, q] = to.split('?')
     const tab = new URLSearchParams(q ?? '').get('tab'), cur = new URLSearchParams(loc.search).get('tab')
     return loc.pathname === path && (tab ?? null) === (cur ?? null)
   }
+}
+
+/** Enkel de tabbalk (voor pagina's met een eigen kop, zoals Projecten). */
+export function SectionTabs({ tabs }: { tabs: Tab[] }) {
+  const isOn = useIsOn()
+  return <nav className="section-tabs">{tabs.map((t) => <Link key={t.to} to={t.to} className={isOn(t.to) ? 'on' : ''}>{t.label}</Link>)}</nav>
+}
+
+export function Section({ title, intro, tabs, children }: { title: string; intro?: string; tabs: Tab[]; children: ReactNode }) {
+  const isOn = useIsOn()
   return (
     <section className="section">
       <div className="section-head">

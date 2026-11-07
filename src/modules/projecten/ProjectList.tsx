@@ -1,3 +1,4 @@
+import { PROJECTEN, SectionTabs } from '../../core/Section'
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { supabase } from '../../core/supabase'
@@ -46,6 +47,7 @@ export function ProjectList() {
           <button className="primary" onClick={() => setAdding(true)}>+ Nieuwe aanvraag</button>
         </div>
       </div>
+      <SectionTabs tabs={PROJECTEN} />
       <div className="segmented">
         {(['lopend', 'alle', 'afgesloten'] as Filter[]).map((f) => (
           <button key={f} className={f === filter ? 'on' : ''} onClick={() => setFilter(f)}>

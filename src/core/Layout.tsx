@@ -28,6 +28,7 @@ const TAB_ICON: Record<string, string> = {
   inbox: 'M3 6.5A1.5 1.5 0 0 1 4.5 5h15A1.5 1.5 0 0 1 21 6.5v11a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5zM3.5 6l8.5 7 8.5-7',
   agenda: 'M4 6.5A1.5 1.5 0 0 1 5.5 5h13A1.5 1.5 0 0 1 20 6.5v12a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5zM4 10h16M8.5 3v4M15.5 3v4',
   projecten: 'M3 7.5 12 3l9 4.5v9L12 21l-9-4.5zM3 7.5l9 4.5 9-4.5M12 12v9',
+  bestellingen: 'M3 4h2.5l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.2L21 7H6.2M10 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM18 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
   relaties: 'M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM2.5 20c1-3 3.5-4.5 6.5-4.5s5.5 1.5 6.5 4.5M16 4.5a3.5 3.5 0 0 1 0 6.5M18 15.5c1.7.6 2.9 2 3.5 4.5',
 }
 
@@ -44,6 +45,13 @@ export function Layout() {
     return () => document.removeEventListener('mousedown', close)
   }, [menu])
   const items = modules.filter((m) => m.inMenu !== false)
+  // menu-item licht ook op voor zijn andere adressen (Agenda: opdrachten, capaciteit; Inkoop: aankoopfacturen; Projecten: verkoopfacturen)
+  const curTab = new URLSearchParams(loc.search).get('tab')
+  const alsoOn = (m: (typeof modules)[number]) => (m.also ?? []).some((a) => {
+    const [path, q] = a.split('?')
+    const tab = new URLSearchParams(q ?? '').get('tab')
+    return loc.pathname === path && (tab ?? null) === (curTab ?? null)
+  })
   const tabKey = (path: string) => path.replace(/^\//, '').split('/')[0]
 
   return (
@@ -52,24 +60,21 @@ export function Layout() {
         <Link to="/overzicht" className="topbar-home" aria-label="Vandaag"><img className="topbar-logo" src={logo} alt="Vonstruct" /></Link>
         <nav className="topbar-nav">
           {items.map((m) => (
-            <NavLink key={m.id} to={m.path} className={({ isActive }) => (isActive ? 'nav active' : 'nav')}>
+            <NavLink key={m.id} to={m.path} className={({ isActive }) => (isActive || alsoOn(m) ? 'nav active' : 'nav')}>
               {m.label}{(counts as Record<string, number>)[m.id] > 0 && <span className="nav-badge">{(counts as Record<string, number>)[m.id]}</span>}
             </NavLink>
           ))}
         </nav>
         <SearchButton />
-        <button className="tb-von" onClick={() => window.dispatchEvent(new Event('von-open'))} title="Vraag VON (zijpaneel)"><span className="tb-von-mark">V</span><span>Vraag VON</span></button>
+        <button className="tb-von" onClick={() => window.dispatchEvent(new Event('von-open'))} title="Vraag VON (zijpaneel)" aria-label="Vraag VON"><span className="tb-von-mark">V</span><span className="tb-von-label">Vraag VON</span></button>
         <div className="tb-me" ref={menuRef}>
           <button className="tb-avatar" onClick={() => setMenu((x) => !x)} aria-haspopup="menu" aria-expanded={menu} title="Menu">OV</button>
           {menu && (
             <div className="tb-menu" role="menu">
               <div className="tb-menu-head"><b>Olivier Van Dyck</b><span>info@vonstruct.com</span><span className="tb-version">Versie {__BUILD__}</span></div>
-              <Link to="/instellingen" role="menuitem">Instellingen</Link>
+              <Link to="/instellingen" role="menuitem">Instellingen en rekenregels</Link>
               <Link to="/von?tab=gedaan" role="menuitem">VON: team en logboek</Link>
               <Link to="/inbox" role="menuitem">Alle mails</Link>
-              <Link to="/regels" role="menuitem">Rekenregels</Link>
-              <Link to="/mails" role="menuitem">Verstuurd door de app</Link>
-              <Link to="/portaal" role="menuitem">Portaal bekijken als …</Link>
               <button role="menuitem" className="tb-reload" onClick={() => window.location.reload()}>App vernieuwen</button>
               <button role="menuitem" onClick={() => supabase.auth.signOut()}>Afmelden</button>
             </div>
@@ -83,7 +88,7 @@ export function Layout() {
       </main>
       <nav className="tabbar" aria-label="Menu">
         {items.slice(0, 5).map((m) => (
-          <NavLink key={m.id} to={m.path} className={({ isActive }) => (isActive ? 'on' : '')}>
+          <NavLink key={m.id} to={m.path} className={({ isActive }) => (isActive || alsoOn(m) ? 'on' : '')}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={TAB_ICON[tabKey(m.path)] ?? TAB_ICON.projecten} /></svg>
             <span>{m.label}</span>
             {(counts as Record<string, number>)[m.id] > 0 && <span className="tab-badge">{(counts as Record<string, number>)[m.id]}</span>}

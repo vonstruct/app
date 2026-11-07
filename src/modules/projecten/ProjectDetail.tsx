@@ -155,7 +155,7 @@ export function ProjectDetail() {
     else if (sub === 'offerte') body = <QuotePanel project={code} />
     else if (sub === 'kost') body = <ProjectCost project={code} onQuote={() => setTab('offerte')} />
     else if (sub === 'productie') body = <ProductionPanel project={code} />
-    else if (sub === 'bestellingen') body = <><Orders project={code} /><div className="panel"><h2>Uit de mailbox</h2><p className="muted small">Orderbevestigingen, facturen en leveringsbons van leveranciers die aan dit project gekoppeld zijn (bijlage gelezen). Na te kijken: Planning → Bestellingen → Uit je mailbox.</p><MailDocs project={code} /></div></>
+    else if (sub === 'bestellingen') body = <><Orders project={code} /><div className="panel"><h2>Uit de mailbox</h2><p className="muted small">Orderbevestigingen, facturen en leveringsbons van leveranciers die aan dit project gekoppeld zijn (bijlage gelezen). Na te kijken: Inkoop → Uit je mailbox.</p><MailDocs project={code} /></div></>
     else if (sub === 'vragenlijst') body = <>{!['lead', 'intake', 'survey'].includes(project.phase) && <LeadActions p={project} onDone={pq.reload} />}<IntakeCard code={code} /><SurveyPanel code={code} focus={focus === 'survey'} /></>
     else if (sub === 'opdrachten') body = <PlanningPanel project={project} />
     else if (sub === 'tijdlijn') body = <EventFeed project={code} title="Tijdlijn" limit={40} />

@@ -1,28 +1,28 @@
 import { createElement } from 'react'
 import type { AppModule } from '../../core/module'
-import { PLANNING, Section } from '../../core/Section'
+import { AGENDA, Section } from '../../core/Section'
 import { Agenda } from '../agenda/Agenda'
 import { JobsOverview } from '../opdrachten/JobsOverview'
 import { Capacity } from '../capaciteit/Capacity'
-import { FacturenPage } from '../facturen/PurchaseInvoices'
-import { OrdersPage } from '../bestellingen/MailDocs'
 import { Tasks } from '../../core/Tasks'
 
-/** Planning = afspraken (Agenda), opdrachten (werk door iemand) en taken (wat jij moet doen). */
-const intro = 'Afspraak = moment met mensen · Opdracht = werk dat iemand uitvoert en bevestigt · Taak = iets wat jij moet doen.'
-const wrap = (el: ReturnType<typeof createElement>) => createElement(Section, { title: 'Planning', intro, tabs: PLANNING, children: el })
+/**
+ * Agenda = afspraken, opdrachten en capaciteit (7 nov 2026; vroeger "Planning", met ook bestellingen, facturen en taken).
+ * Bestellingen en aankoopfacturen staan onder Inkoop, verkoopfacturen onder Projecten, taken op Vandaag (/taken blijft bereikbaar).
+ */
+const intro = 'Afspraak = moment met mensen · Opdracht = werk dat iemand uitvoert en bevestigt · Capaciteit = hoeveel werk er per week ingepland is.'
+const wrap = (el: ReturnType<typeof createElement>, title = 'Agenda') => createElement(Section, { title, intro, tabs: AGENDA, children: el })
 
 const planning: AppModule = {
   id: 'planning',
-  label: 'Planning',
+  label: 'Agenda',
   path: '/agenda',
+  also: ['/opdrachten', '/capaciteit', '/taken'],
   routes: [
     { path: '/agenda', element: wrap(createElement(Agenda)) },
     { path: '/opdrachten', element: wrap(createElement(JobsOverview)) },
-    { path: '/bestellingen', element: wrap(createElement(OrdersPage)) },
-    { path: '/facturen', element: wrap(createElement(FacturenPage)) },
     { path: '/capaciteit', element: wrap(createElement(Capacity)) },
-    { path: '/taken', element: wrap(createElement(Tasks, { title: 'Taken' })) },
+    { path: '/taken', element: wrap(createElement(Tasks, { title: 'Taken' }), 'Taken') },
   ],
 }
 export default planning

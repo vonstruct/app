@@ -1,31 +1,17 @@
 import { useState } from 'react'
-import { Link, useSearchParams } from 'react-router'
+import { Link } from 'react-router'
 import { supabase } from '../../core/supabase'
 import { useQuery } from '../../core/useQuery'
 import { ErrorBox, Loading } from '../../core/ui'
 import { fmtEur } from '../../core/format'
 import { toast } from '../../core/toast'
-import { Invoices } from './Invoices'
 import { RuleLink } from '../../core/RuleLink'
 
 /**
- * Planning → Facturen: tab Verkoop (schijven, `Invoices`) en Aankoop (openstaande leveranciersfacturen uit Yuki, view `app_purchase_invoices`).
+ * Inkoop → Aankoopfacturen (verkoop: Projecten → Verkoopfacturen, `Invoices`). Vroeger Planning → Facturen met tab Verkoop en Aankoop (openstaande leveranciersfacturen uit Yuki, view `app_purchase_invoices`).
  * Aankoop wordt elk uur opgehaald (Edge Function `yuki`, sync_payments → purchase_invoices); verdwenen uit Yuki = betaald.
  * Koppelen aan een bestelling zet het werkelijke bedrag (excl. btw, geschat) in de nacalculatie.
  */
-export function FacturenPage() {
-  const [params, setParams] = useSearchParams()
-  const tab = params.get('tab') === 'aankoop' ? 'aankoop' : 'verkoop'
-  return (
-    <>
-      <div className="segmented small" style={{ marginBottom: 12 }}>
-        <button className={tab === 'verkoop' ? 'on' : ''} onClick={() => setParams({}, { replace: true })}>Verkoop (klanten)</button>
-        <button className={tab === 'aankoop' ? 'on' : ''} onClick={() => setParams({ tab: 'aankoop' }, { replace: true })}>Aankoop (leveranciers)</button>
-      </div>
-      {tab === 'verkoop' ? <Invoices /> : <PurchaseInvoices />}
-    </>
-  )
-}
 
 type PI = {
   yuki_id: string; supplier: string | null; reference: string | null; description: string | null; invoice_date: string | null; due_date: string | null
