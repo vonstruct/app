@@ -35,7 +35,7 @@ export type ProjectNumbers = {
 
 /** Bij welk tabblad een punt uit Vandaag hoort (kind uit app_today). Onbekend = enkel op het Overzicht. */
 const AREA: Record<string, string> = {
-  prijzen: 'geld', kosten: 'geld', offerte: 'geld', factuur: 'geld', nacalculatie: 'geld', aankoopfactuur: 'geld',
+  prijzen: 'geld', kosten: 'geld', offerte: 'geld', factuur: 'geld', nacalculatie: 'geld', aankoopfactuur: 'geld', poort: 'geld',
   levertijd: 'uitvoering', bestelling: 'uitvoering', partner: 'uitvoering', opdracht: 'uitvoering', inkoop_docs: 'uitvoering',
   oplevering: 'uitvoering', werkpunt: 'uitvoering', garantie: 'uitvoering', review: 'uitvoering', planning: 'uitvoering',
   stuklijst_fout: 'ontwerp', stuklijst_opm: 'ontwerp', optimalisatie: 'ontwerp', survey_nieuw: 'ontwerp', survey_open: 'ontwerp',

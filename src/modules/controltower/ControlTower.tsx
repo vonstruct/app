@@ -44,6 +44,8 @@ export const actionFor = (f: Flag): { to: string; label: string } => {
     case 'klant_email': return { to: `${proj}?focus=email`, label: 'E-mail invullen' }
     case 'gegevens': return { to: `${proj}?focus=gegevens`, label: 'Invullen' }
     case 'datums': return { to: `${proj}?focus=datums`, label: 'Datum invullen' }
+    // harde stap overgeslagen (offerte getekend / voorschot betaald), 7 nov 2026
+    case 'poort': return /offerte/i.test(f.title) ? { to: `${proj}?tab=offerte`, label: 'Offerte bekijken' } : { to: `${proj}?tab=facturen`, label: 'Facturen bekijken' }
     case 'partner_email': return { to: `/relaties?tab=partners&focus=${f.ref}:email`, label: 'E-mail invullen' }
     case 'stilstand': return { to: `${proj}?focus=fase`, label: 'Fase aanpassen' }
     case 'survey_nieuw': return { to: `${proj}?focus=survey`, label: 'Vragenlijst bekijken' }

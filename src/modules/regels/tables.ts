@@ -70,13 +70,14 @@ export const ruleTables: RuleTable[] = [
     table: 'checklist_template',
     title: 'Projectchecklist',
     explanation:
-      'De standaardpunten per fase die je bij elk project ziet. Fase: lead = Aanvraag, design = Ontwerp, quote = Offerte, signed = Voorbereiding, production = Productie, installation = Plaatsing. Punten met een automatische regel vinken vanzelf af (kennismaking, vragenlijst, go, ontwerpversie, kosten, prijzen, offerte verstuurd/getekend, voorschot betaald, bestellingen geplaatst/ontvangen, opdrachten bevestigd/klaar, PV getekend, werkpunten af, eindfactuur, review gevraagd). Automatisch = agenda: het punt vinkt af na een afspraak of opdracht van het project met een van de woorden (gescheiden door een komma) in de titel, bv. "opmeting, opmeten"; het woord moet vooraan staan, dus "opmeting" telt niet voor "eindopmeting". Je kan zo een punt ook altijd met de hand afvinken. Laat Automatisch leeg om enkel met de hand af te vinken. Zet Actief uit om een punt niet meer te tonen.',
+      'De standaardpunten per fase die je bij elk project ziet. Fase: lead = Aanvraag, design = Ontwerp, quote = Offerte, signed = Voorbereiding, production = Productie, installation = Plaatsing. Punten met een automatische regel vinken vanzelf af (kennismaking, vragenlijst, go, ontwerpversie, kosten, prijzen, offerte verstuurd/getekend, voorschot betaald, bestellingen geplaatst/ontvangen, opdrachten bevestigd/klaar, PV getekend, werkpunten af, eindfactuur, review gevraagd). Automatisch = agenda: het punt vinkt af na een afspraak of opdracht van het project met een van de woorden (gescheiden door een komma) in de titel, bv. "opmeting, opmeten"; het woord moet vooraan staan, dus "opmeting" telt niet voor "eindopmeting". Je kan zo een punt ook altijd met de hand afvinken. Laat Automatisch leeg om enkel met de hand af te vinken. Zet Actief uit om een punt niet meer te tonen. Harde stap (bv. offerte getekend, voorschot betaald): wordt nooit vanzelf n.v.t. als een project een fase overslaat; blijft open en komt op Vandaag tot hij gedaan is of je hem bewust op n.v.t. zet.',
     columns: [
       { key: 'stage', label: 'Fase', type: 'select', options: ['lead', 'design', 'quote', 'signed', 'production', 'installation'], width: 120 },
       { key: 'sort', label: 'Volgorde', type: 'number', width: 90 },
       { key: 'label', label: 'Punt' },
       { key: 'auto_rule', label: 'Automatisch', type: 'select', options: ['', 'agenda', 'intro_done', 'survey_submitted', 'go_given', 'design_version', 'costs_done', 'prices_complete', 'quote_sent', 'quote_signed', 'deposit_paid', 'orders_placed', 'orders_received', 'install_week_set', 'production_done', 'pickup_done', 'package_sent', 'jobs_confirmed', 'jobs_done', 'handover_signed', 'punch_done', 'final_invoice', 'review_requested'], width: 150 },
       { key: 'agenda_words', label: 'Woorden in de agenda', placeholder: 'bij Automatisch = agenda' },
+      { key: 'hard', label: 'Harde stap', type: 'bool', width: 90 },
       { key: 'active', label: 'Actief', type: 'bool', width: 70 },
     ],
     orderBy: 'stage',

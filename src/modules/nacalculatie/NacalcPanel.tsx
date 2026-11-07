@@ -10,11 +10,14 @@ import { DateInput } from '../../core/DateInput'
 /**
  * Tab "Nacalculatie" op de projectpagina: offerte (omzet) tegenover werkelijke kosten (bestellingen met werkelijk factuurbedrag,
  * extra kosten, uren × uurkost), marge gepland vs werkelijk, platen geschat vs werkelijk (partner). View app_nacalc.
+ * Sinds 7 nov 2026: gefactureerd/betaald uit de boekhouding (Yuki) als die er is, anders de facturen van de app; geplande kost uit de
+ * offerte, anders de kostprijs van het project; zonder aanvaarde offerte geen marge.
  */
 type N = {
   project_code: string; quote_number: string | null; revenue_excl: number; cost_planned: number | null; sales_without_cost: number | null
   orders_est: number; orders_actual: number; orders_without_invoice: number; extra_costs: number; hours: number; hours_cost: number
-  cost_actual: number; margin_planned: number; margin_actual: number; invoiced_excl: number; paid_incl: number; sheets_est: number | null; actual_sheets: number | null
+  cost_actual: number; margin_planned: number | null; margin_actual: number | null; invoiced_excl: number; paid_incl: number; sheets_est: number | null; actual_sheets: number | null
+  cost_planned_src: 'offerte' | 'kostprijs' | null; invoiced_incl: number; invoices_src: 'yuki' | 'app' | null
 }
 type Order = { id: string; supplier: string; ordered_by: string | null; amount: number | null; actual_amount: number | null; status: string }
 type Cost = { id: string; cost_date: string | null; category: string; supplier: string | null; description: string; amount_excl: number; invoice_ref: string | null }
@@ -54,9 +57,9 @@ export function NacalcPanel({ project }: { project: string }) {
       <div className="quote-intern">
         <span><small>Omzet (offerte {x?.quote_number ?? '—'}, excl.)</small><b>{fmtEur(x?.revenue_excl ?? 0)}</b></span>
         <span><small>Werkelijke kosten</small><b>{fmtEur(x?.cost_actual ?? 0)}</b></span>
-        <span><small>Werkelijke marge</small><b className={(x?.margin_actual ?? 0) < 0 ? 'bad-txt' : ''}>{fmtEur(x?.margin_actual ?? 0)} · {pct(x?.margin_actual ?? 0, x?.revenue_excl ?? 0)}</b></span>
-        <span title="Omzet min de berekende kostprijs (kasten, lades, werkblad). Regels zonder kostprijs (toestellen, diensten) tellen hier volledig als marge."><small>Geplande marge</small><b>{fmtEur(x?.margin_planned ?? 0)} · {pct(x?.margin_planned ?? 0, x?.revenue_excl ?? 0)}</b></span>
-        <span><small>Gefactureerd / betaald</small><b>{fmtEur(x?.invoiced_excl ?? 0)} excl. · {fmtEur(x?.paid_incl ?? 0)} incl.</b></span>
+        <span><small>Werkelijke marge</small><b className={(x?.margin_actual ?? 0) < 0 ? 'bad-txt' : ''}>{x?.margin_actual == null ? '— (nog geen aanvaarde offerte)' : `${fmtEur(x.margin_actual)} · ${pct(x.margin_actual, x.revenue_excl)}`}</b></span>
+        <span title={x?.cost_planned_src === 'kostprijs' ? 'Omzet min de kostprijs van het project (Geld › Kostprijs): de offerte zelf heeft geen kostprijs, bv. een opgeladen pdf.' : 'Omzet min de berekende kostprijs uit de offerte (kasten, lades, werkblad). Regels zonder kostprijs (toestellen, diensten) tellen hier volledig als marge.'}><small>Geplande marge{x?.cost_planned_src === 'kostprijs' ? ' (uit de kostprijs)' : ''}</small><b>{x?.margin_planned == null ? '—' : `${fmtEur(x.margin_planned)} · ${pct(x.margin_planned, x.revenue_excl)}`}</b></span>
+        <span title={x?.invoices_src === 'yuki' ? 'Uit de boekhouding (Yuki): facturen met het offertenummer of een factuur van de app, en hun betalingen. Excl. btw is geschat met het btw-tarief van het project.' : 'Uit de facturen van de app.'}><small>Gefactureerd / betaald{x?.invoices_src === 'yuki' ? ' (Yuki)' : ''}</small><b>{fmtEur(x?.invoiced_incl ?? 0)} incl. · {fmtEur(x?.paid_incl ?? 0)} betaald</b></span>
       </div>
       {(x?.sales_without_cost ?? 0) > 0 && <p className="muted small">Let op: {fmtEur(x?.sales_without_cost)} van de offerte (toestellen, diensten …) heeft geen berekende kostprijs. Vul de werkelijke kosten hieronder in voor een juiste marge.</p>}
 
