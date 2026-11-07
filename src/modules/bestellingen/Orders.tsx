@@ -21,6 +21,8 @@ type Order = {
   shipped_at?: string | null; actual_amount?: number | null; n_docs?: number
   needed_src?: string | null; expected_src?: string | null; lead_src?: string | null
   delivery?: Delivery | null; pickup_by?: string | null; items_text?: string | null
+  /** einde plaatsing als het tot dan mag binnenkomen (niet voor platen/kanten); order_by_last = uiterlijk bestellen */
+  ok_until?: string | null; order_by_last?: string | null
 }
 /** Hoe een bestelling binnenkomt (7 nov 2026): de leverancier levert, ik haal op, de klant of een onderaannemer haalt op. */
 type Delivery = 'levering' | 'ophalen' | 'klant' | 'onderaannemer'
@@ -49,8 +51,9 @@ const statusOf = (o: Order): [string, string] => {
   if (o.status === 'te bestellen') return ({ 'te laat': ['Te laat', 'bad'], 'nu bestellen': ['Nu bestellen', 'warn'], 'levertijd onbekend': ['Levertijd onbekend', 'warn'] } as Record<string, [string, string]>)[o.urgency] ?? ['Te bestellen', '']
   if (o.status === 'geleverd') return [how(o) === 'levering' ? 'Binnen' : how(o) === 'ophalen' ? 'Opgehaald' : `${picker(o)} heeft opgehaald`, 'ok']
   if (o.urgency === 'komt te laat') return ['Komt te laat', 'bad']
-  if (how(o) === 'ophalen') return o.urgency === 'op te halen' ? [o.expected_at && o.expected_at <= today() ? 'Ligt klaar' : 'Nu ophalen', 'warn'] : ['Later ophalen', '']
+  if (how(o) === 'ophalen') return o.urgency === 'op te halen' ? [o.expected_at && o.expected_at <= today() ? 'Ligt klaar' : 'Nu ophalen', 'warn'] : [o.urgency === 'tijdens plaatsing' ? 'Ophalen tijdens plaatsing' : 'Later ophalen', '']
   if (how(o) !== 'levering') return [`${picker(o)} haalt op`, '']
+  if (o.urgency === 'tijdens plaatsing') return ['Komt tijdens plaatsing', '']
   if (o.urgency === 'levering te laat') return ['Geleverd?', 'warn']
   if (o.shipped_at) return ['Verzonden', '']
   return [o.status === 'besteld' ? 'Besteld' : 'Bevestigd', '']
@@ -132,8 +135,8 @@ export function Orders({ project }: { project?: string }) {
             ? <span className="inko-first"><b>{o.supplier}</b>{o.ordered_by && !['Zelf', 'Vonstruct'].includes(o.ordered_by) && <small>via {o.ordered_by}</small>}</span>
             : <span className="inko-first"><Link to={`/projecten/${o.project_code}?tab=bestellingen`} onClick={(e) => e.stopPropagation()}>{o.client_name ?? o.project_code}</Link><small>{o.project_code}{o.ordered_by && !['Zelf', 'Vonstruct'].includes(o.ordered_by) ? ` · via ${o.ordered_by}` : ''}</small></span>}
           <span className="inko-what" title={what.main}><span className="inko-items">{what.main}</span>{(what.sub || o.n_docs) ? <small>{what.sub}{o.n_docs ? <span title="mails en bijlagen uit de mailbox">{what.sub ? ' · ' : ''}✉ {o.n_docs}</span> : null}</small> : null}</span>
-          <span className="inko-date"><em>nodig op </em>{dd(o.needed_by)}{o.needed_by && o.needed_src && <small>{o.needed_src}</small>}</span>
-          <span className="inko-date"><em>{rub === 'bestellen' ? 'bestellen vóór ' : rub === 'binnen' ? 'binnen op ' : rub === 'ophalen' ? 'klaar op ' : 'verwacht '}</em>{dd(dateCell)}{(rub === 'onderweg' || rub === 'ophalen') && o.expected_at && o.expected_src && <small>{o.expected_src}</small>}</span>
+          <span className="inko-date" title={o.ok_until ? `Mag binnenkomen tot het einde van de plaatsing (${dd(o.ok_until)})` : undefined}><em>nodig op </em>{dd(o.needed_by)}{o.needed_by && o.needed_src && <small>{o.needed_src}{o.ok_until ? ` t/m ${dd(o.ok_until)}` : ''}</small>}</span>
+          <span className="inko-date"><em>{rub === 'bestellen' ? 'bestellen vóór ' : rub === 'binnen' ? 'binnen op ' : rub === 'ophalen' ? 'klaar op ' : 'verwacht '}</em>{dd(dateCell)}{(rub === 'onderweg' || rub === 'ophalen') && o.expected_at && o.expected_src && <small>{o.expected_src}</small>}{rub === 'bestellen' && o.order_by_last && <small>uiterlijk {dd(o.order_by_last)}</small>}</span>
           <span className="inko-amt">{o.amount != null ? fmtEur(o.amount) : '—'}</span>
           <span className={'inko-status ' + cls}>{lbl}</span>
           <span className="inko-acts" onClick={(e) => e.stopPropagation()}>
