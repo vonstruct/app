@@ -24,13 +24,36 @@ type Order = {
 type Line = { id: string; category: string | null; description: string | null; article_no: string | null; qty: number | null; unit: string | null; total: number | null }
 
 const STATUSES = ['te bestellen', 'besteld', 'bevestigd', 'geleverd', 'geannuleerd']
-const URG: Record<string, [string, string]> = {
-  'te laat': ['Te laat', 'bad'], 'nu bestellen': ['Nu bestellen', 'warn'], 'levering te laat': ['Levering te laat', 'bad'],
-  'komt te laat': ['Komt te laat', 'bad'], 'geen deadline': ['Geen deadline', 'muted'], 'levertijd onbekend': ['Levertijd onbekend', 'warn'], later: ['Later', ''], onderweg: ['Onderweg', 'ok'], klaar: ['Klaar', 'ok'], vervallen: ['Vervallen', 'muted'],
-}
-const ORDER = ['te laat', 'levering te laat', 'komt te laat', 'nu bestellen', 'levertijd onbekend', 'geen deadline', 'later', 'onderweg', 'klaar', 'vervallen']
 const d = (v: string | null) => (v ? new Date(v + 'T12:00').toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' }) : '—')
 const today = () => new Date().toLocaleDateString('sv-SE')
+/** Inkoop in drie rubrieken (7 nov 2026): te bestellen · onderweg · binnen; geannuleerd en vervallen enkel bij "Alles". */
+type Rub = { key: string; label: string; dateLabel: string; sort: (a: Order, b: Order) => number }
+const URANK = ['te laat', 'nu bestellen', 'levertijd onbekend', 'geen deadline', 'later']
+const RUBRIEKEN: Rub[] = [
+  { key: 'bestellen', label: 'Te bestellen', dateLabel: 'Bestellen vóór', sort: (a, b) => (URANK.indexOf(a.urgency) - URANK.indexOf(b.urgency)) || (a.needed_by ?? '9').localeCompare(b.needed_by ?? '9') },
+  { key: 'onderweg', label: 'Onderweg', dateLabel: 'Verwacht', sort: (a, b) => (a.expected_at ?? '9').localeCompare(b.expected_at ?? '9') },
+  { key: 'binnen', label: 'Binnen', dateLabel: 'Binnen op', sort: (a, b) => (b.delivered_at ?? '').localeCompare(a.delivered_at ?? '') },
+  { key: 'af', label: 'Geannuleerd of vervallen', dateLabel: '', sort: (a, b) => a.supplier.localeCompare(b.supplier) },
+]
+const rubriekOf = (o: Order) => (o.status === 'geannuleerd' || o.urgency === 'vervallen' ? 'af' : o.status === 'te bestellen' ? 'bestellen' : o.status === 'geleverd' ? 'binnen' : 'onderweg')
+const statusOf = (o: Order): [string, string] => {
+  if (o.status === 'geannuleerd') return ['Geannuleerd', 'muted']
+  if (o.urgency === 'vervallen') return ['Niet meer nodig', 'muted']
+  if (o.status === 'te bestellen') return ({ 'te laat': ['Te laat', 'bad'], 'nu bestellen': ['Nu bestellen', 'warn'], 'levertijd onbekend': ['Levertijd onbekend', 'warn'] } as Record<string, [string, string]>)[o.urgency] ?? ['Te bestellen', '']
+  if (o.status === 'geleverd') return ['Binnen', 'ok']
+  if (o.urgency === 'komt te laat') return ['Komt te laat', 'bad']
+  if (o.urgency === 'levering te laat') return ['Geleverd?', 'warn']
+  if (o.shipped_at) return ['Verzonden', '']
+  return [o.status === 'besteld' ? 'Besteld' : 'Bevestigd', '']
+}
+/** Wat er besteld is: rubrieken + aantal artikels; bij een bestelling uit een mail de artikels uit de mail (niet het onderwerp). */
+const whatOf = (o: Order) => {
+  if (o.n_lines > 0) return `${(o.categories ?? []).join(', ') || 'artikels'} · ${o.n_lines} ${o.n_lines === 1 ? 'artikel' : 'artikels'}${o.note?.startsWith('Aanvulling') ? ' · aanvulling' : ''}`
+  const parts = (o.note ?? '').replace(/^Uit mail:\s*/, '').split(' · ').map((x) => x.trim()).filter(Boolean)
+  return (parts.length > 1 ? parts.slice(1).join(' · ') : (o.categories ?? []).join(', ') || parts[0]) || 'eigen bestelling'
+}
+const dd = (v: string | null | undefined) => (v ? new Date(v + 'T12:00').toLocaleDateString('nl-BE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—')
+
 /** Waar een datum vandaan komt: feit (uit mail, ingevuld, planning) of aanname (regel). */
 export function Src({ s }: { s?: string | null }) {
   if (!s) return null
@@ -49,9 +72,11 @@ export function Orders({ project }: { project?: string }) {
     return r.order('order_by', { ascending: true, nullsFirst: false })
   }, [project])
 
+  // Open = te bestellen + onderweg + binnen in de laatste 14 dagen; Alles = ook oudere, geannuleerde en vervallen
   const rows = useMemo(() => {
-    const all = (q.data ?? []).filter((o) => filter === 'alles' || !['klaar', 'vervallen'].includes(o.urgency))
-    return all.sort((a, b) => ORDER.indexOf(a.urgency) - ORDER.indexOf(b.urgency))
+    const since = new Date(Date.now() - 14 * 864e5).toLocaleDateString('sv-SE')
+    return (q.data ?? []).filter((o) => filter === 'alles'
+      || (o.urgency !== 'vervallen' && o.status !== 'geannuleerd' && (o.status !== 'geleverd' || (o.delivered_at ?? '') >= since)))
   }, [q.data, filter])
 
   const save = async (id: string, patch: Partial<Order>) => {
@@ -73,10 +98,41 @@ export function Orders({ project }: { project?: string }) {
   }
 
   if (q.loading) return <Loading />
-  const total = rows.filter((o) => o.status !== 'geannuleerd').reduce((s, o) => s + Number(o.amount ?? 0), 0)
+  const total = rows.filter((o) => o.status !== 'geannuleerd').reduce((sum, o) => sum + Number(o.amount ?? 0), 0)
+  const groups = RUBRIEKEN.map((r) => ({ ...r, list: rows.filter((o) => rubriekOf(o) === r.key).sort(r.sort) })).filter((g) => g.list.length)
+
+  /** Eén bestelling: vaste kolommen, één knop (Besteld / Geleverd), pijltje = details. */
+  const Line = ({ o, showSupplier }: { o: Order; showSupplier: boolean }) => {
+    const [lbl, cls] = statusOf(o)
+    const rub = rubriekOf(o)
+    const isOpen = open === o.id
+    const dateCell = rub === 'bestellen' ? o.order_by : rub === 'binnen' ? o.delivered_at : o.expected_at
+    return (
+      <div className={'inko-item' + (isOpen ? ' open' : '')}>
+        <div className="inko-row" onClick={() => setOpen(isOpen ? null : o.id)}>
+          <span className={'inko-dot ' + cls} aria-hidden="true" />
+          {showSupplier
+            ? <span className="inko-first"><b>{o.supplier}</b>{o.ordered_by && !['Zelf', 'Vonstruct'].includes(o.ordered_by) && <small>via {o.ordered_by}</small>}</span>
+            : <span className="inko-first"><Link to={`/projecten/${o.project_code}?tab=bestellingen`} onClick={(e) => e.stopPropagation()}>{o.client_name ?? o.project_code}</Link><small>{o.project_code}{o.ordered_by && !['Zelf', 'Vonstruct'].includes(o.ordered_by) ? ` · via ${o.ordered_by}` : ''}</small></span>}
+          <span className="inko-what" title={whatOf(o)}>{whatOf(o)}{o.n_docs ? <small title="mails en bijlagen uit de mailbox"> ✉ {o.n_docs}</small> : null}</span>
+          <span className="inko-date"><em>nodig op </em>{dd(o.needed_by)}{o.needed_by && o.needed_src && <small>{o.needed_src}</small>}</span>
+          <span className="inko-date"><em>{rub === 'bestellen' ? 'bestellen vóór ' : rub === 'binnen' ? 'binnen op ' : 'verwacht '}</em>{dd(dateCell)}{rub === 'onderweg' && o.expected_at && o.expected_src && <small>{o.expected_src}</small>}</span>
+          <span className="inko-amt">{o.amount != null ? fmtEur(o.amount) : '—'}</span>
+          <span className={'inko-status ' + cls}>{lbl}</span>
+          <span className="inko-acts" onClick={(e) => e.stopPropagation()}>
+            {rub === 'bestellen' ? <button className="inko-btn" onClick={() => setStatus(o, 'besteld')}>Besteld</button>
+              : rub === 'onderweg' ? <button className="inko-btn" onClick={() => setStatus(o, 'geleverd')}>Geleverd</button>
+              : <span className="inko-btn-slot" />}
+            <button className="inko-chev" aria-expanded={isOpen} aria-label={isOpen ? 'Details sluiten' : 'Details tonen'} onClick={() => setOpen(isOpen ? null : o.id)}>{isOpen ? '▴' : '▾'}</button>
+          </span>
+        </div>
+        {isOpen && <OrderDetail o={o} onSave={(pt) => save(o.id, pt)} onStatus={(st) => setStatus(o, st)} />}
+      </div>
+    )
+  }
 
   return (
-    <div className="orders">
+    <div className="orders inko">
       <div className="orders-bar">
         <div className="seg">
           <button className={filter === 'open' ? 'on' : ''} onClick={() => setFilter('open')}>Open</button>
@@ -88,29 +144,21 @@ export function Orders({ project }: { project?: string }) {
       </div>
       <ErrorBox error={q.error} />
       {adding && project && <NewOrder project={project} onDone={() => { setAdding(false); q.reload() }} />}
-      {!rows.length && <p className="muted">{project ? 'Nog geen bestellingen. Maak de lijst uit de kosten van de laatste ontwerpversie.' : 'Niets te bestellen.'}</p>}
-      {rows.map((o) => {
-        const [lbl, cls] = URG[o.urgency] ?? [o.urgency, '']
-        const isOpen = open === o.id
+      {!rows.length && <p className="muted">{project ? 'Nog geen bestellingen. Maak de lijst uit de kosten van de laatste ontwerpversie.' : 'Niets te bestellen of onderweg.'}</p>}
+      {groups.map((g) => {
+        // Inkoop (alle projecten): per leverancier gegroepeerd; projectpagina: leverancier als eerste kolom
+        const bySupplier = project ? [['', g.list] as [string, Order[]]] : [...g.list.reduce((m, o) => m.set(o.supplier, [...(m.get(o.supplier) ?? []), o]), new Map<string, Order[]>())]
         return (
-          <div key={o.id} className={'order-row' + (isOpen ? ' open' : '')}>
-            <div className="order-head" onClick={() => setOpen(isOpen ? null : o.id)}>
-              <span className={'jo-pill ' + cls}>{lbl}</span>
-              <div className="order-main">
-                <strong>{o.supplier}</strong>{o.ordered_by && !['Zelf', 'Vonstruct'].includes(o.ordered_by) && <span className="muted"> via {o.ordered_by}</span>}
-                <div className="muted small">
-                  {!project && <><Link to={`/projecten/${o.project_code}?tab=bestellingen`} onClick={(e) => e.stopPropagation()}>{o.project_code}</Link>{o.client_name ? ' · ' + o.client_name : ''} · </>}
-                  {o.manual ? (o.note || 'eigen bestelling') + (o.reference ? ' · ' + o.reference : '') : <>{(o.categories ?? []).join(', ')} · {o.n_lines} artikels</>}
-                </div>
+          <section key={g.key} className="inko-rub">
+            <h3>{g.label} <span>{g.list.length}</span></h3>
+            <div className="inko-cols" aria-hidden="true"><span /><span>{project ? 'Leverancier' : 'Project'}</span><span>Wat</span><span>Nodig op</span><span>{g.dateLabel}</span><span className="r">Bedrag</span><span>Status</span><span /></div>
+            {bySupplier.map(([sup, list]) => (
+              <div key={sup || 'x'} className="inko-group">
+                {!project && <div className="inko-sup"><b>{sup}</b><span>{list.length} {list.length === 1 ? 'bestelling' : 'bestellingen'}{list.some((o) => o.amount != null) ? ' · ' + fmtEur(list.reduce((t, o) => t + Number(o.amount ?? 0), 0)) : ''}</span></div>}
+                {list.map((o) => <Line key={o.id} o={o} showSupplier={!!project} />)}
               </div>
-              <div className="order-dates small">
-                {o.status === 'te bestellen' ? (o.order_by ? <>bestellen vóór <strong>{d(o.order_by)}</strong> <Src s="aanname (levertijd)" /></> : <>bestellen vóór <strong>?</strong></>) : <><Stages o={o} />{o.expected_at && !o.delivered_at && <> <Src s={o.expected_src} /></>}</>}
-                <div className="muted">nodig op {d(o.needed_by)} <Src s={o.needed_src} /> · {o.lead_days_eff != null ? <>{o.lead_days_eff} wd levertijd <Src s={o.lead_src} /></> : 'levertijd onbekend'}</div>
-              </div>
-              <div className="order-amt">{fmtEur(o.amount)}</div>
-            </div>
-            {isOpen && <OrderDetail o={o} onSave={(p) => save(o.id, p)} onStatus={(s) => setStatus(o, s)} />}
-          </div>
+            ))}
+          </section>
         )
       })}
     </div>
@@ -234,16 +282,6 @@ function OrderDetail({ o, onSave, onStatus }: { o: Order; onSave: (p: Partial<Or
       )}
     </div>
   )
-}
-
-/** Waar de bestelling staat: besteld → verzonden → geleverd, met datums (ook uit de mailbox). */
-function Stages({ o }: { o: Order }) {
-  const st = [
-    o.ordered_at && `besteld ${d(o.ordered_at)}`,
-    o.shipped_at && `verzonden ${d(o.shipped_at)}`,
-    o.delivered_at ? `geleverd ${d(o.delivered_at)}` : o.expected_at && `verwacht ${d(o.expected_at)}`,
-  ].filter(Boolean)
-  return <>{st.length ? st.join(' → ') : o.status}{o.n_docs ? <span className="muted" title="mails en bijlagen uit de mailbox"> · ✉ {o.n_docs}</span> : null}</>
 }
 
 /** Mails en bijlagen uit de mailbox die bij deze bestelling horen (mail_documents.order_id). */

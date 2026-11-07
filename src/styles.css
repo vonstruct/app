@@ -2164,3 +2164,51 @@ a.vd5-sup:hover { color: var(--accent); }
   .vd5-lbl { display: inline; }
   .vd5-date small { display: none; }
 }
+/* Inkoop v2 (7 nov 2026): rubrieken Te bestellen · Onderweg · Binnen, per leverancier, vaste kolommen */
+.inko-rub { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; margin-bottom: 16px; overflow: hidden; }
+.inko-rub h3 { margin: 0; padding: 14px 16px 6px; font: 600 13px "Jost", "Avenir Next", system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase; display: flex; gap: 8px; }
+.inko-rub h3 span { color: var(--muted); font-weight: 500; }
+.inko-cols, .inko-row { display: grid; grid-template-columns: 10px minmax(0, 1fr) minmax(0, 1.5fr) 104px 118px 96px 130px 148px; gap: 12px; align-items: center; }
+.inko-cols { white-space: nowrap; padding: 4px 16px 6px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--line); }
+.inko-cols .r, .inko-amt { text-align: right; }
+.inko-sup { display: flex; gap: 10px; align-items: baseline; padding: 10px 16px 4px; border-top: 1px solid var(--line); background: color-mix(in srgb, var(--ink) 3%, transparent); }
+.inko-group:first-of-type .inko-sup { border-top: 0; }
+.inko-sup b { font-size: 15px; }
+.inko-sup span { color: var(--muted); font-size: 13px; }
+.inko-item + .inko-item { border-top: 1px solid var(--line); }
+.inko-item.open { background: color-mix(in srgb, var(--ink) 2%, transparent); }
+.inko-row { padding: 9px 16px; min-height: 52px; cursor: pointer; }
+.inko-dot { width: 10px; height: 10px; border-radius: 50%; background: #d9d5cc; }
+.inko-dot.bad { background: var(--bad); } .inko-dot.warn { background: #c58a1e; } .inko-dot.ok { background: var(--good); }
+.inko-first { display: flex; flex-direction: column; min-width: 0; }
+.inko-first b, .inko-first a { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.inko-first small, .inko-date small, .inko-what small { color: var(--muted); font-size: 12px; }
+.inko-what { font-size: 13.5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.inko-date { display: flex; flex-direction: column; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.inko-date em { display: none; font-style: normal; }
+.inko-amt { font-variant-numeric: tabular-nums; font-size: 13.5px; }
+.inko-status { font-size: 13px; font-weight: 600; color: var(--muted); }
+.inko-status.bad { color: var(--bad); } .inko-status.warn { color: var(--warn); } .inko-status.ok { color: var(--good); }
+.inko-acts { display: flex; gap: 6px; justify-content: flex-end; }
+.inko-btn { width: 104px; min-height: 38px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: inherit; font-weight: 600; font-size: 13.5px; cursor: pointer; }
+.inko-btn:hover { border-color: var(--ink); }
+.inko-btn-slot { width: 104px; }
+.inko-chev { width: 38px; min-height: 38px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--muted); cursor: pointer; }
+.inko .order-detail { border-top: 1px solid var(--line); }
+@media (max-width: 860px) {
+  .inko-cols { display: none; }
+  .inko-row { grid-template-columns: 10px minmax(0, 1fr) auto; gap: 3px 10px; padding: 10px 12px; }
+  .inko-dot { grid-row: 1; align-self: start; margin-top: 6px; }
+  .inko-first { grid-column: 2; grid-row: 1; }
+  .inko-status { grid-column: 3; grid-row: 1; text-align: right; }
+  .inko-what { grid-column: 2 / span 2; grid-row: 2; }
+  .inko-date { grid-column: 2; flex-direction: row; gap: 4px; font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+  .inko-date em { display: inline; }
+  .inko-date small { display: none; }
+  .inko-date:nth-child(4) { grid-row: 3; }
+  .inko-date:nth-child(5) { grid-row: 4; }
+  .inko-amt { grid-column: 3; grid-row: 3; text-align: right; }
+  .inko-acts { grid-column: 3; grid-row: 4; }
+  .inko-btn { width: auto; padding: 0 12px; }
+  .inko-btn-slot { display: none; }
+}
