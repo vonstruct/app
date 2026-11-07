@@ -6,6 +6,7 @@ import logo from '../assets/vonstruct-logo.webp'
 import { Von } from './Von'
 import { SearchButton } from './Search'
 import { ToastHost } from './toast'
+import { ErrorBoundary } from './ErrorBoundary'
 
 /** Teller op Vandaag: mails die op antwoord wachten + open VON-voorstellen (alles wat jou nodig heeft staat in Vandaag). */
 function useCounts() {
@@ -76,7 +77,9 @@ export function Layout() {
         </div>
       </header>
       <main>
-        <Outlet />
+        <ErrorBoundary key={loc.pathname}>
+          <Outlet />
+        </ErrorBoundary>
       </main>
       <nav className="tabbar" aria-label="Menu">
         {items.slice(0, 5).map((m) => (

@@ -15,16 +15,20 @@ type State = { kind: 'checking' } | { kind: 'ok' } | { kind: 'setup' } | { kind:
 export function MfaGate({ session, children }: { session: Session; children: ReactNode }) {
   const [state, setState] = useState<State>({ kind: 'checking' })
 
+  // 7 nov 2026: een tijdelijke fout (netwerk) sluit je niet meer buiten. Was de controle al gelukt, dan blijft de app open;
+  // anders een melding met "Opnieuw proberen". Lukt het ophalen van de factoren niet, dan niet ten onrechte "instellen" tonen.
   const check = useCallback(async () => {
     const { data: aal, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-    if (error || !aal) return setState({ kind: 'error', text: 'De beveiliging kon niet gecontroleerd worden. Herlaad de pagina.' })
+    if (error || !aal) return setState((s) => (s.kind === 'ok' ? s : { kind: 'error', text: 'De beveiliging kon even niet gecontroleerd worden (verbinding).' }))
     if (aal.currentLevel === 'aal2') return setState({ kind: 'ok' })
-    const { data: f } = await supabase.auth.mfa.listFactors()
-    const totp = f?.totp?.find((x) => x.status === 'verified')
+    const { data: f, error: fe } = await supabase.auth.mfa.listFactors()
+    if (fe || !f) return setState((s) => (s.kind === 'ok' ? s : { kind: 'error', text: 'De beveiliging kon even niet gecontroleerd worden (verbinding).' }))
+    const totp = f.totp?.find((x) => x.status === 'verified')
     setState(totp ? { kind: 'challenge', factorId: totp.id } : { kind: 'setup' })
   }, [])
 
-  useEffect(() => { check() }, [check, session.access_token])
+  // enkel bij een andere gebruiker opnieuw controleren, niet bij elke vernieuwing van de login (elk uur)
+  useEffect(() => { check() }, [check, session.user.id])
 
   if (state.kind === 'ok') return <>{children}</>
   return (
@@ -37,7 +41,13 @@ export function MfaGate({ session, children }: { session: Session; children: Rea
       </aside>
       <main className="auth-main">
         {state.kind === 'checking' && <p className="muted">Beveiliging controleren…</p>}
-        {state.kind === 'error' && <p className="auth-msg error">{state.text}</p>}
+        {state.kind === 'error' && (
+          <div className="auth-form">
+            <p className="auth-msg error">{state.text}</p>
+            <button className="primary" onClick={() => { setState({ kind: 'checking' }); check() }}>Opnieuw proberen</button>
+            <button className="auth-alt" onClick={() => supabase.auth.signOut()}>Afmelden</button>
+          </div>
+        )}
         {state.kind === 'challenge' && <Challenge factorId={state.factorId} onDone={check} />}
         {state.kind === 'setup' && <Setup onDone={check} />}
       </main>
@@ -91,7 +101,7 @@ function Challenge({ factorId, onDone }: { factorId: string; onDone: () => void 
       <CodeInput key={key} onCode={verify} busy={busy} />
       {msg && <p className="auth-msg error" role="status">{msg}</p>}
       <button type="button" className="auth-alt" onClick={() => supabase.auth.signOut()}>Afmelden</button>
-      <p className="muted small">Gsm kwijt of nieuwe gsm? Laat de tweestapsverificatie resetten via Claude, daarna stel je ze opnieuw in.</p>
+      <p className="muted small">Gsm kwijt of nieuwe gsm? De tweestapsverificatie kan gereset worden in Supabase (Authentication → Users → MFA); daarna stel je ze hier opnieuw in.</p>
     </form>
   )
 }

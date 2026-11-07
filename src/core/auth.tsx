@@ -6,6 +6,7 @@ import { LangPicker, Portal, type PortalRole } from '../portal/Portal'
 import { ActionResult } from '../portal/ActionResult'
 import { JobPublic } from '../portal/JobPublic'
 import { MfaGate } from './Mfa'
+import { ErrorBoundary } from './ErrorBoundary'
 import { storeLang, storedLang, tr, type Lang } from '../portal/i18n'
 
 type Role = 'beheerder' | PortalRole
@@ -19,9 +20,21 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (window.location.hash.startsWith('#/actie')) return <ActionResult />
   // details en plannen van een opdracht (link in de agenda-uitnodiging), ook zonder inloggen
   if (window.location.hash.startsWith('#/opdracht?')) return <JobPublic />
+  return <SessionGate>{children}</SessionGate>
+}
+
+/**
+ * Sessie + rol (7 nov 2026, doorlichting): de rol wordt enkel opnieuw opgevraagd bij een andere gebruiker, niet bij elke
+ * vernieuwing van de login (elk uur). Lukt my_role niet (netwerk, drukke database), dan opnieuw proberen (1, 2, 4, 8 s)
+ * en daarna "Opnieuw proberen" tonen; nooit meer "Geen toegang" door een tijdelijke fout.
+ */
+function SessionGate({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null | undefined>(undefined)
   const [role, setRole] = useState<Role | null | undefined>(undefined)
+  const [roleFail, setRoleFail] = useState(false)
+  const [attempt, setAttempt] = useState(0)
   const [recovery, setRecovery] = useState(false)
+  const userId = session?.user.id
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session))
@@ -33,16 +46,41 @@ export function AuthGate({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    if (!session) return setRole(undefined)
-    supabase.rpc('my_role').then(({ data }) => setRole((data as Role | null) ?? null))
-  }, [session])
+    setRole(undefined)
+    setRoleFail(false)
+    if (!userId) return
+    let gone = false
+    ;(async () => {
+      for (let i = 0; i < 4; i++) {
+        const { data, error } = await supabase.rpc('my_role')
+        if (gone) return
+        if (!error) return setRole((data as Role | null) ?? null)
+        await new Promise((r) => setTimeout(r, 1000 * 2 ** i))
+        if (gone) return
+      }
+      setRoleFail(true)
+    })()
+    return () => { gone = true }
+  }, [userId, attempt])
 
   if (session === undefined) return <div className="center muted">Laden…</div>
   if (!session) return <Login />
   if (recovery) return <NewPassword onDone={() => setRecovery(false)} />
+  if (role === undefined && roleFail) {
+    const t = tr(storedLang())
+    return (
+      <div className="center conn-fail" role="alert">
+        <p>{t.connFail}</p>
+        <div className="toolbar">
+          <button className="primary" onClick={() => setAttempt((a) => a + 1)}>{t.retry}</button>
+          <button onClick={() => supabase.auth.signOut()}>{t.signOut}</button>
+        </div>
+      </div>
+    )
+  }
   if (role === undefined) return <div className="center muted">Toegang controleren…</div>
   if (role === 'beheerder') return <MfaGate session={session}>{children}</MfaGate>
-  if (role) return <Portal role={role} />
+  if (role) return <ErrorBoundary><Portal role={role} /></ErrorBoundary>
   const t = tr(storedLang())
   return (
     <div className="auth">

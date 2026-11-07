@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react'
 /**
  * Nieuwe versie gepubliceerd? De app op het beginscherm (gsm) laadt niet vanzelf opnieuw, dus we kijken zelf na
  * (bij openen, bij terugkeren naar de app en elke 5 minuten) of index.html naar een ander bundelbestand verwijst.
- * Komt de app terug op het scherm en is er een nieuwe versie, dan ververst ze meteen; anders een knop "Vernieuwen".
+ * Is er een nieuwe versie, dan verschijnt de knop "Vernieuwen". Nooit vanzelf herladen (7 nov 2026, doorlichting):
+ * dat deed ingetypte tekst verdwijnen bij het terugkeren naar de app.
  */
 const current = () => (document.querySelector('script[type="module"][src*="assets/index-"]') as HTMLScriptElement | null)?.src.split('/').pop() ?? null
 
@@ -21,16 +22,15 @@ export function UpdateCheck() {
     const mine = current()
     if (!mine) return // ontwikkelmodus
     let stop = false
-    const check = async (reloadNow: boolean) => {
+    const check = async () => {
       const l = await latest()
       if (stop || !l || l === mine) return
-      if (reloadNow) window.location.reload()
-      else setReady(true)
+      setReady(true)
     }
-    check(false)
-    const onVis = () => { if (document.visibilityState === 'visible') check(true) }
+    check()
+    const onVis = () => { if (document.visibilityState === 'visible') check() }
     document.addEventListener('visibilitychange', onVis)
-    const t = setInterval(() => check(false), 5 * 60 * 1000)
+    const t = setInterval(() => check(), 5 * 60 * 1000)
     return () => { stop = true; document.removeEventListener('visibilitychange', onVis); clearInterval(t) }
   }, [])
   if (!ready) return null

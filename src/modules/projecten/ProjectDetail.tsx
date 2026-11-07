@@ -1,3 +1,4 @@
+import { ErrorBoundary } from '../../core/ErrorBoundary'
 import { YukiHistory } from '../../core/YukiHistory'
 import type { Timeline } from './KeyDates'
 import { toast } from '../../core/toast'
@@ -226,7 +227,7 @@ export function ProjectDetail() {
         })}
       </nav>
       <ErrorBox error={page.error} />
-      {!pd ? (page.loading ? <Loading /> : null) : !project ? <p className="muted">Project {code} niet gevonden.</p> : <div className="pd-body">{body}</div>}
+      {!pd ? (page.loading ? <Loading /> : null) : !project ? <p className="muted">Project {code} niet gevonden.</p> : <div className="pd-body"><ErrorBoundary key={tab + '/' + sub} title="Dit onderdeel kon niet getoond worden">{body}</ErrorBoundary></div>}
     </section>
   )
 }

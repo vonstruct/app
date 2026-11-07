@@ -56,6 +56,8 @@ const nl = {
   noAccess: 'Nog geen toegang',
   noAccessText: (e: string) => `${e} is nog niet aan een project gekoppeld. Neem contact op met Vonstruct.`,
   signOut: 'Afmelden',
+  connFail: 'De verbinding met de server lukt even niet. Je gegevens zijn veilig.',
+  retry: 'Opnieuw proberen',
   // portaal
   kind: { klant: 'Klantenportaal', partner: 'Partnerportaal', onderaannemer: 'Portaal onderaannemers' },
   intro: {
@@ -187,6 +189,8 @@ const en: Dict = {
   noAccess: 'No access yet',
   noAccessText: (e: string) => `${e} is not linked to a project yet. Please contact Vonstruct.`,
   signOut: 'Sign out',
+  connFail: 'The connection to the server is not working right now. Your data is safe.',
+  retry: 'Try again',
   kind: { klant: 'Client portal', partner: 'Partner portal', onderaannemer: 'Contractor portal' },
   intro: {
     klant: 'Follow your Vonstruct project here, from design to installation.',
@@ -315,6 +319,8 @@ const de: Dict = {
   noAccess: 'Noch kein Zugang',
   noAccessText: (e: string) => `${e} ist noch keinem Projekt zugeordnet. Bitte wenden Sie sich an Vonstruct.`,
   signOut: 'Abmelden',
+  connFail: 'Die Verbindung zum Server funktioniert gerade nicht. Ihre Daten sind sicher.',
+  retry: 'Erneut versuchen',
   kind: { klant: 'Kundenportal', partner: 'Partnerportal', onderaannemer: 'Portal für Subunternehmer' },
   intro: {
     klant: 'Hier verfolgen Sie Ihr Projekt bei Vonstruct, vom Entwurf bis zur Montage.',
