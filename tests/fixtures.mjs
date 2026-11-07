@@ -148,6 +148,25 @@ const tables = {
 }
 const rpc = {
   my_role: 'beheerder', nav_counts: { inbox: 2, von: 1 }, today_items: today, my_display_name: 'Jan Peeters', my_language: 'nl', next_free_install_week: '2099-W14',
+  // verzonnen cijfers voor de pagina Cijfers
+  report_page: {
+    year: 2099,
+    money: { invoiced_incl: 10000, received: 8000, open_incl: 2000, n_invoices: 4, last_sync: iso(0) },
+    quotes: { sent: 3, signed: 2, declined: 1, signed_excl: 20000, open_excl: 5000, open_n: 1, win_pct: 67 },
+    months: Array.from({ length: 12 }, (_, i) => ({ month: i + 1, invoiced_incl: i % 3 ? 1000 : 0, received: 500, signed_excl: i === 10 ? 10000 : 0 })),
+    pipeline: [
+      { stage: 'lead', label: 'Aanvraag', n: 1, n_quote: 0, value_excl: 0 }, { stage: 'design', label: 'Ontwerp', n: 1, n_quote: 0, value_excl: 0 },
+      { stage: 'quote', label: 'Offerte', n: 0, n_quote: 0, value_excl: 0 }, { stage: 'signed', label: 'Voorbereiding', n: 0, n_quote: 0, value_excl: 0 },
+      { stage: 'production', label: 'Productie', n: 1, n_quote: 1, value_excl: 10000 }, { stage: 'installation', label: 'Plaatsing', n: 0, n_quote: 0, value_excl: 0 },
+    ],
+    margins: [
+      { code: '209903', title: 'Badkamermeubel', client: 'Tom Claes', revenue_excl: 10000, margin_planned: 3000, margin_planned_pct: 30, margin_actual: null, margin_actual_pct: null },
+      { code: '209901', title: 'Keuken', client: 'Jan Peeters', revenue_excl: 10000, margin_planned: 2500, margin_planned_pct: 25, margin_actual: 2000, margin_actual_pct: 20 },
+    ],
+    margin_totals: { n: 2, revenue_excl: 20000, margin_planned: 5500, margin_planned_pct: 27.5, margin_actual: 2000, margin_actual_pct: 20 },
+    durations: [{ stage: 'design', n_done: 2, median_done: 6.5, n_now: 1, avg_now: 3 }, { stage: 'production', n_done: 0, median_done: null, n_now: 1, avg_now: 2.5 }],
+    durations_since: iso(-5),
+  },
 }
 export { tables, rpc, projectPage, events, iso, day }
 

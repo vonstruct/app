@@ -1969,3 +1969,43 @@ label > .date-in, .kd-fields .date-in, .po-edit .date-in { width: 100%; }
 .pay-sched-edit { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .pay-sched-edit label { display: inline-flex; align-items: center; gap: 4px; }
 .pay-sched-edit input { width: 56px; }
+
+/* Cijfers (rapportering, 7 nov 2026) */
+.cf { display: flex; flex-direction: column; gap: 16px; }
+.cf-year { display: flex; align-items: center; gap: 10px; align-self: flex-start; }
+.cf-year b { font-size: 18px; min-width: 52px; text-align: center; }
+.cf-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.cf-kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; }
+.cf-v { font-family: "Jost", "Avenir Next", system-ui, sans-serif; font-size: 26px; font-weight: 500; }
+.cf-l { font-weight: 600; }
+.cf-l small, .cf-card h2 small { display: block; font-weight: 400; color: var(--muted); font-size: 12.5px; }
+.cf-card h2 { margin: 0 0 12px; font-size: 17px; }
+.cf-card h2 small { display: inline; margin-left: 6px; }
+.cf-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); gap: 16px; }
+.cf-two > * { min-width: 0; }
+.cf-pipe { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+.cf-pipe li { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.cf-pipe li.empty { opacity: .55; }
+.cf-pn { font-family: "Jost", "Avenir Next", system-ui, sans-serif; font-size: 24px; font-weight: 500; line-height: 1.1; }
+.cf-pl { font-weight: 600; }
+.cf-pv { color: var(--muted); font-size: 12.5px; min-height: 18px; }
+.cf-months { display: flex; flex-direction: column; gap: 5px; }
+.cf-m { display: grid; grid-template-columns: 34px minmax(0, 1fr) 150px; align-items: center; gap: 8px; font-size: 13px; }
+.cf-ml { color: var(--muted); }
+.cf-bars { display: flex; flex-direction: column; gap: 2px; }
+.cf-bar { display: block; height: 7px; border-radius: 4px; min-width: 0; }
+.cf-bar.inv, .cf-sw.inv { background: #16233a; }
+.cf-bar.sig, .cf-sw.sig { background: #c9a24a; }
+.cf-sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: -1px; }
+.cf-mv { text-align: right; font-variant-numeric: tabular-nums; }
+.cf-mv small { color: #8a6a1c; }
+.cf-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.cf-table th { text-align: left; color: var(--muted); font-weight: 500; font-size: 12.5px; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.cf-table td { padding: 8px; border-bottom: 1px solid var(--line); }
+.cf-table tfoot th { color: var(--ink); font-weight: 600; border-bottom: 0; }
+.cf-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cf-scroll { overflow-x: auto; max-width: 100%; }
+.cf-table th small { display: block; font-size: 11px; }
+.cf-note { margin: 0; font-size: 12.5px; }
+@media (max-width: 640px) { .cf-m { grid-template-columns: 30px minmax(0, 1fr) 96px; } .cf-mv small { display: none; } .cf-v { font-size: 21px; } .cf-kpi { padding: 12px; } .cf-pipe { grid-template-columns: repeat(2, minmax(0, 1fr)); } .cf-card h2 small { display: block; margin: 2px 0 0; } .cf-table td, .cf-table th { padding: 6px 5px; } }
+@media (prefers-color-scheme: dark) { .cf-bar.inv, .cf-sw.inv { background: #9fb3d6; } .cf-mv small { color: #e0b45a; } }

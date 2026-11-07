@@ -19,6 +19,7 @@ export const INKOOP: Tab[] = [
 export const PROJECTEN: Tab[] = [
   { to: '/projecten', label: 'Projecten' },
   { to: '/facturen', label: 'Verkoopfacturen' },
+  { to: '/cijfers', label: 'Cijfers' },
 ]
 export const INBOX: Tab[] = [{ to: '/inbox', label: 'Mails' }]
 export const SETTINGS: Tab[] = [
