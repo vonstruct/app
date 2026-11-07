@@ -2239,3 +2239,4 @@ a.vd5-sup:hover { color: var(--accent); }
   .inko-pickup { width: 100%; } .inko-pickup input { width: auto; flex: 1; }
 }
 .inko .order-lines td.num { white-space: nowrap; }
+.inko-btn.lnk { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; box-sizing: border-box; }

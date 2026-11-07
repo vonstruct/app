@@ -23,7 +23,28 @@ type Order = {
   delivery?: Delivery | null; pickup_by?: string | null; items_text?: string | null
   /** einde plaatsing als het tot dan mag binnenkomen (niet voor platen/kanten); order_by_last = uiterlijk bestellen */
   ok_until?: string | null; order_by_last?: string | null
+  /** besteld door een partner (Vlinth): hoort bij de productie door de partner, niet bij de gewone bestellingen */
+  via_partner?: boolean
 }
+/** Productie bij een partner (app_partner_orders): de partner bestelt platen en kanten, zaagt, freest en kant af; jij haalt op. */
+type PartnerOrder = {
+  project_code: string; partner: string; id: string | null; status: string; sent_at: string | null
+  pickup_date: string | null; pickup_default: boolean; pickup_slot: string | null; pickup_answer: string | null
+  ready_at: string | null; picked_up_at: string | null; n_open: number; n_ordered: number; n_in: number
+  send_by: string | null; late: boolean
+}
+const partnerStatus = (po: PartnerOrder): [string, string] => {
+  if (po.picked_up_at) return ['Opgehaald', 'ok']
+  if (po.status !== 'doorgegeven') return ['Nog doorgeven', po.send_by && po.send_by < today() ? 'bad' : 'warn']
+  if (po.pickup_answer === 'probleem') return ['Ophalen lukt niet', 'bad']
+  if (po.late) return ['Materiaal te laat', 'bad']
+  if (po.ready_at) return ['Klaar om op te halen', 'warn']
+  if (po.n_open > 0) return [`${po.partner} bestelt nog`, '']
+  if (po.n_ordered > 0) return ['Materiaal besteld', '']
+  if (po.n_in > 0) return ['In productie', '']
+  return ['Doorgegeven', '']
+}
+const subStatus = (o: Order) => (o.status === 'geleverd' ? 'binnen' : o.status === 'te bestellen' ? 'nog te bestellen' : 'besteld' + (o.expected_at ? ', verwacht ' + dd(o.expected_at) : ''))
 /** Hoe een bestelling binnenkomt (7 nov 2026): de leverancier levert, ik haal op, de klant of een onderaannemer haalt op. */
 type Delivery = 'levering' | 'ophalen' | 'klant' | 'onderaannemer'
 const DELIVERY: [Delivery, string][] = [['levering', 'Levering'], ['ophalen', 'Ik haal op'], ['klant', 'Klant haalt op'], ['onderaannemer', 'Onderaannemer haalt op']]
@@ -90,13 +111,25 @@ export function Orders({ project }: { project?: string }) {
     if (project) r = r.eq('project_code', project)
     return r.order('order_by', { ascending: true, nullsFirst: false })
   }, [project])
+  const pq = useQuery<PartnerOrder[]>(() => {
+    let r = supabase.from('app_partner_orders').select('project_code,partner,id,status,sent_at,pickup_date,pickup_default,pickup_slot,pickup_answer,ready_at,picked_up_at,n_open,n_ordered,n_in,send_by,late')
+    if (project) r = r.eq('project_code', project)
+    return r.order('pickup_date', { ascending: true, nullsFirst: false })
+  }, [project])
 
   // Open = te bestellen + onderweg + binnen in de laatste 14 dagen; Alles = ook oudere, geannuleerde en vervallen
   const rows = useMemo(() => {
     const since = new Date(Date.now() - 14 * 864e5).toLocaleDateString('sv-SE')
-    return (q.data ?? []).filter((o) => filter === 'alles'
-      || (o.urgency !== 'vervallen' && o.status !== 'geannuleerd' && (o.status !== 'geleverd' || (o.delivered_at ?? '') >= since)))
+    return (q.data ?? []).filter((o) => !o.via_partner && (filter === 'alles'
+      || (o.urgency !== 'vervallen' && o.status !== 'geannuleerd' && (o.status !== 'geleverd' || (o.delivered_at ?? '') >= since))))
   }, [q.data, filter])
+  // productie bij een partner: één regel per project en partner, met de bestellingen die de partner zelf plaatst
+  const partnerRows = useMemo(() => {
+    const since = new Date(Date.now() - 14 * 864e5).toISOString()
+    return (pq.data ?? []).filter((po) => filter === 'alles' || !po.picked_up_at || po.picked_up_at >= since).map((po) => ({
+      po, subs: (q.data ?? []).filter((o) => o.via_partner && o.project_code === po.project_code && o.ordered_by === po.partner && o.status !== 'geannuleerd' && o.urgency !== 'vervallen'),
+    })).filter((x) => x.subs.length || x.po.id)
+  }, [pq.data, q.data, filter])
 
   const save = async (id: string, patch: Partial<Order>) => {
     const { error } = await supabase.from('orders').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id)
@@ -152,6 +185,62 @@ export function Orders({ project }: { project?: string }) {
     )
   }
 
+  /** Eén rubriek: op Inkoop per leverancier gegroepeerd, op de projectpagina met de leverancier als eerste kolom. */
+  const renderGroup = (g: (typeof groups)[number]) => {
+    // Inkoop (alle projecten): per leverancier gegroepeerd; projectpagina: leverancier als eerste kolom
+    const bySupplier = project ? [['', g.list] as [string, Order[]]] : [...g.list.reduce((m, o) => m.set(o.supplier, [...(m.get(o.supplier) ?? []), o]), new Map<string, Order[]>())]
+    return (
+      <section key={g.key} className="inko-rub">
+        <h3>{g.label} <span>{g.list.length}</span></h3>
+        <div className="inko-cols" aria-hidden="true"><span /><span>{project ? 'Leverancier' : 'Project'}</span><span>Wat</span><span>Nodig op</span><span>{g.dateLabel}</span><span className="r">Bedrag</span><span>Status</span><span /></div>
+        {bySupplier.map(([sup, list]) => (
+          <div key={sup || 'x'} className="inko-group">
+            {!project && <div className="inko-sup"><b>{sup}</b><span>{list.length} {list.length === 1 ? 'bestelling' : 'bestellingen'}{list.some((o) => o.amount != null) ? ' · ' + fmtEur(list.reduce((t, o) => t + Number(o.amount ?? 0), 0)) : ''}</span></div>}
+            {list.map((o) => <Line key={o.id} o={o} showSupplier={!!project} />)}
+          </div>
+        ))}
+      </section>
+    )
+  }
+
+  /** Productie bij de partner: wat de partner bestelt (en bij wie), ophalen bij de partner, status; Openen = projectpagina › Productie. */
+  const PartnerLine = ({ po, subs }: { po: PartnerOrder; subs: Order[] }) => {
+    const [lbl, cls] = partnerStatus(po)
+    const k = 'po:' + po.project_code + po.partner, isOpen = open === k
+    const first = subs[0]
+    const needed = subs.map((o) => o.needed_by).filter(Boolean).sort()[0] ?? null
+    const items = subs.map((o) => o.items_text).filter(Boolean).join(' · ') || 'platen en kanten'
+    const amount = subs.reduce((t, o) => t + Number(o.amount ?? 0), 0)
+    return (
+      <div className={'inko-item' + (isOpen ? ' open' : '')}>
+        <div className="inko-row" onClick={() => setOpen(isOpen ? null : k)}>
+          <span className={'inko-dot ' + cls} aria-hidden="true" />
+          {project
+            ? <span className="inko-first"><b>{po.partner}</b><small>bestelt, zaagt, freest, kant af</small></span>
+            : <span className="inko-first"><Link to={`/projecten/${po.project_code}?tab=productie`} onClick={(e) => e.stopPropagation()}>{first?.client_name ?? po.project_code}</Link><small>{po.project_code}</small></span>}
+          <span className="inko-what" title={items}><span className="inko-items">{items}</span><small>{subs.map((o) => `${o.supplier}: ${subStatus(o)}`).join(' · ') || 'nog geen materiaal'}</small></span>
+          <span className="inko-date"><em>nodig op </em>{dd(needed)}{needed && first?.needed_src && <small>{first.needed_src}</small>}</span>
+          <span className="inko-date"><em>ophalen </em>{dd(po.picked_up_at ? po.picked_up_at.slice(0, 10) : po.pickup_date)}{!po.picked_up_at && po.pickup_date && <small>{po.pickup_default ? 'voorstel' : po.pickup_slot ?? `bij ${po.partner}`}</small>}</span>
+          <span className="inko-amt">{amount ? fmtEur(amount) : '—'}</span>
+          <span className={'inko-status ' + cls}>{lbl}</span>
+          <span className="inko-acts" onClick={(e) => e.stopPropagation()}>
+            <Link className="inko-btn lnk" to={`/projecten/${po.project_code}?tab=productie`}>Openen</Link>
+            <button className="inko-chev" aria-expanded={isOpen} aria-label={isOpen ? 'Details sluiten' : 'Details tonen'} onClick={() => setOpen(isOpen ? null : k)}>{isOpen ? '▴' : '▾'}</button>
+          </span>
+        </div>
+        {isOpen && (
+          <div className="order-detail">
+            <p className="small">{po.partner} bestelt het materiaal zelf, zaagt, freest en kant af; jij haalt de onderdelen op bij {po.partner}. Doorgeven, ophaaldatum en opgehaald: projectpagina › Productie.</p>
+            <table className="order-lines">
+              <thead><tr><th>Leverancier van {po.partner}</th><th>Wat</th><th>Status</th><th className="num">Bedrag</th></tr></thead>
+              <tbody>{subs.map((o) => <tr key={o.id}><td>{o.supplier}</td><td>{o.items_text ?? whatOf(o).main}</td><td>{subStatus(o)}</td><td className="num">{fmtEur(o.amount)}</td></tr>)}</tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="orders inko">
       <div className="orders-bar">
@@ -163,25 +252,23 @@ export function Orders({ project }: { project?: string }) {
         {project && <button onClick={() => setAdding((a) => !a)}>+ Eigen bestelling</button>}
         {project && <button className="primary" disabled={busy} onClick={generate}>{busy ? 'Bezig…' : q.data?.length ? 'Bijwerken uit de kosten' : 'Bestellijst maken uit de kosten'}</button>}
       </div>
-      <ErrorBox error={q.error} />
+      <ErrorBox error={q.error ?? pq.error} />
       {adding && project && <NewOrder project={project} onDone={() => { setAdding(false); q.reload() }} />}
-      {!rows.length && <p className="muted">{project ? 'Nog geen bestellingen. Maak de lijst uit de kosten van de laatste ontwerpversie.' : 'Niets te bestellen, op te halen of onderweg.'}</p>}
-      {groups.map((g) => {
-        // Inkoop (alle projecten): per leverancier gegroepeerd; projectpagina: leverancier als eerste kolom
-        const bySupplier = project ? [['', g.list] as [string, Order[]]] : [...g.list.reduce((m, o) => m.set(o.supplier, [...(m.get(o.supplier) ?? []), o]), new Map<string, Order[]>())]
-        return (
-          <section key={g.key} className="inko-rub">
-            <h3>{g.label} <span>{g.list.length}</span></h3>
-            <div className="inko-cols" aria-hidden="true"><span /><span>{project ? 'Leverancier' : 'Project'}</span><span>Wat</span><span>Nodig op</span><span>{g.dateLabel}</span><span className="r">Bedrag</span><span>Status</span><span /></div>
-            {bySupplier.map(([sup, list]) => (
-              <div key={sup || 'x'} className="inko-group">
-                {!project && <div className="inko-sup"><b>{sup}</b><span>{list.length} {list.length === 1 ? 'bestelling' : 'bestellingen'}{list.some((o) => o.amount != null) ? ' · ' + fmtEur(list.reduce((t, o) => t + Number(o.amount ?? 0), 0)) : ''}</span></div>}
-                {list.map((o) => <Line key={o.id} o={o} showSupplier={!!project} />)}
-              </div>
-            ))}
-          </section>
-        )
-      })}
+      {!rows.length && !partnerRows.length && <p className="muted">{project ? 'Nog geen bestellingen. Maak de lijst uit de kosten van de laatste ontwerpversie.' : 'Niets te bestellen, op te halen of onderweg.'}</p>}
+      {groups.filter((g) => !['binnen', 'af'].includes(g.key)).map((g) => renderGroup(g))}
+      {partnerRows.length > 0 && (
+        <section className="inko-rub">
+          <h3>Productie bij partner <span>{partnerRows.length}</span></h3>
+          <div className="inko-cols" aria-hidden="true"><span /><span>{project ? 'Partner' : 'Project'}</span><span>Wat de partner bestelt</span><span>Nodig op</span><span>Ophalen</span><span className="r">Bedrag</span><span>Status</span><span /></div>
+          {(project ? [['', partnerRows] as const] : [...partnerRows.reduce((m, x) => m.set(x.po.partner, [...(m.get(x.po.partner) ?? []), x]), new Map<string, typeof partnerRows>())]).map(([name, list]) => (
+            <div key={name || 'x'} className="inko-group">
+              {!project && <div className="inko-sup"><b>{name}</b><span>bestelt, zaagt, freest en kant af · {list.length} {list.length === 1 ? 'project' : 'projecten'}</span></div>}
+              {list.map((x) => <PartnerLine key={x.po.project_code + x.po.partner} po={x.po} subs={x.subs} />)}
+            </div>
+          ))}
+        </section>
+      )}
+      {groups.filter((g) => ['binnen', 'af'].includes(g.key)).map((g) => renderGroup(g))}
     </div>
   )
 }

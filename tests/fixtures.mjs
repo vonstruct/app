@@ -93,6 +93,9 @@ orders.push(
   // hoe het binnenkomt (7 nov 2026): ik haal op, klant haalt op
   { ...orders[1], id: 'o5', supplier: 'Houthandel Voorbeeld', status: 'bevestigd', delivery: 'ophalen', urgency: 'op te halen', expected_at: day(-1), expected_src: 'uit mail', needed_by: day(3), needed_src: 'plaatsing' },
   { ...orders[1], id: 'o8', supplier: 'Tegels Voorbeeld', status: 'bevestigd', delivery: 'levering', urgency: 'tijdens plaatsing', expected_at: day(8), expected_src: 'uit mail', needed_by: day(6), needed_src: 'plaatsing', ok_until: day(11), categories: ['Tegels'], n_lines: 0, items_text: null, note: 'Uit mail: Orderbevestiging · Wandtegels wit 30x60' },
+  // via de partner (bestelt, zaagt, freest, kant af): hoort bij Productie bij partner, niet bij de gewone bestellingen
+  { ...orders[1], id: 'o9', project_code: '209903', client_name: 'Tom Claes', supplier: 'Plaathandel Voorbeeld', ordered_by: 'Zaagatelier Voorbeeld', via_partner: true, status: 'bevestigd', delivery: 'ophalen', urgency: 'via partner', expected_at: day(4), needed_by: day(6), needed_src: 'plaatsing', categories: ['Platen'], n_lines: 3, amount: 1024, items_text: '6 × Wit melamine 18 mm · 4 × Eiken fineer MDF 19 mm · 2 × Wit melamine 8 mm' },
+  { ...orders[1], id: 'o10', project_code: '209903', client_name: 'Tom Claes', supplier: 'Kantenhuis Voorbeeld', ordered_by: 'Zaagatelier Voorbeeld', via_partner: true, status: 'geleverd', delivery: 'levering', urgency: 'klaar', expected_at: null, delivered_at: day(-1), needed_by: day(6), categories: ['Kanten'], n_lines: 2, amount: 129.32, items_text: '164 m Eiken kant 23 mm · 46 m Wit kant 23 mm' },
   { ...orders[1], id: 'o6', supplier: 'Toestellen Voorbeeld', status: 'besteld', delivery: 'klant', urgency: 'wordt opgehaald', expected_at: day(5), expected_src: null, needed_by: day(9), needed_src: 'plaatsing', categories: ['Toestellen'], n_lines: 0, note: 'Oven en kookplaat' },
   { ...orders[1], id: 'o7', supplier: 'Groothandel Voorbeeld', status: 'besteld', delivery: 'onderaannemer', pickup_by: 'Elektro Voorbeeld', urgency: 'wordt opgehaald', expected_at: null, expected_src: null, needed_by: day(9), needed_src: 'plaatsing', categories: ['Elektro'], n_lines: 3 },
 )
@@ -143,6 +146,9 @@ const projectPage = (code) => {
 const tables = {
   app_projects: projects, project_phases: phases, today_categories: cats, clients, partners, subcontractors, jobs, tasks,
   von_proposals: proposals, app_mail_messages: mails, mail_messages: mails, app_orders: orders, app_invoices: invoices, rule_settings: rules,
+  app_partner_orders: [
+    { project_code: '209903', partner: 'Zaagatelier Voorbeeld', id: 'po1', status: 'doorgegeven', sent_at: iso(-2), pickup_date: day(5), pickup_default: false, pickup_slot: 'voormiddag', pickup_answer: null, ready_at: null, picked_up_at: null, n_open: 0, n_ordered: 1, n_in: 1, send_by: day(-3), late: false },
+  ],
   order_lines: [
     { id: 'l1', category: 'Platen', description: 'Wit melamine 18 mm 2800x2070', article_no: 'WM18', qty: 6, unit: 'plaat', total: 180 },
     { id: 'l2', category: 'Platen', description: 'Eiken fineer MDF 19 mm', article_no: 'EF19', qty: 4, unit: 'plaat', total: 120 },

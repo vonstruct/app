@@ -47,7 +47,7 @@ const areaOf = (kind: string, title: string) =>
 export function numbersOf(d: ProjectPage): ProjectNumbers {
   const rank = (s: string) => (s === 'aanvaard' ? 0 : s === 'verstuurd' ? 1 : s === 'concept' ? 2 : 3)
   const quote = [...d.quotes].sort((x, y) => rank(x.status) - rank(y.status))[0] ?? null
-  const ords = d.orders.filter((x) => !x.auto_vervallen)
+  const ords = d.orders.filter((x) => !x.auto_vervallen && x.urgency !== 'via partner') // wat de partner bestelt hoort bij Productie, niet bij Bestellingen
   const open: ProjectNumbers['open'] = {}
   for (const x of d.today) {
     const k = areaOf(x.kind, x.title)
