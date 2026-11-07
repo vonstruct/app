@@ -269,7 +269,8 @@ function Watching() {
   const [flags, setFlags] = useState<{ kind: string; n: number }[]>([])
   const [runs, setRuns] = useState<{ created_at: string; question: string; answer: string | null }[]>([])
   useEffect(() => {
-    supabase.from('app_control_tower').select('kind').then(({ data }) => {
+    // today_items (bewaard plan) in plaats van de zware view app_control_tower (7 nov 2026)
+    supabase.rpc('today_items').then(({ data }) => {
       const m = new Map<string, number>(); for (const r of (data ?? []) as { kind: string }[]) m.set(r.kind, (m.get(r.kind) ?? 0) + 1)
       setFlags([...m.entries()].map(([kind, n]) => ({ kind, n })))
     })
