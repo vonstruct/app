@@ -2195,6 +2195,18 @@ a.vd5-sup:hover { color: var(--accent); }
 .inko-btn-slot { width: 104px; }
 .inko-chev { width: 38px; min-height: 38px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--muted); cursor: pointer; }
 .inko .order-detail { border-top: 1px solid var(--line); }
+.inko-form { border-top: 1px solid var(--line); padding: 12px 16px 14px 38px; background: color-mix(in srgb, var(--gold, #c9a24a) 7%, transparent); display: flex; flex-direction: column; gap: 12px; }
+.inko-form-how { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.inko .order-detail .inko-form-how { margin: 10px 0 4px; }
+.inko-form-how .lbl { font-size: 13px; font-weight: 600; }
+.inko-how { flex-wrap: wrap; }
+.inko-how button { min-height: 38px; padding: 0 12px; font-size: 13.5px; }
+.inko-form-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.inko-form-fields label, .inko-pickup { display: flex; flex-direction: column; gap: 3px; font-size: 12.5px; color: var(--muted); }
+.inko-form-fields input, .inko-pickup input { min-width: 0; width: 100%; box-sizing: border-box; }
+.inko-pickup { flex-direction: row; align-items: center; gap: 6px; }
+.inko-pickup input { width: 200px; }
+.inko-form-acts { display: flex; gap: 8px; flex-wrap: wrap; }
 @media (max-width: 860px) {
   .inko-cols { display: none; }
   .inko-row { grid-template-columns: 10px minmax(0, 1fr) auto; gap: 3px 10px; padding: 10px 12px; }
@@ -2211,4 +2223,12 @@ a.vd5-sup:hover { color: var(--accent); }
   .inko-acts { grid-column: 3; grid-row: 4; }
   .inko-btn { width: auto; padding: 0 12px; }
   .inko-btn-slot { display: none; }
+}
+
+@media (max-width: 860px) {
+  .inko-form { padding: 12px; }
+  .inko-how { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  .inko-how button { white-space: normal; line-height: 1.2; padding: 6px 8px; }
+  .inko-form-fields { grid-template-columns: minmax(0, 1fr); }
+  .inko-pickup { width: 100%; } .inko-pickup input { width: auto; flex: 1; }
 }

@@ -125,7 +125,7 @@ const LATER = 'M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z'
 type OrderInfo = { id: string; supplier: string; project_code: string; client_name: string | null; status: string; urgency: string; expected_at: string | null; expected_src: string | null; needed_by: string | null; needed_src: string | null; order_by: string | null }
 const ORDER_STATUS: Record<string, [string, string]> = {
   'te laat': ['Te laat om te bestellen', 'bad'], 'nu bestellen': ['Nu bestellen', 'warn'], 'levertijd onbekend': ['Levertijd onbekend', 'warn'],
-  'komt te laat': ['Komt te laat', 'bad'], 'levering te laat': ['Geleverd?', ''],
+  'komt te laat': ['Komt te laat', 'bad'], 'levering te laat': ['Geleverd?', ''], 'op te halen': ['Op te halen', 'warn'],
 }
 const dmy = (d: string | null | undefined) => (d ? new Date(d + 'T12:00:00').toLocaleDateString('nl-BE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—')
 const CHECK = 'M5 12.5l4.5 4.5L19 7.5'
@@ -213,11 +213,11 @@ export function ControlTower() {
     hide('taak-buiten:' + t.id, 'Afgevinkt', () => supabase.from('tasks').update({ done_at: null }).eq('id', t.id))
   }
   // "Geleverd? <leverancier>": verwachte datum voorbij, nog niet aangeduid → met één klik geleverd (met ongedaan maken)
-  const markDelivered = async (f: Flag) => {
+  const markDelivered = async (f: Flag, label = 'Aangeduid als geleverd') => {
     const { data: before } = await supabase.from('orders').select('status,delivered_at').eq('id', f.ref!).single()
     const { error } = await supabase.from('orders').update({ status: 'geleverd', delivered_at: today }).eq('id', f.ref!)
     if (error) { toast.show('Niet bewaard: ' + error.message); return }
-    hide(keyOf(f), 'Aangeduid als geleverd', () => supabase.from('orders').update({ status: before?.status ?? 'bevestigd', delivered_at: before?.delivered_at ?? null }).eq('id', f.ref!))
+    hide(keyOf(f), label, () => supabase.from('orders').update({ status: before?.status ?? 'bevestigd', delivered_at: before?.delivered_at ?? null }).eq('id', f.ref!))
   }
   const proposalDone = (f: Flag) => { setGone((s) => new Set(s).add(keyOf(f))); setOpen(null); toast.show('Voorstel afgehandeld'); flags.reload() }
 
@@ -277,7 +277,7 @@ export function ControlTower() {
   const OrderLine = ({ f }: { f: Flag }) => {
     const o = orders[f.ref!], act = actionFor(f)
     const st = ORDER_STATUS[o?.urgency ?? ''] ?? [f.title.split(':')[0], '']
-    const isCheck = o?.urgency === 'levering te laat'
+    const isCheck = o?.urgency === 'levering te laat', isPickup = o?.urgency === 'op te halen' || f.title.startsWith('Ophalen bij')
     return (
       <div className="vd5-item">
         <div className="vd5-orow">
@@ -287,23 +287,26 @@ export function ControlTower() {
           <span className="vd5-date need"><em className="vd5-lbl">nodig op </em>{dmy(o?.needed_by)}{o?.needed_src && <small>{o.needed_src}</small>}</span>
           <span className="vd5-date exp"><em className="vd5-lbl">verwacht </em>{dmy(o?.expected_at)}{o?.expected_src && <small>{o.expected_src}</small>}</span>
           <span className={'vd5-status ' + st[1]}>{st[0]}</span>
-          <Acts f={f} main={isCheck ? <button className="vd5-btn" onClick={() => markDelivered(f)}>Geleverd</button> : undefined} />
+          <Acts f={f} main={isCheck ? <button className="vd5-btn" onClick={() => markDelivered(f)}>Geleverd</button>
+            : isPickup ? <button className="vd5-btn" onClick={() => markDelivered(f, 'Aangeduid als opgehaald')}>Opgehaald</button> : undefined} />
         </div>
       </div>
     )
   }
   const OrderCols = () => <div className="vd5-ocols" aria-hidden="true"><span /><span>Leverancier</span><span>Project</span><span>Nodig op</span><span>Verwacht</span><span>Status</span><span /></div>
 
-  /** Bestellingen in rubrieken: Te bestellen · Leveringen · Na te kijken. */
+  /** Bestellingen in rubrieken: Te bestellen · Ophalen · Leveringen · Na te kijken. */
   const OrdersView = () => {
     const isOrder = (f: Flag) => (f.kind === 'bestelling' || f.kind === 'levertijd') && !!f.ref
     const urg = (f: Flag) => orders[f.ref!]?.urgency ?? ''
-    const toOrder = list.filter((f) => isOrder(f) && !['komt te laat', 'levering te laat'].includes(urg(f)) && !f.title.startsWith('Komt te laat') && !f.title.startsWith('Geleverd?'))
-    const deliveries = list.filter((f) => isOrder(f) && !toOrder.includes(f))
+    const pickups = list.filter((f) => isOrder(f) && (urg(f) === 'op te halen' || f.title.startsWith('Ophalen bij')))
+    const toOrder = list.filter((f) => isOrder(f) && !pickups.includes(f) && !['komt te laat', 'levering te laat'].includes(urg(f)) && !f.title.startsWith('Komt te laat') && !f.title.startsWith('Geleverd?'))
+    const deliveries = list.filter((f) => isOrder(f) && !toOrder.includes(f) && !pickups.includes(f))
     const rest = list.filter((f) => !isOrder(f))
     return (
       <>
         {toOrder.length > 0 && <><h3 className="vd5-rub">Te bestellen <span>{toOrder.length}</span></h3><OrderCols />{toOrder.map((f) => <OrderLine key={keyOf(f)} f={f} />)}</>}
+        {pickups.length > 0 && <><h3 className="vd5-rub">Ophalen <span>{pickups.length}</span></h3><OrderCols />{pickups.map((f) => <OrderLine key={keyOf(f)} f={f} />)}</>}
         {deliveries.length > 0 && <><h3 className="vd5-rub">Leveringen <span>{deliveries.length}</span></h3><OrderCols />{deliveries.map((f) => <OrderLine key={keyOf(f)} f={f} />)}</>}
         {rest.length > 0 && <><h3 className="vd5-rub">Na te kijken <span>{rest.length}</span></h3><Cols />{rest.map((f) => <Row key={keyOf(f)} f={f} />)}</>}
       </>

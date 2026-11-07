@@ -20,28 +20,37 @@ type Order = {
   client_name: string | null; project_title: string | null
   shipped_at?: string | null; actual_amount?: number | null; n_docs?: number
   needed_src?: string | null; expected_src?: string | null; lead_src?: string | null
+  delivery?: Delivery | null; pickup_by?: string | null
 }
+/** Hoe een bestelling binnenkomt (7 nov 2026): de leverancier levert, ik haal op, de klant of een onderaannemer haalt op. */
+type Delivery = 'levering' | 'ophalen' | 'klant' | 'onderaannemer'
+const DELIVERY: [Delivery, string][] = [['levering', 'Levering'], ['ophalen', 'Ik haal op'], ['klant', 'Klant haalt op'], ['onderaannemer', 'Onderaannemer haalt op']]
+const how = (o: Order): Delivery => o.delivery ?? 'levering'
+const picker = (o: Order) => (how(o) === 'klant' ? 'Klant' : how(o) === 'onderaannemer' ? (o.pickup_by || 'Onderaannemer') : '')
 type Line = { id: string; category: string | null; description: string | null; article_no: string | null; qty: number | null; unit: string | null; total: number | null }
 
 const STATUSES = ['te bestellen', 'besteld', 'bevestigd', 'geleverd', 'geannuleerd']
 const d = (v: string | null) => (v ? new Date(v + 'T12:00').toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' }) : '—')
 const today = () => new Date().toLocaleDateString('sv-SE')
-/** Inkoop in drie rubrieken (7 nov 2026): te bestellen · onderweg · binnen; geannuleerd en vervallen enkel bij "Alles". */
+/** Inkoop in rubrieken (7 nov 2026): te bestellen · op te halen · besteld · binnen; geannuleerd en vervallen enkel bij "Alles". */
 type Rub = { key: string; label: string; dateLabel: string; sort: (a: Order, b: Order) => number }
 const URANK = ['te laat', 'nu bestellen', 'levertijd onbekend', 'geen deadline', 'later']
 const RUBRIEKEN: Rub[] = [
   { key: 'bestellen', label: 'Te bestellen', dateLabel: 'Bestellen vóór', sort: (a, b) => (URANK.indexOf(a.urgency) - URANK.indexOf(b.urgency)) || (a.needed_by ?? '9').localeCompare(b.needed_by ?? '9') },
-  { key: 'onderweg', label: 'Onderweg', dateLabel: 'Verwacht', sort: (a, b) => (a.expected_at ?? '9').localeCompare(b.expected_at ?? '9') },
+  { key: 'ophalen', label: 'Op te halen', dateLabel: 'Klaar op', sort: (a, b) => (a.expected_at ?? a.needed_by ?? '9').localeCompare(b.expected_at ?? b.needed_by ?? '9') },
+  { key: 'onderweg', label: 'Besteld', dateLabel: 'Verwacht', sort: (a, b) => (a.expected_at ?? '9').localeCompare(b.expected_at ?? '9') },
   { key: 'binnen', label: 'Binnen', dateLabel: 'Binnen op', sort: (a, b) => (b.delivered_at ?? '').localeCompare(a.delivered_at ?? '') },
   { key: 'af', label: 'Geannuleerd of vervallen', dateLabel: '', sort: (a, b) => a.supplier.localeCompare(b.supplier) },
 ]
-const rubriekOf = (o: Order) => (o.status === 'geannuleerd' || o.urgency === 'vervallen' ? 'af' : o.status === 'te bestellen' ? 'bestellen' : o.status === 'geleverd' ? 'binnen' : 'onderweg')
+const rubriekOf = (o: Order) => (o.status === 'geannuleerd' || o.urgency === 'vervallen' ? 'af' : o.status === 'te bestellen' ? 'bestellen' : o.status === 'geleverd' ? 'binnen' : how(o) === 'ophalen' ? 'ophalen' : 'onderweg')
 const statusOf = (o: Order): [string, string] => {
   if (o.status === 'geannuleerd') return ['Geannuleerd', 'muted']
   if (o.urgency === 'vervallen') return ['Niet meer nodig', 'muted']
   if (o.status === 'te bestellen') return ({ 'te laat': ['Te laat', 'bad'], 'nu bestellen': ['Nu bestellen', 'warn'], 'levertijd onbekend': ['Levertijd onbekend', 'warn'] } as Record<string, [string, string]>)[o.urgency] ?? ['Te bestellen', '']
-  if (o.status === 'geleverd') return ['Binnen', 'ok']
+  if (o.status === 'geleverd') return [how(o) === 'levering' ? 'Binnen' : how(o) === 'ophalen' ? 'Opgehaald' : `${picker(o)} heeft opgehaald`, 'ok']
   if (o.urgency === 'komt te laat') return ['Komt te laat', 'bad']
+  if (how(o) === 'ophalen') return o.urgency === 'op te halen' ? [o.expected_at && o.expected_at <= today() ? 'Ligt klaar' : 'Nu ophalen', 'warn'] : ['Later ophalen', '']
+  if (how(o) !== 'levering') return [`${picker(o)} haalt op`, '']
   if (o.urgency === 'levering te laat') return ['Geleverd?', 'warn']
   if (o.shipped_at) return ['Verzonden', '']
   return [o.status === 'besteld' ? 'Besteld' : 'Bevestigd', '']
@@ -64,6 +73,7 @@ export function Src({ s }: { s?: string | null }) {
 export function Orders({ project }: { project?: string }) {
   const [filter, setFilter] = useState<'open' | 'alles'>('open')
   const [open, setOpen] = useState<string | null>(null)
+  const [ordering, setOrdering] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [adding, setAdding] = useState(false)
   const q = useQuery<Order[]>(() => {
@@ -116,16 +126,17 @@ export function Orders({ project }: { project?: string }) {
             : <span className="inko-first"><Link to={`/projecten/${o.project_code}?tab=bestellingen`} onClick={(e) => e.stopPropagation()}>{o.client_name ?? o.project_code}</Link><small>{o.project_code}{o.ordered_by && !['Zelf', 'Vonstruct'].includes(o.ordered_by) ? ` · via ${o.ordered_by}` : ''}</small></span>}
           <span className="inko-what" title={whatOf(o)}>{whatOf(o)}{o.n_docs ? <small title="mails en bijlagen uit de mailbox"> ✉ {o.n_docs}</small> : null}</span>
           <span className="inko-date"><em>nodig op </em>{dd(o.needed_by)}{o.needed_by && o.needed_src && <small>{o.needed_src}</small>}</span>
-          <span className="inko-date"><em>{rub === 'bestellen' ? 'bestellen vóór ' : rub === 'binnen' ? 'binnen op ' : 'verwacht '}</em>{dd(dateCell)}{rub === 'onderweg' && o.expected_at && o.expected_src && <small>{o.expected_src}</small>}</span>
+          <span className="inko-date"><em>{rub === 'bestellen' ? 'bestellen vóór ' : rub === 'binnen' ? 'binnen op ' : rub === 'ophalen' ? 'klaar op ' : 'verwacht '}</em>{dd(dateCell)}{(rub === 'onderweg' || rub === 'ophalen') && o.expected_at && o.expected_src && <small>{o.expected_src}</small>}</span>
           <span className="inko-amt">{o.amount != null ? fmtEur(o.amount) : '—'}</span>
           <span className={'inko-status ' + cls}>{lbl}</span>
           <span className="inko-acts" onClick={(e) => e.stopPropagation()}>
-            {rub === 'bestellen' ? <button className="inko-btn" onClick={() => setStatus(o, 'besteld')}>Besteld</button>
-              : rub === 'onderweg' ? <button className="inko-btn" onClick={() => setStatus(o, 'geleverd')}>Geleverd</button>
+            {rub === 'bestellen' ? <button className="inko-btn" aria-expanded={ordering === o.id} onClick={() => { setOrdering(ordering === o.id ? null : o.id); setOpen(null) }}>Besteld</button>
+              : rub === 'ophalen' || rub === 'onderweg' ? <button className="inko-btn" onClick={() => setStatus(o, 'geleverd')}>{how(o) === 'levering' ? 'Geleverd' : 'Opgehaald'}</button>
               : <span className="inko-btn-slot" />}
             <button className="inko-chev" aria-expanded={isOpen} aria-label={isOpen ? 'Details sluiten' : 'Details tonen'} onClick={() => setOpen(isOpen ? null : o.id)}>{isOpen ? '▴' : '▾'}</button>
           </span>
         </div>
+        {ordering === o.id && <OrderedForm o={o} onCancel={() => setOrdering(null)} onSave={(pt) => { setOrdering(null); save(o.id, { status: 'besteld', ordered_at: o.ordered_at ?? today(), ...pt }) }} />}
         {isOpen && <OrderDetail o={o} onSave={(pt) => save(o.id, pt)} onStatus={(st) => setStatus(o, st)} />}
       </div>
     )
@@ -144,7 +155,7 @@ export function Orders({ project }: { project?: string }) {
       </div>
       <ErrorBox error={q.error} />
       {adding && project && <NewOrder project={project} onDone={() => { setAdding(false); q.reload() }} />}
-      {!rows.length && <p className="muted">{project ? 'Nog geen bestellingen. Maak de lijst uit de kosten van de laatste ontwerpversie.' : 'Niets te bestellen of onderweg.'}</p>}
+      {!rows.length && <p className="muted">{project ? 'Nog geen bestellingen. Maak de lijst uit de kosten van de laatste ontwerpversie.' : 'Niets te bestellen, op te halen of onderweg.'}</p>}
       {groups.map((g) => {
         // Inkoop (alle projecten): per leverancier gegroepeerd; projectpagina: leverancier als eerste kolom
         const bySupplier = project ? [['', g.list] as [string, Order[]]] : [...g.list.reduce((m, o) => m.set(o.supplier, [...(m.get(o.supplier) ?? []), o]), new Map<string, Order[]>())]
@@ -221,6 +232,43 @@ ${lines.map((l) => `<tr><td class="n">${esc(qtyTxt(l))}</td><td>${esc(l.article_
   w.document.close()
 }
 
+/** Na "Besteld": hoe komt het binnen, wie haalt op, bestelnummer en (als je het weet) wanneer het klaar is of geleverd wordt. */
+function OrderedForm({ o, onSave, onCancel }: { o: Order; onSave: (p: Partial<Order>) => void; onCancel: () => void }) {
+  const [f, setF] = useState({ delivery: how(o), pickup_by: o.pickup_by ?? '', reference: o.reference ?? '', expected_at: o.expected_at ?? '' })
+  return (
+    <form className="inko-form" onSubmit={(e) => { e.preventDefault(); onSave({ delivery: f.delivery, pickup_by: f.delivery === 'onderaannemer' ? (f.pickup_by.trim() || null) : null, reference: f.reference.trim() || null, expected_at: f.expected_at || null }) }}>
+      <div className="inko-form-how">
+        <span className="lbl">Hoe komt het binnen?</span>
+        <DeliveryPick value={f.delivery} onPick={(v) => setF({ ...f, delivery: v })} />
+      </div>
+      <div className="inko-form-fields">
+        {f.delivery === 'onderaannemer' && <label>Welke onderaannemer<SubInput value={f.pickup_by} onChange={(v) => setF({ ...f, pickup_by: v })} /></label>}
+        <label>Bestelnummer<input value={f.reference} onChange={(e) => setF({ ...f, reference: e.target.value })} placeholder="als je het hebt" /></label>
+        <label>{f.delivery === 'levering' ? 'Levering verwacht op' : 'Klaar om op te halen op'}<DateInput value={f.expected_at} onChange={(e) => setF({ ...f, expected_at: e.target.value })} /></label>
+      </div>
+      <div className="inko-form-acts">
+        <button type="submit" className="primary">Bewaren als besteld</button>
+        <button type="button" onClick={onCancel}>Annuleren</button>
+      </div>
+    </form>
+  )
+}
+function DeliveryPick({ value, onPick }: { value: Delivery; onPick: (v: Delivery) => void }) {
+  return (
+    <div className="seg inko-how" role="radiogroup" aria-label="Hoe komt het binnen?">
+      {DELIVERY.map(([k, label]) => <button type="button" key={k} role="radio" aria-checked={value === k} className={value === k ? 'on' : ''} onClick={() => onPick(k)}>{label}</button>)}
+    </div>
+  )
+}
+/** Naam van de onderaannemer: kiezen uit Relaties of vrij typen. */
+function SubInput({ value, onChange, onBlur }: { value: string; onChange: (v: string) => void; onBlur?: () => void }) {
+  const subs = useQuery<{ name: string }[]>(() => supabase.from('subcontractors').select('name').order('name'), [])
+  return <>
+    <input list="inko-subs" value={value} onChange={(e) => onChange(e.target.value)} onBlur={onBlur} placeholder="naam" />
+    <datalist id="inko-subs">{(subs.data ?? []).map((s) => <option key={s.name} value={s.name} />)}</datalist>
+  </>
+}
+
 function OrderDetail({ o, onSave, onStatus }: { o: Order; onSave: (p: Partial<Order>) => void; onStatus: (s: string) => void }) {
   const lines = useQuery<Line[]>(() => supabase.from('order_lines').select('id,category,description,article_no,qty,unit,total').eq('order_id', o.id).eq('active', true).order('category'), [o.id])
   // artikel dat je liggen hebt: op voorraad zetten → telt mee in de kost, de open bestellijsten worden vanzelf bijgewerkt
@@ -251,20 +299,25 @@ function OrderDetail({ o, onSave, onStatus }: { o: Order; onSave: (p: Partial<Or
       <div className="seg">
         {STATUSES.map((s) => <button key={s} className={o.status === s ? 'on' : ''} onClick={() => onStatus(s)}>{s}</button>)}
       </div>
+      <div className="inko-form-how">
+        <span className="lbl">Hoe komt het binnen?</span>
+        <DeliveryPick value={how(o)} onPick={(v) => v !== how(o) && onSave({ delivery: v, ...(v !== 'onderaannemer' ? { pickup_by: null } : {}) })} />
+        {how(o) === 'onderaannemer' && <PickupBy o={o} onSave={onSave} />}
+      </div>
       <div className="order-fields">
         {field('Nodig op', 'needed_by')}
         {field('Levertermijn (werkdagen)', 'lead_days', 'number')}
         {field('Besteld op', 'ordered_at')}
         {field('Verzonden op', 'shipped_at' as keyof Order)}
-        {field('Verwacht op', 'expected_at')}
-        {field('Geleverd op', 'delivered_at')}
+        {field(how(o) === 'levering' ? 'Verwacht op' : 'Klaar op', 'expected_at')}
+        {field(how(o) === 'levering' ? 'Geleverd op' : 'Opgehaald op', 'delivered_at')}
         {field('Bestelnummer', 'reference', 'text')}
         {field('Notitie', 'note', 'text')}
       </div>
       <div className="order-actions">
         <button onClick={() => copyList(o, lines.data ?? [])}>Lijst kopiëren</button>
         <button onClick={() => printList(o, lines.data ?? [])}>Afdrukken / PDF</button>
-        <span className="muted small">Bestellen doe je zelf bij de leverancier; zet daarna de status op "besteld".</span>
+        <span className="muted small">Bestellen doe je zelf bij de leverancier; klik daarna op "Besteld".</span>
       </div>
       <OrderMails orderId={o.id} />
       {o.needed_by_manual && <p className="muted small">Datum "nodig op" met de hand gezet (leeg maken = weer automatisch uit de planning).</p>}
@@ -282,6 +335,11 @@ function OrderDetail({ o, onSave, onStatus }: { o: Order; onSave: (p: Partial<Or
       )}
     </div>
   )
+}
+
+function PickupBy({ o, onSave }: { o: Order; onSave: (p: Partial<Order>) => void }) {
+  const [v, setV] = useState(o.pickup_by ?? '')
+  return <label className="inko-pickup">Wie<SubInput value={v} onChange={setV} onBlur={() => (v.trim() || null) !== (o.pickup_by ?? null) && onSave({ pickup_by: v.trim() || null })} /></label>
 }
 
 /** Mails en bijlagen uit de mailbox die bij deze bestelling horen (mail_documents.order_id). */

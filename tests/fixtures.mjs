@@ -33,6 +33,7 @@ const today = [
   f({ prio: 1, kind: 'bestelling', project_code: '209903', ref: 'o1', title: 'Bestellen bij Voorbeeldhout', detail: 'bestellen vóór 06/11/2099 · nodig op 13/11/2099 (plaatsing)', category: 'bestellingen', client_name: 'Tom Claes', due_date: day(-1) }),
   f({ prio: 1, kind: 'bestelling', project_code: '209901', ref: 'o2', title: 'Komt te laat: Tegelhuis Voorbeeld', detail: 'verwacht 14/11/2099 (uit mail) · nodig op 13/11/2099 (plaatsing)', category: 'bestellingen', client_name: 'Jan Peeters' }),
   f({ prio: 2, kind: 'bestelling', project_code: '209901', ref: 'o3', title: 'Geleverd? Beslag Voorbeeld', detail: 'verwacht 29/10/2099 (uit mail) · nog niet aangeduid als geleverd', category: 'bestellingen', client_name: 'Jan Peeters' }),
+  f({ prio: 2, kind: 'bestelling', project_code: '209901', ref: 'o5', title: 'Ophalen bij Houthandel Voorbeeld', detail: 'klaar 06/11/2099 (uit mail) · nodig op 10/11/2099 (plaatsing)', category: 'bestellingen', client_name: 'Jan Peeters' }),
   f({ prio: 1, kind: 'levertijd', project_code: '209903', ref: 'o4', title: 'Levertijd onbekend: Plaathandel Voorbeeld', detail: 'nodig op 13/11/2099 (plaatsing) · vul de levertijd in of bestel', category: 'bestellingen', client_name: 'Tom Claes' }),
   f({ prio: 1, kind: 'taak', project_code: '209903', ref: 't9', title: 'Vandaag nog bestellen voor Tom (plaatsing 13/11): platen bij Plaathandel Voorbeeld en kanten bij Kantenhuis Voorbeeld, samen 2 bestellingen', category: 'bestellingen', client_name: 'Tom Claes', due_date: day(-2) }),
   f({ prio: 2, kind: 'prijzen', project_code: '209901', last_version: 3, title: '4 artikels zonder prijs', detail: 'De raming is onvolledig tot de prijs is ingevuld', category: 'kwaliteit' }),
@@ -89,6 +90,10 @@ Object.assign(orders[1], { supplier: 'Tegelhuis Voorbeeld', urgency: 'komt te la
 orders.push(
   { ...orders[1], id: 'o3', supplier: 'Beslag Voorbeeld', status: 'bevestigd', urgency: 'levering te laat', expected_at: day(-9), expected_src: 'uit mail', needed_by: null, needed_src: null },
   { ...orders[0], id: 'o4', supplier: 'Plaathandel Voorbeeld', urgency: 'levertijd onbekend', order_by: null, needed_by: day(6), needed_src: 'plaatsing' },
+  // hoe het binnenkomt (7 nov 2026): ik haal op, klant haalt op
+  { ...orders[1], id: 'o5', supplier: 'Houthandel Voorbeeld', status: 'bevestigd', delivery: 'ophalen', urgency: 'op te halen', expected_at: day(-1), expected_src: 'uit mail', needed_by: day(3), needed_src: 'plaatsing' },
+  { ...orders[1], id: 'o6', supplier: 'Toestellen Voorbeeld', status: 'besteld', delivery: 'klant', urgency: 'wordt opgehaald', expected_at: day(5), expected_src: null, needed_by: day(9), needed_src: 'plaatsing', categories: ['Toestellen'], n_lines: 0, note: 'Oven en kookplaat' },
+  { ...orders[1], id: 'o7', supplier: 'Groothandel Voorbeeld', status: 'besteld', delivery: 'onderaannemer', pickup_by: 'Elektro Voorbeeld', urgency: 'wordt opgehaald', expected_at: null, expected_src: null, needed_by: day(9), needed_src: 'plaatsing', categories: ['Elektro'], n_lines: 3 },
 )
 const invoices = [
   { id: 'i1', project_code: '209903', quote_id: 'q1', seq: 1, kind: 'voorschot', label: 'Voorschot 30 %', pct: 30, amount_excl: 300, amount_vat: 18, amount_incl: 318, vat_split: null, status: 'te factureren', state: 'open', ready_at: day(-1), invoice_number: null, invoice_date: null, due_date: null, paid_amount: null, paid_at: null, note: null, client_name: 'Tom Claes', quote_number: 'OFF-0001', days_overdue: null },
