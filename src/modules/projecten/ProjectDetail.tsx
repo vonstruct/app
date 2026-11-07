@@ -1,4 +1,5 @@
 import { ErrorBoundary } from '../../core/ErrorBoundary'
+import { HoursQuickAdd } from '../../core/Hours'
 import { YukiHistory } from '../../core/YukiHistory'
 import type { Timeline } from './KeyDates'
 import { toast } from '../../core/toast'
@@ -106,6 +107,7 @@ export function ProjectDetail() {
   // klantgegevens: klein blok onder de kop; opent vanzelf als je komt om een ontbrekend veld in te vullen (?focus=email …)
   const clientFocus = focus && !['fase', 'survey', 'mails', 'datums', 'prijzen'].includes(focus) ? focus : null
   const [showClient, setShowClient] = useState(false)
+  const [addHours, setAddHours] = useState(false)
   const versions = pd?.versions ?? []
   const [a, setA] = useState<number | null>(null)
   const [b, setB] = useState<number | null>(null)
@@ -215,6 +217,7 @@ export function ProjectDetail() {
             <button className={'pd-q' + (showClient || clientFocus ? ' on' : '')} onClick={() => setShowClient(!showClient)}>Klantgegevens</button>
             <button className="pd-q gold" onClick={() => setParams({ tab: 'overzicht', nieuw: 'opdracht' }, { replace: true })}>+ Opdracht</button>
             <button className="pd-q" onClick={() => setParams({ tab: 'overzicht', nieuw: 'afspraak' }, { replace: true })}>+ Afspraak</button>
+            <button className="pd-q" onClick={() => setAddHours(true)}>+ Uren</button>
           </div>
         )}
       </header>
@@ -228,6 +231,7 @@ export function ProjectDetail() {
       </nav>
       <ErrorBox error={page.error} />
       {!pd ? (page.loading ? <Loading /> : null) : !project ? <p className="muted">Project {code} niet gevonden.</p> : <div className="pd-body"><ErrorBoundary key={tab + '/' + sub} title="Dit onderdeel kon niet getoond worden">{body}</ErrorBoundary></div>}
+      {addHours && <HoursQuickAdd project={code} onClose={() => setAddHours(false)} onSaved={page.reload} />}
     </section>
   )
 }

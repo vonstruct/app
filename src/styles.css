@@ -1952,3 +1952,14 @@ label > .date-in, .kd-fields .date-in, .po-edit .date-in { width: 100%; }
   .topbar .tb-von-label { display: none; }
   .von-fab { display: none !important; }
 }
+
+/* Uren invullen (7 nov 2026): grote snelknoppen voor de gsm */
+.hours-quick { display: flex; gap: 8px; flex-wrap: wrap; }
+.hours-quick button { flex: 1 1 64px; min-height: 44px; font-size: 15px; }
+.hours-quick button.on { background: var(--gold, #c9a24a); color: #0e1729; border-color: var(--gold, #c9a24a); }
+.vd-pill.hours-btn { cursor: pointer; border-style: dashed; }
+.hours-add input, .hours-add select { min-height: 44px; }
+.hours-add .form-grid { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); }
+.hours-add .form-grid > .wide { grid-column: 1 / -1; }
+.hours-add select, .hours-add .date-in, .hours-add .date-in input { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
+.hours-add .form-grid input { width: 100%; min-width: 0; box-sizing: border-box; }

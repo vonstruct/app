@@ -1,6 +1,7 @@
 import { Tasks } from '../../core/Tasks'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
+import { HoursQuickAdd } from '../../core/Hours'
 import { supabase } from '../../core/supabase'
 import { useQuery } from '../../core/useQuery'
 import { ErrorBox, Loading } from '../../core/ui'
@@ -45,6 +46,7 @@ export const actionFor = (f: Flag): { to: string; label: string } => {
     case 'gegevens': return { to: `${proj}?focus=gegevens`, label: 'Invullen' }
     case 'datums': return { to: `${proj}?focus=datums`, label: 'Datum invullen' }
     // harde stap overgeslagen (offerte getekend / voorschot betaald), 7 nov 2026
+    case 'uren': return { to: `/overzicht?uren=${f.ref}`, label: 'Uren invullen' }
     case 'regel': return { to: '/regels?sectie=Facturen', label: 'Regel aanpassen' }
     case 'poort': return /offerte/i.test(f.title) ? { to: `${proj}?tab=offerte`, label: 'Offerte bekijken' } : { to: `${proj}?tab=facturen`, label: 'Facturen bekijken' }
     case 'partner_email': return { to: `/relaties?tab=partners&focus=${f.ref}:email`, label: 'E-mail invullen' }
@@ -127,6 +129,10 @@ export function ControlTower() {
   const flags = useQuery<Flag[]>(async () => { const { data, error } = await supabase.rpc('today_items'); return { data: (data ?? []) as Flag[], error } }, [])
   const cats = useQuery<Cat[]>(() => supabase.from('today_categories').select('*').order('sort'), [])
   const projects = useProjects()
+  // uren invullen: knop "+ Uren" of punt "Uren invullen" (/overzicht?uren=<opdracht>), 7 nov 2026
+  const [params, setParams] = useSearchParams()
+  const [hours, setHours] = useState<{ job: string | null } | null>(null)
+  useEffect(() => { const j = params.get('uren'); if (j) { setHours({ job: j }); setParams({}, { replace: true }) } }, [params, setParams])
   const [snoozed, setSnoozed] = useState<Set<string>>(new Set())
   const [gone, setGone] = useState<Set<string>>(new Set())
   const [open, setOpen] = useState<string | null>(null)
@@ -237,8 +243,10 @@ export function ControlTower() {
           <span className="vd-pill now"><i /> <b>{today.length}</b> vandaag</span>
           <span className="vd-pill week"><i /> <b>{weekCount}</b> deze week</span>
           <Link to="/projecten" className="vd-pill good"><i /> <b>{active.length}</b> lopend{active.length === 1 ? ' project' : 'e projecten'}</Link>
+          <button className="vd-pill hours-btn" onClick={() => setHours({ job: null })}>+ Uren</button>
         </div>
       </header>
+      {hours && <HoursQuickAdd jobId={hours.job} onClose={() => setHours(null)} onSaved={() => flags.reload()} />}
       <ErrorBox error={flags.error ?? projects.error ?? cats.error} />
       {!flags.data || !projects.data || !cats.data ? (flags.error || projects.error || cats.error ? null : <Loading />) : (
         <div className="vd-grid">
