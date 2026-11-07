@@ -53,7 +53,9 @@ function MailItem({ m, open, onToggle, onChanged, showProject }: { m: MailRow; o
         <div className="ml-body">
           <p className="muted small">
             {m.direction === 'in' ? `Van ${m.from_name ?? ''} <${m.from_email}>` : `Aan ${(m.to_emails ?? []).join(', ')}`} · {new Date(m.at).toLocaleString('nl-BE')} · mailbox {m.mailbox}
-            {showProject && m.project_code && <> · <Link to={`/projecten/${encodeURIComponent(m.project_code)}`}>{m.project_code}</Link></>}
+            {showProject && m.project_code && (m.project_code.startsWith('gewist:')
+              ? <span className="muted"> · gewist project</span>
+              : <> · <Link to={`/projecten/${encodeURIComponent(m.project_code)}`}>{m.project_code}</Link></>)}
           </p>
           <pre className="ml-text">{body ?? 'Laden…'}</pre>
           <div className="toolbar">
