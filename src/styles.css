@@ -2120,3 +2120,47 @@ a.vd5-what:hover { color: var(--accent); }
   .vd5-btn.nav .t { display: none; }
   .vd5-btn.nav::after { content: '›'; }
 }
+.vd5-lbl { display: none; font-style: normal; }
+/* Vandaag v5.2: rubrieken bij Bestellingen, vaste kolommen per bestelling, overal dezelfde knoppen (7 nov 2026) */
+.vd5-cols, .vd5 .vd5-row { grid-template-columns: 10px minmax(0, 1.5fr) minmax(0, .8fr) minmax(0, 1.6fr) 200px; }
+.vd5 .vd5-btn { width: 104px; justify-content: center; background: var(--panel); border-color: var(--line); color: var(--ink); }
+.vd5 .vd5-btn:hover { border-color: var(--ink); }
+.vd5-slot { width: 40px; flex: none; }
+.vd5-rub { margin: 0; padding: 14px 18px 4px; font: 600 13px var(--vd-display, system-ui); letter-spacing: .08em; text-transform: uppercase; color: var(--ink); border-top: 1px solid var(--line); display: flex; gap: 8px; align-items: center; }
+.vd5-rub span { font-weight: 500; color: var(--muted); }
+.vd5-list h2 + .vd5-rub { border-top: 0; }
+.vd5-ocols, .vd5-orow { display: grid; grid-template-columns: 10px minmax(0, 1.1fr) minmax(0, 1.1fr) 104px 104px minmax(0, .9fr) 200px; gap: 14px; align-items: center; }
+.vd5-ocols { padding: 4px 18px 6px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.vd5-orow { padding: 10px 18px; min-height: 58px; border-top: 1px solid var(--line); }
+.vd5-ocols + .vd5-item .vd5-orow, .vd5-cols + .vd5-item .vd5-row { border-top: 1px solid var(--line); }
+.vd5-sup { font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+a.vd5-sup:hover { color: var(--accent); }
+.vd5-proj-cell { display: flex; flex-direction: column; min-width: 0; font-size: 13.5px; }
+.vd5-proj-cell span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vd5-proj-cell small, .vd5-date small { color: var(--muted); font-size: 12px; }
+.vd5-date { display: flex; flex-direction: column; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.vd5-status { font-size: 13px; font-weight: 600; color: var(--muted); }
+.vd5-status.bad { color: var(--bad); }
+.vd5-status.warn { color: var(--warn); }
+.vd5-item .vd5-orow { border-top: 0; }
+.vd5-item + .vd5-item { border-top: 1px solid var(--line); }
+@media (max-width: 760px) {
+  .vd5-ocols { display: none; }
+  .vd5-orow { grid-template-columns: 10px minmax(0, 1fr) minmax(0, 1fr) auto; gap: 2px 10px; padding: 10px 12px; }
+  .vd5-orow .vd5-dot { grid-row: 1; margin-top: 6px; align-self: start; }
+  .vd5-orow .vd5-sup { grid-column: 2; grid-row: 1; }
+  .vd5-orow .vd5-status { grid-column: 3; grid-row: 1; text-align: right; }
+  .vd5-orow .vd5-proj-cell { grid-column: 2 / span 2; grid-row: 2; flex-direction: row; gap: 6px; }
+  .vd5-orow .vd5-date { grid-row: 3; flex-direction: row; gap: 4px; font-size: 12.5px; color: var(--muted); white-space: nowrap; display: block; }
+  .vd5-orow .vd5-date.need { grid-column: 2; }
+  .vd5-orow .vd5-date.exp { grid-column: 3; }
+  .vd5 .vd5-row { grid-template-columns: 10px minmax(0, 1fr) auto; }
+  .vd5-row .vd5-acts { flex-direction: column; align-items: flex-end; }
+  .vd5-orow .vd5-acts { grid-column: 4; grid-row: 1 / span 3; flex-direction: column; align-items: flex-end; }
+  .vd5-orow .vd5-status { font-size: 12.5px; }
+  .vd5 .vd5-btn { width: auto; }
+  .vd5 .vd5-btn.nav { width: 40px; }
+  .vd5-slot { display: none; }
+  .vd5-lbl { display: inline; }
+  .vd5-date small { display: none; }
+}

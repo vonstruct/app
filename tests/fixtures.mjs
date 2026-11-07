@@ -33,6 +33,7 @@ const today = [
   f({ prio: 1, kind: 'bestelling', project_code: '209903', ref: 'o1', title: 'Bestellen bij Voorbeeldhout', detail: 'bestellen vóór 06/11/2099 · nodig op 13/11/2099 (plaatsing)', category: 'bestellingen', client_name: 'Tom Claes', due_date: day(-1) }),
   f({ prio: 1, kind: 'bestelling', project_code: '209901', ref: 'o2', title: 'Komt te laat: Tegelhuis Voorbeeld', detail: 'verwacht 14/11/2099 (uit mail) · nodig op 13/11/2099 (plaatsing)', category: 'bestellingen', client_name: 'Jan Peeters' }),
   f({ prio: 2, kind: 'bestelling', project_code: '209901', ref: 'o3', title: 'Geleverd? Beslag Voorbeeld', detail: 'verwacht 29/10/2099 (uit mail) · nog niet aangeduid als geleverd', category: 'bestellingen', client_name: 'Jan Peeters' }),
+  f({ prio: 1, kind: 'levertijd', project_code: '209903', ref: 'o4', title: 'Levertijd onbekend: Plaathandel Voorbeeld', detail: 'nodig op 13/11/2099 (plaatsing) · vul de levertijd in of bestel', category: 'bestellingen', client_name: 'Tom Claes' }),
   f({ prio: 1, kind: 'taak', project_code: '209903', ref: 't9', title: 'Vandaag nog bestellen voor Tom (plaatsing 13/11): platen bij Plaathandel Voorbeeld en kanten bij Kantenhuis Voorbeeld, samen 2 bestellingen', category: 'bestellingen', client_name: 'Tom Claes', due_date: day(-2) }),
   f({ prio: 2, kind: 'prijzen', project_code: '209901', last_version: 3, title: '4 artikels zonder prijs', detail: 'De raming is onvolledig tot de prijs is ingevuld', category: 'kwaliteit' }),
   f({ prio: 2, kind: 'mail_antwoord', project_code: '209901', ref: 'm1', title: 'Wacht op antwoord: vraag over grepen', detail: 'Jan Peeters · 3 dagen', category: 'klanten' }),
@@ -82,6 +83,13 @@ const orders = [
   { id: 'o1', project_code: '209903', supplier: 'Voorbeeldhout', ordered_by: 'Vonstruct', categories: ['Platen'], status: 'te bestellen', needed_by: day(6), needed_by_manual: false, lead_days: 5, lead_days_eff: 5, order_by: day(-1), ordered_at: null, expected_at: null, delivered_at: null, reference: null, amount: 321.0, n_lines: 12, note: null, urgency: 'te laat besteld', client_name: 'Tom Claes', project_title: 'Badkamermeubel', n_docs: 1, needed_src: 'plaatsing', lead_src: 'ingevuld' },
   { id: 'o2', project_code: '209901', supplier: 'Beslag Voorbeeld', ordered_by: 'Vonstruct', categories: ['Beslag'], status: 'besteld', needed_by: day(20), needed_by_manual: false, lead_days: null, lead_days_eff: 0, order_by: null, ordered_at: day(-3), expected_at: day(4), delivered_at: null, reference: 'B-123', amount: 45.5, n_lines: 4, note: null, urgency: 'levertijd onbekend', client_name: 'Jan Peeters', project_title: 'Keuken en berging', n_docs: 0 },
 ]
+// Vandaag v5.2: verzonnen bestellingen voor de rubrieken (te bestellen, leveringen)
+Object.assign(orders[0], { urgency: 'te laat', client_name: 'Tom Claes', needed_src: 'plaatsing' })
+Object.assign(orders[1], { supplier: 'Tegelhuis Voorbeeld', urgency: 'komt te laat', client_name: 'Jan Peeters', expected_at: day(8), expected_src: 'uit mail', needed_by: day(7), needed_src: 'plaatsing' })
+orders.push(
+  { ...orders[1], id: 'o3', supplier: 'Beslag Voorbeeld', status: 'bevestigd', urgency: 'levering te laat', expected_at: day(-9), expected_src: 'uit mail', needed_by: null, needed_src: null },
+  { ...orders[0], id: 'o4', supplier: 'Plaathandel Voorbeeld', urgency: 'levertijd onbekend', order_by: null, needed_by: day(6), needed_src: 'plaatsing' },
+)
 const invoices = [
   { id: 'i1', project_code: '209903', quote_id: 'q1', seq: 1, kind: 'voorschot', label: 'Voorschot 30 %', pct: 30, amount_excl: 300, amount_vat: 18, amount_incl: 318, vat_split: null, status: 'te factureren', state: 'open', ready_at: day(-1), invoice_number: null, invoice_date: null, due_date: null, paid_amount: null, paid_at: null, note: null, client_name: 'Tom Claes', quote_number: 'OFF-0001', days_overdue: null },
 ]
