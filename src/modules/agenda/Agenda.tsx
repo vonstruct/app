@@ -634,7 +634,7 @@ export function NewEvent({ day, projects, onClose, onCreated, project = '', init
         <div className="modal-head"><span className="muted small">Nieuwe afspraak in Outlook</span><button className="link" onClick={onClose} aria-label="Sluiten">✕</button></div>
         <h2>Nieuwe afspraak</h2>
         <div className="form-grid agenda-form">
-          <label className="wide">Titel<input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Bv. Opmeting 209902 Geel" /></label>
+          <label className="wide">Titel<input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Bv. Opmeting keuken Jan Peeters" /></label>
           <label>Begin<DateTimeInput value={start} onChange={(e) => setStart(e.target.value)} /></label>
           <label>Duur (min)<input type="number" min={15} step={15} value={dur} onChange={(e) => setDur(Number(e.target.value))} /></label>
           <label className="wide">Locatie<input value={loc} onChange={(e) => setLoc(e.target.value)} /></label>
