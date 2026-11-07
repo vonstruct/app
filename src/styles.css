@@ -1963,3 +1963,9 @@ label > .date-in, .kd-fields .date-in, .po-edit .date-in { width: 100%; }
 .hours-add .form-grid > .wide { grid-column: 1 / -1; }
 .hours-add select, .hours-add .date-in, .hours-add .date-in input { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
 .hours-add .form-grid input { width: 100%; min-width: 0; box-sizing: border-box; }
+
+/* Betalingsschema per offerte (7 nov 2026) */
+.pay-sched { margin: 8px 0 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.pay-sched-edit { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pay-sched-edit label { display: inline-flex; align-items: center; gap: 4px; }
+.pay-sched-edit input { width: 56px; }

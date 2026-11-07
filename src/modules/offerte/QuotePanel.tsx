@@ -182,6 +182,7 @@ function QuoteEditor({ q, company, btw6, onChange, onGenerate, busy }: { q: Quot
           </span>
         )}
       </div>
+      <PaymentSchedule q={q} onChange={onChange} />
       {zero.length > 0 && <p className="quote-warn">{zero.length} regel(s) zonder prijs: {zero.map((l) => l.title).join(', ')}. Vul een prijs in of zet de korting op 100 %.</p>}
       <ErrorBox error={lines.error} />
 
@@ -374,6 +375,56 @@ function ExternalQuote({ q, onChange }: { q: Quote; onChange: () => void }) {
         <span><small>Incl. btw</small><b>{fmtEur(q.total_incl)}</b></span>
       </div>
       <div className="seg">{['verstuurd', 'aanvaard', 'geweigerd'].map((s) => <button key={s} className={q.status === s ? 'on' : ''} onClick={() => setStatus(s)}>{STATUS[s][0]}</button>)}</div>
+    </div>
+  )
+}
+
+/**
+ * Betalingsschema van deze offerte (7 nov 2026, Olivier: "niet altijd te volgen, geen harde regel"): standaard uit de regel
+ * betalingsschijven, per offerte aan te passen. Concept/verstuurd: bewaart quotes.payment_schedule (de schijven volgen bij het tekenen).
+ * Aanvaard: RPC invoice_schedule_reset maakt de schijven opnieuw, zolang er nog niets gefactureerd is.
+ */
+function PaymentSchedule({ q, onChange }: { q: Quote; onChange: () => void }) {
+  type S = { voorschot: number; levering: number; saldo: number }
+  const own = useQuery<{ payment_schedule: S | null } | null>(() => supabase.from('quotes').select('payment_schedule').eq('id', q.id).maybeSingle(), [q.id, q.status])
+  const rule = useQuery<{ value: S } | null>(() => supabase.from('rule_settings').select('value').eq('key', 'betalingsschijven').maybeSingle(), [])
+  const cur: S | null = own.data?.payment_schedule ?? rule.data?.value ?? null
+  const [f, setF] = useState<{ voorschot: string; levering: string; saldo: string } | null>(null)
+  const [busy, setBusy] = useState(false)
+  if (!cur || q.external) return null
+  const open = f !== null
+  const total = f ? ['voorschot', 'levering', 'saldo'].reduce((s, k) => s + (Number(String(f[k as keyof typeof f]).replace(',', '.')) || 0), 0) : cur.voorschot + cur.levering + cur.saldo
+  const save = async () => {
+    if (!f) return
+    const sched = { voorschot: Number(f.voorschot.replace(',', '.')) || 0, levering: Number(f.levering.replace(',', '.')) || 0, saldo: Number(f.saldo.replace(',', '.')) || 0 }
+    setBusy(true)
+    const { error } = q.status === 'aanvaard'
+      ? await supabase.rpc('invoice_schedule_reset', { p_quote: q.id, p_schedule: sched })
+      : await supabase.from('quotes').update({ payment_schedule: sched }).eq('id', q.id)
+    setBusy(false)
+    if (error) return toast(error.message, 'err')
+    toast(q.status === 'aanvaard' ? 'Schijven opnieuw gemaakt (Geld › Facturen)' : 'Betalingsschema bewaard')
+    setF(null); own.reload(); onChange()
+  }
+  return (
+    <div className="pay-sched small">
+      <b>Betalingsschema</b>{' '}
+      {!open ? (
+        <>
+          <span>{cur.voorschot} % voorschot · {cur.levering} % bij levering · {cur.saldo} % saldo{own.data?.payment_schedule ? '' : ' (standaard)'}</span>
+          {total !== 100 && <span className="muted"> · samen {total} %: de laatste schijf wordt de rest</span>}
+          {['concept', 'verstuurd', 'aanvaard'].includes(q.status) && <button className="link small" onClick={() => setF({ voorschot: String(cur.voorschot), levering: String(cur.levering), saldo: String(cur.saldo) })}>aanpassen</button>}
+        </>
+      ) : (
+        <span className="pay-sched-edit">
+          <label>Voorschot % <input inputMode="decimal" value={f.voorschot} onChange={(e) => setF({ ...f, voorschot: e.target.value })} /></label>
+          <label>Bij levering % <input inputMode="decimal" value={f.levering} onChange={(e) => setF({ ...f, levering: e.target.value })} /></label>
+          <label>Saldo % <input inputMode="decimal" value={f.saldo} onChange={(e) => setF({ ...f, saldo: e.target.value })} /></label>
+          <span className={total === 100 ? 'muted' : 'bad-txt'}>samen {total} %</span>
+          <button className="primary small" disabled={busy} onClick={save}>{busy ? '…' : q.status === 'aanvaard' ? 'Schijven opnieuw maken' : 'Bewaren'}</button>
+          <button className="small" onClick={() => setF(null)}>Annuleren</button>
+        </span>
+      )}
     </div>
   )
 }
