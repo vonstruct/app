@@ -54,7 +54,7 @@ export function numbersOf(d: ProjectPage): ProjectNumbers {
     if (!k) continue
     open[k] = { n: (open[k]?.n ?? 0) + 1, urgent: (open[k]?.urgent ?? false) || x.prio === 1 }
   }
-  // betaald: uit Yuki (enkel facturen die bij een opgeladen offerte of een factuur van de app horen), anders de facturen van de app
+  // betaald: uit Yuki (enkel facturen die bij een offerte van het project of een factuur van de app horen), anders de facturen van de app
   const ledInv = d.ledger.filter((r) => r.kind !== 'betaling')
   return {
     quote,

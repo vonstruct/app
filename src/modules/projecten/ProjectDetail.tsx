@@ -150,9 +150,9 @@ export function ProjectDetail() {
     else if (sub === 'documenten') body = <DocumentsPanel project={code} />
     else if (sub === 'nacalculatie') body = <NacalcPanel project={code} />
     else if (sub === 'oplevering') body = <HandoverPanel project={code} />
-    else if (sub === 'facturen') body = <><Invoices project={code} /><div className="panel"><h2>In Yuki</h2><p className="muted small">Facturen en betalingen uit de boekhouding die bij dit project horen: het nummer van de opgeladen offerte staat in de omschrijving (bv. "Voorschotfactuur OFF00") of het is een factuur van de app. Andere facturen van deze klant tellen niet mee.</p><YukiHistory clientId={project.client_id} project={code} /></div></>
+    else if (sub === 'facturen') body = <><Invoices project={code} /><div className="panel"><h2>In Yuki</h2><p className="muted small">Facturen en betalingen uit de boekhouding die bij dit project horen: het offertenummer staat in de omschrijving (bv. "Voorschotfactuur" + offertenummer) of het is een factuur van de app. Andere facturen van deze klant tellen niet mee.</p><YukiHistory clientId={project.client_id} project={code} /></div></>
     else if (sub === 'offerte') body = <QuotePanel project={code} />
-    else if (sub === 'kost') body = <ProjectCost project={code} />
+    else if (sub === 'kost') body = <ProjectCost project={code} onQuote={() => setTab('offerte')} />
     else if (sub === 'productie') body = <ProductionPanel project={code} />
     else if (sub === 'bestellingen') body = <><Orders project={code} /><div className="panel"><h2>Uit de mailbox</h2><p className="muted small">Orderbevestigingen, facturen en leveringsbons van leveranciers die aan dit project gekoppeld zijn (bijlage gelezen). Na te kijken: Planning → Bestellingen → Uit je mailbox.</p><MailDocs project={code} /></div></>
     else if (sub === 'vragenlijst') body = <>{!['lead', 'intake', 'survey'].includes(project.phase) && <LeadActions p={project} onDone={pq.reload} />}<IntakeCard code={code} /><SurveyPanel code={code} focus={focus === 'survey'} /></>

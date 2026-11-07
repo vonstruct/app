@@ -12,7 +12,7 @@ export async function openYukiPdf(documentId: string) {
 }
 
 /** Facturen en betalingen van een klant uit Yuki (klantenrekening, view app_client_ledger; elke nacht bijgewerkt), met pdf uit het archief. Offertes uit Yuki zijn niet op te halen (niet in het archief).
- *  Enkel facturen die horen bij een opgeladen offerte of een factuur van de app (+ hun betalingen); met `project` enkel die van dat project (6 nov 2026). */
+ *  Enkel facturen die horen bij een offerte (offertenummer in de omschrijving) of een factuur van de app (+ hun betalingen); met `project` enkel die van dat project (6 nov 2026). */
 type L = { client_id: string; project_code: string | null; yuki_id: string; entry_date: string; kind: 'factuur' | 'creditnota' | 'betaling'; invoice_no: string | null; description: string | null; amount: number; paid: boolean | null; client_balance: number; document_id: string | null }
 const d = (v: string) => new Date(v + 'T12:00').toLocaleDateString('nl-BE', { day: 'numeric', month: 'short', year: 'numeric' })
 const clean = (s: string | null) => (s ?? '').replace(/^Binnenlandse overschrijvingen - SEPA credit transfers : /, '').replace(/\s*\|.*$/, '').replace(/Netto bedrag: [\d,.]+ : /, '').slice(0, 90)

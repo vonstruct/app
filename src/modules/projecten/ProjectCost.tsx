@@ -12,7 +12,7 @@ import { OwnArticleEditor } from '../../core/OwnArticle'
  * Groepen = standaardgroepen uit de stuklijst (regel projectkost_groepen: platen, kanten en productie = "Kasten volgens 3D-plan", werkbladplaten = "Werkblad", de rest per rubriek) + eigen groepen. Eigen regels (met de hand, uit een prijslijst,
  * uit een mail of een nieuw artikel) blijven staan bij een nieuwe versie. De offerte wordt hieruit opgebouwd (quote_generate):
  * de klant ziet per groep titel, uitleg en prijs; Olivier ziet deze opbouw. Rekenen gebeurt in de views app_project_cost(_groups).
- * Sinds 6 nov 2026 bouwt de app zelf geen offerte meer op (knop weg): enkel opgeladen offertes tellen.
+ * Knop "Offerte opbouwen" (sinds 7 nov 2026 weer: offertes worden in de app gemaakt) → quote_generate → tab Offerte.
  */
 type Line = {
   project_code: string; kind: 'stuklijst' | 'eigen'; id: string; group_name: string; rubriek: string | null; sort: number; description: string; explanation: string | null
@@ -29,7 +29,7 @@ type Hit = { src: string; supplier: string | null; article_no: string | null; de
 const SRC: Record<string, string> = { stuklijst: 'stuklijst', hand: 'met de hand', prijslijst: 'prijslijst', mail: 'uit een mail', artikel: 'nieuw artikel', eigen: 'eigen artikel' }
 const num = (s: string) => { const v = Number(String(s).trim().replace(/\./g, '').replace(',', '.')); return isFinite(v) ? v : NaN }
 
-export function ProjectCost({ project }: { project: string }) {
+export function ProjectCost({ project, onQuote }: { project: string; onQuote: () => void }) {
   const gq = useQuery<Group[]>(() => supabase.from('app_project_cost_groups').select('*').eq('project_code', project).order('sort').order('group_name'), [project])
   const lq = useQuery<Line[]>(() => supabase.from('app_project_cost').select('*').eq('project_code', project).order('sort').order('description'), [project])
   const mq = useQuery<{ markup_pct: number | null; vat_pct: number | null; vat_reason: string | null; new_build: boolean; rule: number }>(async () => {
@@ -116,7 +116,14 @@ export function ProjectCost({ project }: { project: string }) {
     const { error } = await supabase.from('projects').update({ new_build: on }).eq('project_code', project)
     if (error) toast(error.message, 'err'); else { toast('Bewaard'); mq.reload(); vq.reload(); gq.reload() }
   }
-
+  const [building, setBuilding] = useState(false)
+  const buildQuote = async () => {
+    setBuilding(true)
+    const { error } = await supabase.rpc('quote_generate', { p_code: project, p_margin: null })
+    setBuilding(false)
+    if (error) return toast(error.message, 'err')
+    toast('Offerte opgebouwd uit de projectkost'); onQuote()
+  }
 
   if (gq.loading || lq.loading) return <Loading />
   const groupNames = groups.map((g) => g.group_name)
@@ -139,6 +146,7 @@ export function ProjectCost({ project }: { project: string }) {
         <div className="pcost-actions">
           <button onClick={() => setAdding('Varia')}>+ Regel</button>
           <button onClick={() => askNewGroup()}>+ Groep</button>
+          <button className="primary" disabled={building || !groups.length} onClick={buildQuote}>{building ? 'Bezig…' : 'Offerte opbouwen'}</button>
         </div>
       </div>
       {adding && <AddLine project={project} groups={groupNames} group={adding} onClose={() => setAdding(null)} onSaved={reload} />}
