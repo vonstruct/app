@@ -98,8 +98,9 @@ export function Portal({ role, preview = false, viewAs = null }: { role: PortalR
             <Jobs lang={lang} preview={preview} viewAs={viewAs} empty={role === 'partner' && pkgCount + poCount > 0 ? null : <EmptyWork role={role} lang={lang} />} />
           </>
         )}
-        {!survey && role === 'klant' && <h2 className="portal-h">{t.coming}</h2>}
-        {!survey && role === 'klant' && (
+        {/* 7 nov 2026: geen "Binnenkort"-tegels meer (oogde onaf; een deel bestond al) */}
+        {false && !survey && role === 'klant' && <h2 className="portal-h">{t.coming}</h2>}
+        {false && !survey && role === 'klant' && (
           <div className="portal-grid">
             {t.comingTiles[role].map(([title, text]) => (
               <div key={title} className="portal-tile">

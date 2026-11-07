@@ -108,7 +108,7 @@ export function StatusChips({ p }: { p: ProjectRow }) {
   )
 }
 
-/** Fase kiezen; bewaart meteen in Supabase. */
+/** Fase kiezen; vraagt eerst bevestiging (7 nov 2026: één verkeerde tik op de gsm wijzigde meteen de fase), dan bewaren in Supabase. */
 export function PhaseSelect({ p, phases, onSaved }: { p: ProjectRow; phases: Phase[]; onSaved: () => void }) {
   return (
     <select
@@ -116,6 +116,8 @@ export function PhaseSelect({ p, phases, onSaved }: { p: ProjectRow; phases: Pha
       value={p.phase}
       onClick={(e) => e.stopPropagation()}
       onChange={async (e) => {
+        const to = phases.find((ph) => ph.phase === e.target.value)?.label ?? e.target.value
+        if (!confirm(`Fase van ${p.project_code} wijzigen naar "${to}"?`)) { e.target.value = p.phase; return }
         const { error } = await supabase.from('projects').update({ phase: e.target.value }).eq('id', p.project_id)
         toast(error ? 'Fase niet bewaard: ' + error.message : 'Fase gewijzigd', error ? 'err' : 'ok')
         onSaved()

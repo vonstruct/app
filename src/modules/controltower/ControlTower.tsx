@@ -45,6 +45,7 @@ export const actionFor = (f: Flag): { to: string; label: string } => {
     case 'gegevens': return { to: `${proj}?focus=gegevens`, label: 'Invullen' }
     case 'datums': return { to: `${proj}?focus=datums`, label: 'Datum invullen' }
     // harde stap overgeslagen (offerte getekend / voorschot betaald), 7 nov 2026
+    case 'regel': return { to: '/regels?sectie=Facturen', label: 'Regel aanpassen' }
     case 'poort': return /offerte/i.test(f.title) ? { to: `${proj}?tab=offerte`, label: 'Offerte bekijken' } : { to: `${proj}?tab=facturen`, label: 'Facturen bekijken' }
     case 'partner_email': return { to: `/relaties?tab=partners&focus=${f.ref}:email`, label: 'E-mail invullen' }
     case 'stilstand': return { to: `${proj}?focus=fase`, label: 'Fase aanpassen' }
@@ -176,7 +177,7 @@ export function ControlTower() {
   const byCat = (list: Flag[]) => catList.map((c) => ({ c, n: list.filter((f) => f.category === c.key).length })).filter((x) => x.n)
   const weekCount = work.filter((f) => f.prio === 2).length
   const sentence = today.length
-    ? `Vandaag ${today.length === 1 ? 'is er 1 punt' : `zijn er ${today.length} punten`}: ${byCat(today).map((x) => `${x.n} ${x.c.label.split(' ')[0].toLowerCase()}`).join(', ')}.` + (weekCount ? ` Daarna ${weekCount} voor deze week.` : '')
+    ? `Vandaag ${today.length === 1 ? 'is er 1 punt' : `zijn er ${today.length} punten`}: ${byCat(today).map((x) => `${x.n} bij ${x.c.label.split(' ')[0].toLowerCase()}`).join(', ')}.` + (weekCount ? ` Daarna ${weekCount} voor deze week.` : '')
     : weekCount ? `Niets voor vandaag. ${weekCount} ${weekCount === 1 ? 'punt' : 'punten'} voor deze week.` : 'Niets dringends. Een rustige dag.'
 
   const Row = ({ f, showCat = false }: { f: Flag; showCat?: boolean }) => {

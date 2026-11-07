@@ -8,6 +8,10 @@ type Backup = { started_at: string; finished_at: string | null; ok: boolean | nu
 type Secret = { name: string; expires_on: string; used_by: string | null }
 type Agent = { model: string; enabled: boolean; max_runs_per_day: number }
 
+/** Kosten van de AI staan in USD (zo rekent de leverancier); Belgische notatie. Modelnaam leesbaar. */
+const usd = (n: number) => Number(n ?? 0).toLocaleString('nl-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' USD'
+const modelName = (m: string | null | undefined) => (/haiku/i.test(m ?? '') ? 'Haiku (snel)' : /sonnet/i.test(m ?? '') ? 'Sonnet (middel)' : /opus/i.test(m ?? '') ? 'Opus (sterkst)' : m ?? '—')
+
 export function Settings() {
   const [backup, setBackup] = useState<Backup | null>(null)
   const [secrets, setSecrets] = useState<Secret[]>([])
@@ -25,8 +29,8 @@ export function Settings() {
     <div className="settings-grid">
       <div className="panel">
         <h2>VON</h2>
-        {agent && <p className="small">{agent.enabled ? '🟢 aan' : '⚪ uit'} · model {agent.model} · max. {agent.max_runs_per_day} vragen per dag{cost != null ? ` · deze maand ± $ ${cost.toFixed(2)}` : ''}</p>}
-        <p className="small muted">Briefing om 7u15 en 18u (mail, melding en in VON). Voorstellen van VON wachten op je goedkeuring in <Link to="/von">VON</Link>.</p>
+        {agent && <p className="small">{agent.enabled ? '🟢 aan' : '⚪ uit'} · model {modelName(agent.model)} · max. {agent.max_runs_per_day} vragen per dag{cost != null ? ` · deze maand ± ${usd(cost)}` : ''}</p>}
+        <p className="small muted">De dagelijkse briefing staat uit (kosten); een briefing op vraag kan via Siri. Voorstellen van VON wachten op je goedkeuring in <Link to="/overzicht">Vandaag</Link>.</p>
         <VonSiri />
       </div>
       <div className="panel">
@@ -39,7 +43,7 @@ export function Settings() {
         <h2>Meer</h2>
         <ul className="settings-links">
           <li><Link to="/regels">Rekenregels</Link><span className="muted small"> tarieven, platen, kanten, lades, productiekosten, berichten</span></li>
-          <li><Link to="/mails">Verstuurd door de app</Link><span className="muted small"> wat de app verstuurde en of het aankwam (de inbox staat in het menu)</span></li>
+          <li><Link to="/mails">Verstuurd door de app</Link><span className="muted small"> wat de app verstuurde en of het aankwam (alle mails: menu onder je initialen)</span></li>
           <li><Link to="/portaal">Portaal (voorbeeld)</Link><span className="muted small"> zo zien klanten, onderaannemers en partners het</span></li>
         </ul>
       </div>

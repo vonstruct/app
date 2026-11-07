@@ -317,7 +317,7 @@ export function VonPage() {
         <div>
           <div className="vd-date">{new Date().toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
           <h1>VON: team en logboek</h1>
-          <p className="muted">Beslissen doe je in <Link to="/overzicht">Vandaag</Link>. Hier zie je wat VON en de agents deden (en maak je iets ongedaan), wat ze opvolgen, en stel je het team in.</p>
+          <p className="muted">Alles wat op jou wacht, staat ook in <Link to="/overzicht">Vandaag</Link>. Hier zie je wat VON en de agents deden (en maak je iets ongedaan), wat ze opvolgen, en stel je het team in.</p>
         </div>
       </header>
       <nav className="pd-tabs">
@@ -351,7 +351,7 @@ function Team() {
   }
   const openEdit = async (id: string) => { const { data } = await supabase.from('agents').select('instructions').eq('id', id).single(); setInstr((data as { instructions: string } | null)?.instructions ?? ''); setEdit(id) }
   if (list === null) return <p className="muted">Laden…</p>
-  const usd = (n: number) => '$ ' + Number(n ?? 0).toFixed(2)
+  const usd = (n: number) => Number(n ?? 0).toLocaleString('nl-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' USD'
   const total30 = list.reduce((a, x) => a + Number(x.cost_30d ?? 0), 0)
   return (
     <div className="team">
