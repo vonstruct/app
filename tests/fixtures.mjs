@@ -85,11 +85,11 @@ const orders = [
   { id: 'o2', project_code: '209901', supplier: 'Beslag Voorbeeld', ordered_by: 'Vonstruct', categories: ['Beslag'], status: 'besteld', needed_by: day(20), needed_by_manual: false, lead_days: null, lead_days_eff: 0, order_by: null, ordered_at: day(-3), expected_at: day(4), delivered_at: null, reference: 'B-123', amount: 45.5, n_lines: 4, note: null, urgency: 'levertijd onbekend', client_name: 'Jan Peeters', project_title: 'Keuken en berging', n_docs: 0 },
 ]
 // Vandaag v5.2: verzonnen bestellingen voor de rubrieken (te bestellen, leveringen)
-Object.assign(orders[0], { urgency: 'te laat', client_name: 'Tom Claes', needed_src: 'plaatsing' })
-Object.assign(orders[1], { supplier: 'Tegelhuis Voorbeeld', urgency: 'komt te laat', client_name: 'Jan Peeters', expected_at: day(8), expected_src: 'uit mail', needed_by: day(7), needed_src: 'plaatsing' })
+Object.assign(orders[0], { urgency: 'te laat', client_name: 'Tom Claes', needed_src: 'plaatsing', items_text: '6 × Wit melamine 18 mm 2800x2070 · 4 × Eiken fineer MDF 19 mm · 2 × Wit melamine 8 mm' })
+Object.assign(orders[1], { items_text: '40 × Scharnier 110° · 20 × Ladegeleider 500 mm · 8 × Greep 160 mm · 16 × Sokkelvoet', supplier: 'Tegelhuis Voorbeeld', urgency: 'komt te laat', client_name: 'Jan Peeters', expected_at: day(8), expected_src: 'uit mail', needed_by: day(7), needed_src: 'plaatsing' })
 orders.push(
   { ...orders[1], id: 'o3', supplier: 'Beslag Voorbeeld', status: 'bevestigd', urgency: 'levering te laat', expected_at: day(-9), expected_src: 'uit mail', needed_by: null, needed_src: null },
-  { ...orders[0], id: 'o4', supplier: 'Plaathandel Voorbeeld', urgency: 'levertijd onbekend', order_by: null, needed_by: day(6), needed_src: 'plaatsing' },
+  { ...orders[0], id: 'o4', supplier: 'Plaathandel Voorbeeld', urgency: 'levertijd onbekend', order_by: null, needed_by: day(6), needed_src: 'plaatsing', categories: ['Verbinders & Beslagen'], n_lines: 1, amount: 18.58, items_text: '14 × Clamex P-14', note: 'Aanvulling: kwam bij nadat de bestelling geplaatst was' },
   // hoe het binnenkomt (7 nov 2026): ik haal op, klant haalt op
   { ...orders[1], id: 'o5', supplier: 'Houthandel Voorbeeld', status: 'bevestigd', delivery: 'ophalen', urgency: 'op te halen', expected_at: day(-1), expected_src: 'uit mail', needed_by: day(3), needed_src: 'plaatsing' },
   { ...orders[1], id: 'o6', supplier: 'Toestellen Voorbeeld', status: 'besteld', delivery: 'klant', urgency: 'wordt opgehaald', expected_at: day(5), expected_src: null, needed_by: day(9), needed_src: 'plaatsing', categories: ['Toestellen'], n_lines: 0, note: 'Oven en kookplaat' },
@@ -142,6 +142,11 @@ const projectPage = (code) => {
 const tables = {
   app_projects: projects, project_phases: phases, today_categories: cats, clients, partners, subcontractors, jobs, tasks,
   von_proposals: proposals, app_mail_messages: mails, mail_messages: mails, app_orders: orders, app_invoices: invoices, rule_settings: rules,
+  order_lines: [
+    { id: 'l1', category: 'Platen', description: 'Wit melamine 18 mm 2800x2070', article_no: 'WM18', qty: 6, unit: 'plaat', total: 180 },
+    { id: 'l2', category: 'Platen', description: 'Eiken fineer MDF 19 mm', article_no: 'EF19', qty: 4, unit: 'plaat', total: 120 },
+    { id: 'l3', category: 'Platen', description: 'Wit melamine 8 mm', article_no: 'WM8', qty: 2, unit: 'plaat', total: 21 },
+  ],
   agents, app_agent_usage: agents, app_agent_activity: activity, app_capacity_weeks: capacity,
   app_project_progress: [{ project_code: '209901', stage_total: 4, stage_done: 2, total: 20, done: 8, next_item: 'Alle prijzen ingevuld' }, { project_code: '209903', stage_total: 3, stage_done: 1, total: 20, done: 14, next_item: 'Productie klaar' }],
   app_project_planning: [{ project_code: '209901', jobs_open: 1, jobs_unconfirmed: 1, jobs_changed: 0, next_at: iso(2, 8), next_title: 'Stopcontacten eiland' }],

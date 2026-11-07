@@ -20,7 +20,7 @@ type Order = {
   client_name: string | null; project_title: string | null
   shipped_at?: string | null; actual_amount?: number | null; n_docs?: number
   needed_src?: string | null; expected_src?: string | null; lead_src?: string | null
-  delivery?: Delivery | null; pickup_by?: string | null
+  delivery?: Delivery | null; pickup_by?: string | null; items_text?: string | null
 }
 /** Hoe een bestelling binnenkomt (7 nov 2026): de leverancier levert, ik haal op, de klant of een onderaannemer haalt op. */
 type Delivery = 'levering' | 'ophalen' | 'klant' | 'onderaannemer'
@@ -55,11 +55,17 @@ const statusOf = (o: Order): [string, string] => {
   if (o.shipped_at) return ['Verzonden', '']
   return [o.status === 'besteld' ? 'Besteld' : 'Bevestigd', '']
 }
-/** Wat er besteld is: rubrieken + aantal artikels; bij een bestelling uit een mail de artikels uit de mail (niet het onderwerp). */
-const whatOf = (o: Order) => {
-  if (o.n_lines > 0) return `${(o.categories ?? []).join(', ') || 'artikels'} · ${o.n_lines} ${o.n_lines === 1 ? 'artikel' : 'artikels'}${o.note?.startsWith('Aanvulling') ? ' · aanvulling' : ''}`
+/**
+ * Wat er besteld is (7 nov 2026: meteen de artikels zelf). main = "2 × naam · 178 m naam" (app_orders.items_text, duurste eerst),
+ * sub = rubrieken · aantal artikels · aanvulling. Bestelling uit een mail zonder artikellijnen: de artikels uit de mail (niet het onderwerp).
+ */
+const whatOf = (o: Order): { main: string; sub: string } => {
+  const cats = (o.categories ?? []).join(', ')
+  const extra = o.note?.startsWith('Aanvulling') ? 'aanvulling (kwam er later bij)' : ''
+  if (o.n_lines > 0) return { main: o.items_text || cats || 'artikels', sub: [cats, `${o.n_lines} ${o.n_lines === 1 ? 'artikel' : 'artikels'}`, extra].filter(Boolean).join(' · ') }
   const parts = (o.note ?? '').replace(/^Uit mail:\s*/, '').split(' · ').map((x) => x.trim()).filter(Boolean)
-  return (parts.length > 1 ? parts.slice(1).join(' · ') : (o.categories ?? []).join(', ') || parts[0]) || 'eigen bestelling'
+  const main = (parts.length > 1 ? parts.slice(1).join(' · ') : cats || parts[0]) || 'eigen bestelling'
+  return { main, sub: main !== cats ? cats : '' }
 }
 const dd = (v: string | null | undefined) => (v ? new Date(v + 'T12:00').toLocaleDateString('nl-BE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—')
 
@@ -117,6 +123,7 @@ export function Orders({ project }: { project?: string }) {
     const rub = rubriekOf(o)
     const isOpen = open === o.id
     const dateCell = rub === 'bestellen' ? o.order_by : rub === 'binnen' ? o.delivered_at : o.expected_at
+    const what = whatOf(o)
     return (
       <div className={'inko-item' + (isOpen ? ' open' : '')}>
         <div className="inko-row" onClick={() => setOpen(isOpen ? null : o.id)}>
@@ -124,7 +131,7 @@ export function Orders({ project }: { project?: string }) {
           {showSupplier
             ? <span className="inko-first"><b>{o.supplier}</b>{o.ordered_by && !['Zelf', 'Vonstruct'].includes(o.ordered_by) && <small>via {o.ordered_by}</small>}</span>
             : <span className="inko-first"><Link to={`/projecten/${o.project_code}?tab=bestellingen`} onClick={(e) => e.stopPropagation()}>{o.client_name ?? o.project_code}</Link><small>{o.project_code}{o.ordered_by && !['Zelf', 'Vonstruct'].includes(o.ordered_by) ? ` · via ${o.ordered_by}` : ''}</small></span>}
-          <span className="inko-what" title={whatOf(o)}>{whatOf(o)}{o.n_docs ? <small title="mails en bijlagen uit de mailbox"> ✉ {o.n_docs}</small> : null}</span>
+          <span className="inko-what" title={what.main}><span className="inko-items">{what.main}</span>{(what.sub || o.n_docs) ? <small>{what.sub}{o.n_docs ? <span title="mails en bijlagen uit de mailbox">{what.sub ? ' · ' : ''}✉ {o.n_docs}</span> : null}</small> : null}</span>
           <span className="inko-date"><em>nodig op </em>{dd(o.needed_by)}{o.needed_by && o.needed_src && <small>{o.needed_src}</small>}</span>
           <span className="inko-date"><em>{rub === 'bestellen' ? 'bestellen vóór ' : rub === 'binnen' ? 'binnen op ' : rub === 'ophalen' ? 'klaar op ' : 'verwacht '}</em>{dd(dateCell)}{(rub === 'onderweg' || rub === 'ophalen') && o.expected_at && o.expected_src && <small>{o.expected_src}</small>}</span>
           <span className="inko-amt">{o.amount != null ? fmtEur(o.amount) : '—'}</span>
@@ -278,24 +285,51 @@ function OrderDetail({ o, onSave, onStatus }: { o: Order; onSave: (p: Partial<Or
     toast(error ? 'Niet gelukt: ' + error.message : `${l.description}: op voorraad. Telt mee in de kost, komt niet meer op een bestellijst (terugzetten: Rekenregels → Prijzen → Op voorraad).`, error ? 'err' : 'ok')
     lines.reload()
   }
+  const commit = (key: keyof Order, type: string, raw: string) => {
+    const v = raw === '' ? null : type === 'number' ? Number(raw) : raw
+    if (v === (o[key] ?? null)) return
+    if (key === 'needed_by' && v == null) {
+      // leeg = weer automatisch uit de planning
+      supabase.rpc('project_needed_by', { p_code: o.project_code }).then(({ data }) => onSave({ needed_by: (data as string | null) ?? null, needed_by_manual: false }))
+      return
+    }
+    onSave({ [key]: v, ...(key === 'needed_by' ? { needed_by_manual: true } : {}) } as Partial<Order>)
+  }
+  // datums als DD/MM/YYYY (DateInput), niet het formaat van de browser
   const field = (label: string, key: keyof Order, type = 'date') => (
     <label>
       {label}
-      <input type={type} defaultValue={(o[key] as string | number | null) ?? ''}
-        onBlur={(e) => {
-          const v = e.target.value === '' ? null : type === 'number' ? Number(e.target.value) : e.target.value
-          if (v === (o[key] ?? null)) return
-          if (key === 'needed_by' && v == null) {
-            // leeg = weer automatisch uit de planning
-            supabase.rpc('project_needed_by', { p_code: o.project_code }).then(({ data }) => onSave({ needed_by: (data as string | null) ?? null, needed_by_manual: false }))
-            return
-          }
-          onSave({ [key]: v, ...(key === 'needed_by' ? { needed_by_manual: true } : {}) } as Partial<Order>)
-        }} />
+      {type === 'date'
+        ? <DateInput defaultValue={(o[key] as string | null) ?? ''} onBlur={(e) => commit(key, type, e.target.value)} />
+        : <input type={type} defaultValue={(o[key] as string | number | null) ?? ''} onBlur={(e) => commit(key, type, e.target.value)} />}
     </label>
   )
+  // eerst wat er besteld wordt (artikels), dan de mails, dan de gegevens van de bestelling
+  const list = lines.data ?? []
   return (
     <div className="order-detail">
+      <div className="inko-detail-head">
+        <h4>Wat er besteld wordt{list.length ? ` · ${list.length} ${list.length === 1 ? 'artikel' : 'artikels'}` : ''}</h4>
+        {list.length > 0 && <span className="order-actions">
+          <button onClick={() => copyList(o, list)}>Lijst kopiëren</button>
+          <button onClick={() => printList(o, list)}>Afdrukken / PDF</button>
+        </span>}
+      </div>
+      {o.note?.startsWith('Aanvulling') && <p className="small inko-note">Aanvulling: deze artikels kwamen in de kosten bij nadat de eerste bestelling bij {o.supplier} al geplaatst was.</p>}
+      {lines.loading ? <Loading /> : list.length ? (
+        <table className="order-lines">
+          <thead><tr><th className="num">Aantal</th><th>Artikel</th><th className="hide-sm">Art.nr</th><th className="hide-sm">Rubriek</th><th className="num">Totaal</th>{canStock && <th />}</tr></thead>
+          <tbody>
+            {list.map((l) => (
+              <tr key={l.id}><td className="num">{qtyTxt(l)}</td><td>{l.description}</td><td className="muted hide-sm">{l.article_no}</td><td className="muted hide-sm">{l.category}</td>
+                <td className="num">{fmtEur(l.total)}</td>
+                {canStock && <td><button className="link small" title="Heb ik liggen: telt mee in de kost, niet meer bestellen (ook in volgende projecten)" onClick={() => toStock(l)}>op voorraad</button></td>}</tr>
+            ))}
+          </tbody>
+        </table>
+      ) : <p className="small">{o.note ? o.note.replace(/^Uit mail:\s*/, '') : 'Geen artikellijst: een eigen bestelling. Zet wat het is bij Notitie.'}</p>}
+      <OrderMails orderId={o.id} />
+      <h4 className="inko-detail-sub">Bestelling</h4>
       <div className="seg">
         {STATUSES.map((s) => <button key={s} className={o.status === s ? 'on' : ''} onClick={() => onStatus(s)}>{s}</button>)}
       </div>
@@ -314,25 +348,7 @@ function OrderDetail({ o, onSave, onStatus }: { o: Order; onSave: (p: Partial<Or
         {field('Bestelnummer', 'reference', 'text')}
         {field('Notitie', 'note', 'text')}
       </div>
-      <div className="order-actions">
-        <button onClick={() => copyList(o, lines.data ?? [])}>Lijst kopiëren</button>
-        <button onClick={() => printList(o, lines.data ?? [])}>Afdrukken / PDF</button>
-        <span className="muted small">Bestellen doe je zelf bij de leverancier; klik daarna op "Besteld".</span>
-      </div>
-      <OrderMails orderId={o.id} />
-      {o.needed_by_manual && <p className="muted small">Datum "nodig op" met de hand gezet (leeg maken = weer automatisch uit de planning).</p>}
-      {lines.loading ? <Loading /> : (
-        <table className="order-lines">
-          <thead><tr><th className="hide-sm">Rubriek</th><th>Artikel</th><th className="hide-sm">Art.nr</th><th className="num">Aantal</th><th className="num">Totaal</th>{canStock && <th />}</tr></thead>
-          <tbody>
-            {(lines.data ?? []).map((l) => (
-              <tr key={l.id}><td className="hide-sm">{l.category}</td><td>{l.description}</td><td className="muted hide-sm">{l.article_no}</td>
-                <td className="num">{l.qty != null ? Number(l.qty).toLocaleString('nl-BE', { maximumFractionDigits: 2 }) : ''} {l.unit}</td><td className="num">{fmtEur(l.total)}</td>
-                {canStock && <td><button className="link small" title="Heb ik liggen: telt mee in de kost, niet meer bestellen (ook in volgende projecten)" onClick={() => toStock(l)}>op voorraad</button></td>}</tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <p className="muted small">Bestellen doe je zelf bij de leverancier; klik daarna op "Besteld".{o.needed_by_manual ? ' Datum "nodig op" met de hand gezet (leeg maken = weer automatisch uit de planning).' : ''}</p>
     </div>
   )
 }

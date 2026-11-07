@@ -2183,7 +2183,13 @@ a.vd5-sup:hover { color: var(--accent); }
 .inko-first { display: flex; flex-direction: column; min-width: 0; }
 .inko-first b, .inko-first a { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .inko-first small, .inko-date small, .inko-what small { color: var(--muted); font-size: 12px; }
-.inko-what { font-size: 13.5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.inko-what { font-size: 13.5px; display: flex; flex-direction: column; min-width: 0; }
+.inko-items { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.inko-detail-head { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; margin: 12px 0 6px; }
+.inko-detail-head h4, .inko-detail-sub { margin: 0; font-size: 14px; font-weight: 600; }
+.inko-detail-sub { margin: 16px 0 0; padding-top: 12px; border-top: 1px solid var(--line); }
+.inko-detail-head .order-actions { margin: 0; }
+.inko-note { margin: 0 0 6px; color: var(--warn); }
 .inko-date { display: flex; flex-direction: column; font-size: 13.5px; font-variant-numeric: tabular-nums; }
 .inko-date em { display: none; font-style: normal; }
 .inko-amt { font-variant-numeric: tabular-nums; font-size: 13.5px; }
@@ -2232,3 +2238,4 @@ a.vd5-sup:hover { color: var(--accent); }
   .inko-form-fields { grid-template-columns: minmax(0, 1fr); }
   .inko-pickup { width: 100%; } .inko-pickup input { width: auto; flex: 1; }
 }
+.inko .order-lines td.num { white-space: nowrap; }
