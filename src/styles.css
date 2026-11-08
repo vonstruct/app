@@ -2386,3 +2386,5 @@ select.ovn-btn { appearance: none; -webkit-appearance: none; text-align-last: ce
 .pc-form .toolbar, .pc-form p { grid-column: 1 / -1; margin: 0; }
 @media (max-width: 720px) { .pc-actions { flex-direction: row; align-items: center; } }
 .pc-own { display: flex; align-items: center; gap: 6px; color: var(--muted); margin-top: 6px; cursor: pointer; }
+.pf-list { margin: 8px 0 14px; }
+.pf-list input { flex: 1; min-width: 220px; }

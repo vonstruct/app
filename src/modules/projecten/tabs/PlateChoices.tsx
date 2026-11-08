@@ -60,6 +60,11 @@ export function PlateChoices({ sheets, dvId, projectCode, outsourcing, stock, fi
   }
   const outFams = new Set(outsourcing.map((o) => o.family))
   const shown = groups.filter((g) => !g.data?.family || !outFams.has(g.data.family))
+  // één lijst op naam: plaatmaterialen en wat via een onderaannemer gaat, in dezelfde vorm
+  const entries: { label: string; g?: ChoiceSheet; o?: Outsourcing }[] = [
+    ...shown.map((g) => ({ label: g.material_label, g })),
+    ...outsourcing.map((o) => ({ label: o.material_label ?? o.family, o })),
+  ].sort((x, y) => x.label.localeCompare(y.label, 'nl'))
   if (!shown.some((g) => g.data?.alternatives) && !outsourcing.length) {
     return sheets.length ? <p className="muted small">Klik <b>Herberekenen</b> om per materiaal te zien welke formaten en leveranciers vergeleken werden.</p> : null
   }
@@ -100,27 +105,32 @@ export function PlateChoices({ sheets, dvId, projectCode, outsourcing, stock, fi
   return (
     <div className="pc-list">
       <h3 className="vt-h">Keuze per materiaal</h3>
-      <p className="muted small">De optimizer probeert alle formaten bij alle leveranciers en kiest het voordeligste zaagplan. Kies een ander plan om het voor dit project vast te zetten (geldt ook voor de volgende versies), of laat een materiaal maken door een andere firma.</p>
-      {outsourcing.map((o) => (
-        <div key={`o${o.id}`} className="pc-row">
-          <div className="pc-main">
-            <div><b>{o.material_label ?? o.family}</b> <span className="chip gold" style={{ marginLeft: 8 }}>uitbesteed</span></div>
-            <div className="pc-plan">
-              Gemaakt door <b>{o.firm}</b> · {o.amount == null ? <span className="bad-text">offerteprijs nog invullen</span> : <b>{fmtEur(o.amount)}</b>}
-              {o.quote_ref ? <span className="muted"> · offerte {o.quote_ref}</span> : null}
+      <p className="muted small">De optimizer probeert alle formaten bij alle leveranciers en kiest het voordeligste zaagplan. Rechts kies je een ander plan (geldt ook voor de volgende versies) of "via onderaannemer".</p>
+      {entries.map((en) => {
+        if (en.o) {
+          const o = en.o
+          return (
+            <div key={`o${o.id}`} className="pc-row">
+              <div className="pc-main">
+                <div><b>{en.label}</b> <span className="chip gold" style={{ marginLeft: 8 }}>via onderaannemer</span></div>
+                <div className="pc-plan">
+                  {o.firm} · {o.amount == null ? <span className="bad-text">prijs nog in te vullen</span> : <b>{fmtEur(o.amount)}</b>}
+                  {o.quote_ref ? <span className="muted"> · offerte {o.quote_ref}</span> : null}
+                </div>
+                {form?.row?.id === o.id && <OutsourceForm projectCode={projectCode} dvId={dvId} family={o.family} label={en.label} row={o} onDone={() => { setForm(null); onChanged() }} onCancel={() => setForm(null)} />}
+              </div>
+              <select className="pc-pick" value="sub" disabled={busy === o.family} onChange={(e) => {
+                if (e.target.value === 'edit') setForm({ key: `o${o.id}`, family: o.family, label: en.label, row: o })
+                else if (e.target.value === 'auto') backInHouse(o)
+              }}>
+                <option value="sub">Via onderaannemer: {o.firm}</option>
+                <option value="edit">Firma of prijs wijzigen…</option>
+                <option value="auto">Terug zelf maken: voordeligste plaat</option>
+              </select>
             </div>
-            <ul className="pc-why">
-              <li>geen platen, kanten of productiekost voor dit materiaal; één kostregel "{o.description || o.material_label || o.family}" met de offerteprijs (groep Werkblad of Uitbesteed in de Kostprijs)</li>
-            </ul>
-            {form?.row?.id === o.id && <OutsourceForm projectCode={projectCode} dvId={dvId} family={o.family} label={o.material_label ?? o.family} row={o} onDone={() => { setForm(null); onChanged() }} />}
-          </div>
-          <div className="pc-actions">
-            <button className="link small" onClick={() => setForm(form?.row?.id === o.id ? null : { key: `o${o.id}`, family: o.family, label: o.material_label ?? o.family, row: o })}>Wijzigen</button>
-            <button className="link small" disabled={busy === o.family} onClick={() => backInHouse(o)}>Terug zelf laten maken</button>
-          </div>
-        </div>
-      ))}
-      {shown.map((g) => {
+          )
+        }
+        const g = en.g!
         const d = g.data ?? {}
         const alts = d.alternatives ?? []
         const lk = d.locked
@@ -159,7 +169,7 @@ export function PlateChoices({ sheets, dvId, projectCode, outsourcing, stock, fi
                     {a.plan} · {a.suppliers.join(' + ')} · {fmtEur(a.cost)}{a.unfit ? ` · ${a.unfit} past niet` : ''}{a.chosen ? ' ✓' : ''}
                   </option>
                 ))}
-                <option value="out">Uitbesteden: een andere firma maakt dit…</option>
+                <option value="out">Via onderaannemer: een andere firma maakt dit…</option>
               </select>
             )}
           </div>

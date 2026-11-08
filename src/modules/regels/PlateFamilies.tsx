@@ -43,6 +43,7 @@ export function PlateFamilies() {
       <div className="toolbar">
         <button onClick={refresh} disabled={busy}>{busy ? 'Bezig…' : '↻ Prijslijsten opnieuw koppelen'}</button>
       </div>
+      <MaterialList />
       <ErrorBox error={q.error} />
       {q.loading ? <Loading /> : (q.data ?? []).length === 0 ? <p className="muted">Nog geen materialen in een project.</p> : (q.data ?? []).map((f) => <FamilyCard key={f.family} f={f} onChanged={q.reload} />)}
     </div>
@@ -209,3 +210,49 @@ function FamilySearch({ label, onDone }: { label: string; onDone: () => void }) 
     </div>
   )
 }
+
+type ListItem = { name: string; family: string; thicknesses: number[]; formats: string; suppliers: string; price_m2_from: number | null; n: number }
+
+/**
+ * Lijst met plaatmaterialen voor PaletteCAD (8/11/2026, Olivier: "één naam per materiaal, zonder dikte"): één regel per materiaal
+ * (familie) uit de prijslijsten. De naam wordt na de upload herkend; dikte komt uit de tekening, formaat en leverancier kiest de optimizer.
+ */
+function MaterialList() {
+  const [filter, setFilter] = useState('')
+  const [busy, setBusy] = useState(false)
+  const download = async () => {
+    setBusy(true)
+    const { data, error } = await supabase.rpc('plate_materials_list')
+    setBusy(false)
+    if (error) return toast(error.message, 'err')
+    const words = filter.trim().toLowerCase().split(/\s+/).filter(Boolean)
+    const rows = ((data ?? []) as ListItem[]).filter((r) => words.every((w) => `${r.name} ${r.suppliers}`.toLowerCase().includes(w)))
+    if (!rows.length) return toast('Geen materialen met die woorden', 'err')
+    const cell = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
+    const lines = [
+      ['Materiaal (naam in PaletteCAD)', 'Diktes (mm)', 'Formaten (mm)', 'Leveranciers', 'Vanaf per m²'].map(cell).join(';'),
+      ...rows.map((r) => [r.name, (r.thicknesses ?? []).map((t) => fmtNum(t)).join(' · '), r.formats, r.suppliers, r.price_m2_from == null ? '' : fmtNum(r.price_m2_from, 2)].map(cell).join(';')),
+    ]
+    const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `plaatmaterialen${words.length ? '-' + words.join('-') : ''}.csv`
+    a.click()
+    URL.revokeObjectURL(a.href)
+    toast(`${rows.length} materialen in de lijst`)
+  }
+  return (
+    <div className="card pf-list">
+      <b>Lijst voor PaletteCAD</b>
+      <p className="small muted">
+        Eén naam per materiaal, zonder dikte en formaat. Geef een plaat in PaletteCAD deze naam: na de upload herkent de app het materiaal,
+        de dikte komt uit de tekening en de optimizer kiest formaat en leverancier. Leeg = alle materialen; of beperk met woorden (bv. "Finsa Superpan" of "HI-MACS").
+      </p>
+      <div className="toolbar">
+        <input placeholder="alle materialen, of enkel met deze woorden" value={filter} onChange={(e) => setFilter(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && download()} />
+        <button onClick={download} disabled={busy}>{busy ? 'Bezig…' : '⤓ Download (CSV, Excel)'}</button>
+      </div>
+    </div>
+  )
+}
+

@@ -216,6 +216,7 @@ const rpc = {
 export { tables, rpc, projectPage, events, iso, day }
 
 // brochure: zelfde vorm als RPC brochure_data
+rpc.plate_materials_list = [{ name: 'Eik fineer', family: 'eik fineer', thicknesses: [19, 25], formats: '2800x2070', suppliers: 'Voorbeeldhout', price_m2_from: 8.6, n: 2 }]
 rpc.plate_families_overview = [
   { family: 'eik fineer', family_name: 'Eik fineer', labels: ['Eik fineer'], aliases: [], used_thickness: [19], projects: ['209901'], n_parts: 40, members: [
     { supplier: 'Voorbeeldhout', sku: 'A1', description: 'Eik fineer 19mm', thickness_mm: 19, length_mm: 2800, width_mm: 2070, price: 50, price_m2: 8.6, protective_film: false, note: null, added: false, excluded_id: null },
