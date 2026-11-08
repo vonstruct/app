@@ -18,6 +18,7 @@ type Line = {
   project_code: string; kind: 'stuklijst' | 'eigen'; id: string; group_name: string; rubriek: string | null; sort: number; description: string; explanation: string | null
   supplier: string | null; article_no: string | null; qty: number | null; unit: string | null; unit_price: number | null; total: number; note: string | null
   line_key: string; no_price: boolean; in_stock: boolean; duplicate: boolean; source: string; source_ref: string | null; version: number | null; default_group?: string | null
+  plate_key?: string | null // plaat: familie|dikte → voorraad per project (plate_stock)
 }
 type Group = {
   project_code: string; group_name: string; sort: number; client_title: string; client_text: string | null; vat_rate: number | null; margin_pct: number | null
@@ -96,6 +97,17 @@ export function ProjectCost({ project, onQuote }: { project: string; onQuote: ()
     if (error) toast(error.message, 'err'); else reload()
   }
   const toggleStock = async (l: Line) => {
+    // een plaat uit eigen voorraad geldt enkel voor dit project (plate_stock); beslag e.d. blijft voor alle projecten
+    if (l.plate_key) {
+      const i = l.plate_key.lastIndexOf('|')
+      const family = l.plate_key.slice(0, i), thickness = Number(l.plate_key.slice(i + 1))
+      const { error } = l.in_stock
+        ? await supabase.from('plate_stock').delete().eq('project_code', project).eq('family', family).eq('thickness_mm', thickness)
+        : await supabase.from('plate_stock').insert({ project_code: project, family, thickness_mm: thickness, material_label: l.description })
+      if (error) return toast(error.message, 'err')
+      toast(l.in_stock ? `${l.description}: weer bestellen` : `${l.description} uit eigen voorraad: telt mee in de kost, komt niet op de bestellijst (enkel dit project)`)
+      return reload()
+    }
     const { error } = await supabase.from('stock_articles').upsert({ price_key: l.line_key, article_no: l.article_no, description: l.description, supplier: l.supplier, active: !l.in_stock, set_at: new Date().toISOString() })
     if (error) return toast(error.message, 'err')
     toast(l.in_stock ? `${l.description}: weer bestellen` : `${l.description} op voorraad: telt mee in de kost, komt niet op een bestellijst (ook in volgende projecten)`)

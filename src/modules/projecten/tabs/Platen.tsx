@@ -28,6 +28,7 @@ export function Platen({ dvId }: { dvId: string }) {
   const code = opt.data?.project_code
   // uitbesteed werk van dit project + namen van leveranciers, partners en onderaannemers (keuzelijst firma)
   const outs = useQuery<Outsourcing[]>(() => (code ? supabase.from('project_outsourcing').select('*').eq('project_code', code).order('id') : Promise.resolve({ data: [], error: null })), [code])
+  const stock = useQuery<{ family: string; thickness_mm: number }[]>(() => (code ? supabase.from('plate_stock').select('family, thickness_mm').eq('project_code', code) : Promise.resolve({ data: [], error: null })), [code])
   const firms = useQuery<string[]>(async () => {
     const [a, b, c] = await Promise.all([
       supabase.from('suppliers').select('name').eq('active', true), supabase.from('partners').select('name').eq('active', true), supabase.from('subcontractors').select('name').eq('active', true),
@@ -86,7 +87,7 @@ export function Platen({ dvId }: { dvId: string }) {
           { key: 'ordered_by', label: 'Besteld door' },
         ]}
       />
-      {opt.data && <PlateChoices sheets={sheets.data ?? []} dvId={dvId} projectCode={opt.data.project_code} outsourcing={outs.data ?? []} firms={firms.data ?? []} onChanged={() => { sheets.reload(); outs.reload() }} />}
+      {opt.data && <PlateChoices sheets={sheets.data ?? []} dvId={dvId} projectCode={opt.data.project_code} outsourcing={outs.data ?? []} stock={stock.data ?? []} firms={firms.data ?? []} onChanged={() => { sheets.reload(); outs.reload(); stock.reload() }} />}
       <h2>Onderdelen per materiaal</h2>
       <DataTable
         rows={sum.data ?? []}

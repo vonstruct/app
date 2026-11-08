@@ -34,9 +34,22 @@ async function recalc(dvId: string, done: string) {
  * "Uitbesteden" (project_outsourcing): een andere firma maakt dit materiaal (bv. een werkblad); geen platen, kanten of
  * productiekost, wel één kostregel met de offerteprijs van die firma.
  */
-export function PlateChoices({ sheets, dvId, projectCode, outsourcing, firms, onChanged }: {
-  sheets: ChoiceSheet[]; dvId: string; projectCode: string; outsourcing: Outsourcing[]; firms: string[]; onChanged: () => void
+export function PlateChoices({ sheets, dvId, projectCode, outsourcing, stock, firms, onChanged }: {
+  sheets: ChoiceSheet[]; dvId: string; projectCode: string; outsourcing: Outsourcing[]; stock: { family: string; thickness_mm: number }[]; firms: string[]; onChanged: () => void
 }) {
+  const inStock = (fam: string | undefined, th: number) => !!fam && stock.some((x) => x.family === fam && Math.abs(Number(x.thickness_mm) - Number(th)) < 0.05)
+  // uit eigen voorraad (plate_stock, enkel dit project): telt mee in de kost, niet op de bestellijst; de kostregels volgen meteen (trigger)
+  const toggleStock = async (g: ChoiceSheet) => {
+    const fam = g.data?.family
+    if (!fam) return
+    const on = inStock(fam, g.thickness_mm)
+    const { error } = on
+      ? await supabase.from('plate_stock').delete().eq('project_code', projectCode).eq('family', fam).eq('thickness_mm', g.thickness_mm)
+      : await supabase.from('plate_stock').insert({ project_code: projectCode, family: fam, thickness_mm: g.thickness_mm, material_label: g.material_label })
+    if (error) { toast(error.message, 'err'); return }
+    toast(on ? `${g.material_label}: weer bestellen` : `${g.material_label} uit eigen voorraad: telt mee in de kost, komt niet op de bestellijst`)
+    onChanged()
+  }
   const [busy, setBusy] = useState<string | null>(null)
   const [form, setForm] = useState<{ key: string; family: string; label: string; row?: Outsourcing } | null>(null)
   const groups: ChoiceSheet[] = []
@@ -120,12 +133,18 @@ export function PlateChoices({ sheets, dvId, projectCode, outsourcing, firms, on
                 <b>{g.material_label}</b> <span className="muted">{fmtNum(g.thickness_mm)} mm</span>
                 {lk && <span className="chip gold" style={{ marginLeft: 8 }}>met de hand gekozen</span>}
                 {d.bekleding && <span className="chip" style={{ marginLeft: 8 }}>bekleding</span>}
+                {inStock(d.family, g.thickness_mm) && <span className="chip ok" style={{ marginLeft: 8 }}>uit eigen voorraad</span>}
               </div>
               <div className="pc-plan">
                 {d.plan} · {(d.suppliers ?? []).join(' + ') || '—'} · <b>{fmtEur(d.plan_cost)}</b>
               </div>
               {!!d.reasons?.length && (
                 <ul className="pc-why">{d.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul>
+              )}
+              {d.family && (
+                <label className="pc-stock small">
+                  <input type="checkbox" checked={inStock(d.family, g.thickness_mm)} onChange={() => toggleStock(g)} /> uit eigen voorraad: telt mee in de kost, niet bestellen (enkel dit project)
+                </label>
               )}
               {form?.key === key && !form.row && (
                 <OutsourceForm projectCode={projectCode} dvId={dvId} family={form.family} label={form.label} onDone={() => { setForm(null); onChanged() }} onCancel={() => setForm(null)} />
