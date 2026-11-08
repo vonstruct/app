@@ -14,10 +14,10 @@ import type { CheckItem, ProjectNumbers, ProjectPage } from './projectStatus'
  * Overzicht van een project (voorstel 6 nov 2026, stap 1): één Verloop + Kerncijfers.
  * Het Verloop brengt checklist, planning en "wat ontbreekt" samen in één lijst, in de volgorde van de tijd:
  *  - Klaar (ingeklapt): afgevinkte stappen (app_project_checklist) en voorbije afspraken/opdrachten.
- *  - Nu, jij aan zet: dezelfde punten als in Vandaag (app_today, enkel dit project), eigen taken, en stappen van de huidige fase die jij
- *    nu kan doen (met de hand afvinken of één knop naar de plek).
- *  - Komt eraan: afspraken, opdrachten, leveringen, ophaling bij de partner, plaatsing, deadline, met datum; stappen van de huidige fase
- *    waarop je wacht ("wacht op de klant / partner / leverancier").
+ *  - Te doen: dezelfde punten als in Vandaag (app_today, enkel dit project) en eigen taken; één reden en één knop.
+ *  - Stappen · <fase>: de stappen van de huidige fase als afvinklijst (✓ gedaan, ○ open), met een korte hint en hoogstens één knop
+ *    (8/11/2026, Olivier: het vroegere "Nu · jij aan zet" was "slordig en niet duidelijk").
+ *  - Komt eraan: afspraken, opdrachten, leveringen, ophaling bij de partner, plaatsing, deadline, met datum.
  *  - Daarna: de stappen van de volgende fase, op één regel.
  * Elk ding staat er één keer. Welke stap wie aan zet heeft en waar je hem oplost: STEP hieronder (één regel per auto_rule).
  */
@@ -58,6 +58,31 @@ const d10 = (s: string) => (s.length > 10 ? new Date(s).toLocaleDateString('sv-S
 const short = (s: string) => new Date(s.length === 10 ? s + 'T12:00' : s).toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' })
 
 type Line = { key: string; date: string | null; when?: ReactNode; text: ReactNode; sub?: ReactNode[]; mark: 'done' | 'red' | 'or' | 'grey' | 'open' | 'ms' | 'ms-red'; act?: ReactNode; extra?: ReactNode }
+/** "Te doen": melding of taak, met één reden en één knop (8/11/2026, Olivier: "slordig en niet duidelijk") */
+type Todo = { key: string; dot: 'red' | 'or' | 'grey'; text: ReactNode; why?: ReactNode; due?: { text: string; cls: string } | null; act?: ReactNode; extra?: ReactNode }
+/** Stap van de huidige fase: afgevinkt, open of n.v.t., met een korte hint en hoogstens één knop */
+type Step = { key: string; state: 'done' | 'open' | 'na'; text: string; hint?: string | null; act?: ReactNode; side?: string | null }
+
+function TodoRow({ r }: { r: Todo }) {
+  return (
+    <li className="ovn-row">
+      <i className={'ovn-dot ' + r.dot} aria-hidden="true" />
+      <span className="ovn-t"><b>{r.text}</b>{(r.why || r.due) && <small>{r.due && <em className={'ovn-due ' + r.due.cls}>{r.due.text}</em>}{r.due && r.why ? ' · ' : ''}{r.why}</small>}</span>
+      <span className="ovn-act">{r.act}</span>
+      {r.extra && <div className="ovn-extra">{r.extra}</div>}
+    </li>
+  )
+}
+
+function StepRow({ s }: { s: Step }) {
+  return (
+    <li className={'ovn-step ' + s.state}>
+      <i className="ovn-box" aria-hidden="true">{s.state === 'done' ? '✓' : ''}</i>
+      <span className="ovn-t"><b>{s.text}</b>{s.hint && <small>{s.hint}</small>}</span>
+      <span className="ovn-act">{s.act ?? (s.side ? <span className="ovn-side">{s.side}</span> : null)}</span>
+    </li>
+  )
+}
 
 function LineRow({ l, dateText }: { l: Line; dateText?: string }) {
   return (
@@ -129,6 +154,9 @@ export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSa
   const next = cur ? gates.find((g) => g.sort > cur.sort && !g.passed) : undefined
   const flagKinds = new Set(flags.map((f) => f.kind))
   const partnerName = po?.partner ?? 'de partner'
+  const tabBtnN = (tab: string) => tab === 'datums'
+    ? <button className="ovn-btn" onClick={() => setDates(true)}>Invullen</button>
+    : <button className="ovn-btn" onClick={() => onTab(tab)}>Openen</button>
   const tabBtn = (tab: string, label: string) => tab === 'datums'
     ? <button className="go" onClick={() => setDates(true)}>{label}</button>
     : <button className="go" onClick={() => onTab(tab)}>{label}</button>
@@ -138,39 +166,46 @@ export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSa
     const rule = (it: CheckItem) => rules[it.template_id] ?? null
     const covered = (it: CheckItem) => (STEP[rule(it) ?? '']?.flags ?? []).some((k) => flagKinds.has(k))
 
-    // ---- Klaar
+    // ---- Klaar (ingeklapt): afgevinkte stappen van vorige fasen; die van de huidige fase staan bij de stappen
     const done: Line[] = []
-    for (const it of all) if (it.done && it.done_at) done.push({ key: 'c' + it.template_id, date: it.done_at, text: it.label, sub: [rule(it) === 'measures_known' && it.done_by && it.done_by !== 'automatisch' && it.done_by !== 'met de hand' ? it.done_by : null], mark: 'done' })
+    for (const it of all) if (it.done && it.done_at && !(cur && it.stage === cur.stage)) done.push({ key: 'c' + it.template_id, date: it.done_at, text: it.label, sub: [rule(it) === 'measures_known' && it.done_by && it.done_by !== 'automatisch' && it.done_by !== 'met de hand' ? it.done_by : null], mark: 'done' })
 
-    // ---- Nu, jij aan zet
-    const now: Line[] = []
+    // ---- Te doen: meldingen van Vandaag (enkel dit project) en eigen taken; één reden, één knop van vaste breedte
+    const todo: Todo[] = []
     for (const f of flags) {
       const isVon = f.kind === 'von_voorstel' && !!f.ref
-      const k = keyOf(f), a = actionFor(f), due = dueText(f.due_date)
-      now.push({
-        key: 'f' + k, date: null,
+      const k = keyOf(f), a = actionFor(f)
+      todo.push({
+        key: 'f' + k, dot: f.prio === 1 ? 'red' : f.prio === 2 ? 'or' : 'grey',
         text: isVon ? <>VON stelt voor: {f.proposal_title ?? cleanTitle(f)}</> : cleanTitle(f),
-        when: due ? <span className={'vd-due ' + due.cls}>{due.text}</span> : undefined,
-        sub: [isVon ? (f.reason ?? f.proposal_summary ?? f.detail) : f.detail, f.due_reason],
-        mark: f.prio === 1 ? 'red' : f.prio === 2 ? 'or' : 'grey',
+        why: isVon ? null : f.detail, due: dueText(f.due_date),
         act: isVon
-          ? <button className="go" onClick={() => setOpenProp(openProp === k ? null : k)}>{openProp === k ? 'Inklappen' : 'Bekijken'}</button>
-          : <>{a.to.startsWith('http') ? <a className="go" href={a.to} target="_blank" rel="noreferrer">{a.label} ↗</a> : <Link className="go" to={a.to}>{a.label}</Link>}
-              {f.kind === 'taak' && f.ref && <button className="go ghost" onClick={() => taskDone(f.ref!)}>Klaar</button>}</>,
+          ? <button className="ovn-btn" onClick={() => setOpenProp(openProp === k ? null : k)}>{openProp === k ? 'Sluiten' : 'Bekijken'}</button>
+          : a.to.startsWith('http') ? <a className="ovn-btn" href={a.to} target="_blank" rel="noreferrer">Openen ↗</a> : <Link className="ovn-btn" to={a.to}>{f.kind === 'gegevens' ? 'Invullen' : 'Openen'}</Link>,
         extra: isVon && openProp === k ? <InlineProposal id={f.ref!} onDone={() => { setOpenProp(null); load() }} /> : undefined,
       })
     }
-    for (const tk of tasks) {
-      const due = dueText(tk.due_date)
-      now.push({ key: 't' + tk.id, date: null, text: tk.text, sub: ['taak'], when: due ? <span className={'vd-due ' + due.cls}>{due.text}</span> : undefined, mark: tk.due_date && tk.due_date <= today ? 'red' : 'grey', act: <button className="go ghost" onClick={() => taskDone(tk.id)}>Klaar</button> })
-    }
-    const curItems = all.filter((it) => cur && it.stage === cur.stage && !it.done && !it.na && !it.skipped)
-    for (const it of curItems) {
+    for (const tk of tasks) todo.push({ key: 't' + tk.id, dot: tk.due_date && tk.due_date <= today ? 'red' : 'grey', text: tk.text, why: 'taak', due: dueText(tk.due_date), act: <button className="ovn-btn" onClick={() => taskDone(tk.id)}>Klaar</button> })
+
+    // ---- Stappen van de huidige fase, als afvinklijst (optionele stappen enkel als ze gedaan zijn)
+    const steps: Step[] = []
+    for (const it of all.filter((x) => cur && x.stage === cur.stage).sort((a, b) => a.sort - b.sort)) {
       const r = rule(it), s = r ? STEP[r] : null
-      if (r === 'measures_known') now.push({ key: 'm' + it.template_id, date: null, text: it.label, sub: ['vinkt vanzelf af na een afspraak "opmeting" of als de klant de vragenlijst indient; anders hier kiezen waar de maten vandaan komen'], mark: 'or',
-        act: <select className="go" value="" aria-label="Waar komen de maten vandaan?" onChange={(e) => e.target.value && tick(it, false, e.target.value)}><option value="">✓ Gekend via…</option>{MEASURE_SRC.map((m) => <option key={m} value={m}>{m}</option>)}</select> })
-      else if (!r || s?.tick) now.push({ key: 'm' + it.template_id, date: null, text: it.label, sub: [r === 'agenda' && words[it.template_id] ? `vinkt vanzelf af na een afspraak of opdracht "${words[it.template_id]!.split(',')[0].trim()}", of hier met de hand` : 'zelf afvinken als het gebeurd is'], mark: 'or', act: <><button className="go" onClick={() => tick(it)}>✓ Gedaan</button><button className="go ghost" onClick={() => tick(it, true)} title="Niet van toepassing">n.v.t.</button></> })
-      else if (s?.now && !covered(it)) now.push({ key: 'a' + it.template_id, date: null, text: it.label, mark: 'or', act: s.tab ? tabBtn(s.tab, 'Openen') : undefined })
+      const w = r === 'agenda' && words[it.template_id] ? words[it.template_id]!.split(',')[0].trim() : null
+      if (it.done) { steps.push({ key: 's' + it.template_id, state: 'done', text: it.label, side: it.done_at ? short(it.done_at) : null, hint: r === 'measures_known' && it.done_by && it.done_by !== 'automatisch' && it.done_by !== 'met de hand' ? it.done_by : null }); continue }
+      if (it.na) { steps.push({ key: 's' + it.template_id, state: 'na', text: it.label, side: 'n.v.t.' }); continue }
+      if (it.skipped) continue
+      if (r === 'measures_known') {
+        steps.push({ key: 's' + it.template_id, state: 'open', text: it.label, hint: 'vanzelf na opmeting of vragenlijst',
+          act: <select className="ovn-btn" value="" aria-label="Waar komen de maten vandaan?" onChange={(e) => e.target.value && tick(it, false, e.target.value)}><option value="">Gekend ▾</option>{MEASURE_SRC.map((m) => <option key={m} value={m}>{m}</option>)}</select> })
+      } else if (!r || s?.tick) {
+        steps.push({ key: 's' + it.template_id, state: 'open', text: it.label, hint: w ? `vanzelf na afspraak "${w}"` : null,
+          act: <><button className="ovn-btn" onClick={() => tick(it)}>Gedaan</button><button className="ovn-na" onClick={() => tick(it, true)} title="Niet van toepassing">n.v.t.</button></> })
+      } else {
+        const hint = r === 'design_version' ? 'vanzelf na upload uit PaletteCAD' : r === 'production_done' ? `wacht op ${partnerName}` : s && !s.now ? WAIT[s.who] ?? null : null
+        steps.push({ key: 's' + it.template_id, state: 'open', text: it.label, hint: covered(it) ? 'zie Te doen' : hint,
+          act: s?.now && s.tab && !covered(it) && r !== 'design_version' ? tabBtnN(s.tab) : undefined, side: s && !s.now ? 'vanzelf' : null })
+      }
     }
 
     // ---- Komt eraan (met datum)
@@ -213,24 +248,11 @@ export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSa
     if (t?.deadline && t.deadline >= today) soon.push({ key: 'dl', date: t.deadline, text: 'Deadline klant', sub: [t.deadline_reason, late ? 'in gevaar: de plaatsing is pas later klaar' : null], mark: late ? 'ms-red' : 'ms' })
     soon.sort((a, b) => (a.date ? d10(a.date) : '9999').localeCompare(b.date ? d10(b.date) : '9999') || (a.date ?? '').localeCompare(b.date ?? ''))
 
-    // stappen van deze fase waarop je wacht (zonder datum), tenzij hierboven al een regel met datum ze toont
-    const hasJobs = soon.some((l) => l.key.startsWith('j'))
-    const waits: Line[] = []
-    for (const it of curItems) {
-      const r = rule(it), s = r ? STEP[r] : null
-      if (!r || !s || s.now) continue
-      if (r === 'pickup_done' && po?.pickup_date) continue
-      if ((r === 'jobs_confirmed' || r === 'jobs_done') && hasJobs) continue
-      if (r === 'orders_received' && (soon.some((l) => l.key.startsWith('o')) || covered(it))) continue
-      if (covered(it)) continue
-      waits.push({ key: 'w' + it.template_id, date: null, text: it.label, sub: [r === 'production_done' ? `wacht op ${partnerName}` : WAIT[s.who] ?? s.who], mark: 'grey' })
-    }
-
     done.sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''))
 
     // ---- Daarna: de volgende fase
     const after = next ? all.filter((it) => it.stage === next.stage && !it.done && !it.na && !it.skipped).map((it) => it.label) : []
-    return { done, now, soon, waits, after }
+    return { done, todo, steps, soon, after }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, rules, words, flags, tasks, orders, po, t, gates, plan.jobs, plan.events, openProp])
 
@@ -256,22 +278,29 @@ export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSa
               </details>
             )}
 
-            <div className="ov-now">
-              <div className="ov-sec">Nu · jij aan zet <span>dezelfde punten als in Vandaag, enkel voor dit project</span></div>
-              {v.now.length === 0 ? <p className="muted small ov-empty">Niets voor jou op dit moment.</p> : <ol className="ov-list">{v.now.map((l) => <LineRow key={l.key} l={l} dateText="" />)}</ol>}
-              <div className="ov-add">
-                {newTask === null
-                  ? <button className="link small" onClick={() => setNewTask('')}>+ taak</button>
-                  : <span className="toolbar small"><input autoFocus value={newTask} placeholder="Wat moet er gebeuren?" onChange={(e) => setNewTask(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addTask(); if (e.key === 'Escape') setNewTask(null) }} /><button onClick={addTask}>Bewaren</button><button className="link small" onClick={() => setNewTask(null)}>annuleren</button></span>}
+            {v.todo.length > 0 && (
+              <div className="ovn">
+                <div className="ovn-h">Te doen</div>
+                <ol className="ovn-list">{v.todo.map((r) => <TodoRow key={r.key} r={r} />)}</ol>
               </div>
+            )}
+            {cur && v.steps.length > 0 && (
+              <div className="ovn">
+                <div className="ovn-h">Stappen · {cur.label}<span>{cur.gate_label ? `daarna: ${cur.gate_label.toLowerCase()}` : ''}</span></div>
+                <ol className="ovn-list">{v.steps.map((x) => <StepRow key={x.key} s={x} />)}</ol>
+              </div>
+            )}
+            <div className="ovn-add">
+              {newTask === null
+                ? <button className="link small" onClick={() => setNewTask('')}>+ taak</button>
+                : <span className="toolbar small"><input autoFocus value={newTask} placeholder="Wat moet er gebeuren?" onChange={(e) => setNewTask(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addTask(); if (e.key === 'Escape') setNewTask(null) }} /><button onClick={addTask}>Bewaren</button><button className="link small" onClick={() => setNewTask(null)}>annuleren</button></span>}
             </div>
 
-            {(v.soon.length > 0 || v.waits.length > 0) && (
+            {v.soon.length > 0 && (
               <>
                 <div className="ov-sec">Komt eraan</div>
                 <ol className="ov-list">
                   {v.soon.map((l) => <LineRow key={l.key} l={l} />)}
-                  {v.waits.map((l) => <LineRow key={l.key} l={l} dateText="deze fase" />)}
                 </ol>
               </>
             )}

@@ -2284,3 +2284,42 @@ a.vd5-sup:hover { color: var(--accent); }
 }
 .check-line { flex-direction: row !important; align-items: center; gap: 8px; font-size: 14px; color: var(--ink) !important; }
 .check-line input { width: auto; margin: 0; }
+
+/* Verloop 8/11/2026 (Olivier: "slordig en niet duidelijk"): Te doen + stappen van de fase, zoals Vandaag: weinig tekst, één knop van vaste breedte */
+.ovn { background: color-mix(in srgb, #b38b3a 9%, var(--panel)); border-radius: 12px; padding: 4px 14px; margin: 0 -6px; }
+.ovn + .ovn { margin-top: 8px; }
+.ovn-h { font: 600 12px/1.4 Jost, system-ui, sans-serif; letter-spacing: .1em; text-transform: uppercase; color: #9c7629; padding: 10px 0 4px; }
+.ovn-h span { text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--muted); margin-left: 8px; }
+.ovn-list { list-style: none; margin: 0; padding: 0; }
+.ovn-row, .ovn-step { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 2px 10px; align-items: center; padding: 10px 0; border-top: 1px solid color-mix(in srgb, #b38b3a 22%, transparent); }
+.ovn-list > li:first-child { border-top: 0; }
+.ovn-t { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ovn-t b { font-weight: 500; font-size: 14.5px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ovn-t small { font-size: 12.5px; color: var(--muted); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.ovn-due { font-style: normal; font-weight: 600; }
+.ovn-due.bad { color: var(--bad); } .ovn-due.warn { color: var(--warn); }
+.ovn-dot { width: 9px; height: 9px; border-radius: 50%; justify-self: center; align-self: start; margin-top: 6px; background: var(--line); }
+.ovn-dot.red { background: var(--bad); } .ovn-dot.or { background: var(--warn); }
+.ovn-box { width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid var(--muted); align-self: start; margin-top: 2px; display: grid; place-items: center; font: 700 11px/1 system-ui, sans-serif; font-style: normal; color: #fff; box-sizing: border-box; }
+.ovn-step.done .ovn-box { background: var(--accent); border-color: var(--accent); }
+.ovn-step.done b, .ovn-step.na b { color: var(--muted); font-weight: 400; }
+.ovn-step.na .ovn-box { border-style: dashed; }
+.ovn-act { display: flex; gap: 6px; align-items: center; justify-content: flex-end; }
+.ovn-btn { width: 112px; box-sizing: border-box; display: inline-flex; justify-content: center; align-items: center; text-align: center; border: 1px solid var(--line); background: var(--panel); color: var(--ink) !important; padding: 7px 8px; border-radius: 8px; font: 500 13.5px system-ui, sans-serif; cursor: pointer; white-space: nowrap; text-decoration: none !important; }
+.ovn-btn:hover { border-color: var(--muted); }
+select.ovn-btn { appearance: none; -webkit-appearance: none; text-align-last: center; }
+.ovn-step .ovn-t small { -webkit-line-clamp: 2; }
+.ovn-na { border: 0; background: none; color: var(--muted); font: 12.5px system-ui, sans-serif; padding: 4px 2px; cursor: pointer; }
+.ovn-side { font-size: 12.5px; color: var(--muted); min-width: 112px; text-align: right; }
+.ovn-extra { grid-column: 1 / -1; }
+.ovn-extra .panel.prop { border: 0; padding: 0; margin: 0; background: transparent; box-shadow: none; }
+.ovn-add { padding: 2px 0; }
+.ovn-add input { font: inherit; font-size: 13.5px; min-width: 0; flex: 1 1 200px; }
+@media (max-width: 560px) {
+  .ovn { margin: 0 -8px; padding: 2px 10px; }
+  .ovn-row, .ovn-step { grid-template-columns: 16px minmax(0, 1fr) auto; gap: 2px 8px; }
+  .ovn-btn { width: 96px; font-size: 13px; padding: 7px 6px; }
+  .ovn-side { min-width: 0; }
+  .ovn-step .ovn-act { flex-direction: column; align-items: flex-end; gap: 2px; }
+}
+@media (hover: none) and (pointer: coarse) { .ovn-btn { font-size: 15px !important; } }
