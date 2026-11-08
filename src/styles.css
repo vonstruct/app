@@ -2278,3 +2278,5 @@ a.vd5-sup:hover { color: var(--accent); }
   .nr .nr-row .nr-lbl { width: 100%; }
   .nr .nr-row .seg { flex-wrap: wrap; }
 }
+.check-line { flex-direction: row !important; align-items: center; gap: 8px; font-size: 14px; color: var(--ink) !important; }
+.check-line input { width: auto; margin: 0; }

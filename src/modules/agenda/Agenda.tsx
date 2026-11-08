@@ -619,11 +619,20 @@ export function NewEvent({ day, projects, onClose, onCreated, project = '', init
   const [proj, setProj] = useState(project)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  // Teams-link en de klant uitnodigen (8 nov 2026): de klant krijgt dan een echte uitnodiging van Outlook
+  const [teams, setTeams] = useState(false)
+  const [invite, setInvite] = useState(false)
+  const [clientEmail, setClientEmail] = useState<string | null>(null)
+  useEffect(() => {
+    setClientEmail(null); setInvite(false)
+    if (!proj) return
+    supabase.from('app_projects').select('client_email').eq('project_code', proj).maybeSingle().then(({ data }) => setClientEmail((data as { client_email: string | null } | null)?.client_email ?? null))
+  }, [proj])
   const save = async () => {
     if (!title.trim()) return setErr('Geef de afspraak een titel.')
     setBusy(true)
     const s = new Date(start)
-    const { data, error } = await supabase.functions.invoke('agenda', { body: { action: 'create', title, start: s.toISOString(), end: new Date(s.getTime() + dur * 60000).toISOString(), location: loc } })
+    const { data, error } = await supabase.functions.invoke('agenda', { body: { action: 'create', title, start: s.toISOString(), end: new Date(s.getTime() + dur * 60000).toISOString(), location: loc, online: teams, attendees: invite && clientEmail ? [clientEmail] : undefined } })
     const e = error ? (await (error as { context?: Response }).context?.json?.().catch(() => null))?.error ?? error.message : (data as { error?: string })?.error
     if (!e && (data as { id?: string })?.id && (info || c || proj)) await saveNote((data as { id: string }).id, info, c, proj)
     setBusy(false)
@@ -641,9 +650,11 @@ export function NewEvent({ day, projects, onClose, onCreated, project = '', init
           <label>Duur (min)<input type="number" min={15} step={15} value={dur} onChange={(e) => setDur(Number(e.target.value))} /></label>
           <label className="wide">Locatie<input value={loc} onChange={(e) => setLoc(e.target.value)} /></label>
           <InfoFields note={info} setNote={setInfo} cat={c} setCat={setC} project={proj} setProject={setProj} projects={projects} />
+          <label className="wide check-line"><input type="checkbox" checked={teams} onChange={(e) => setTeams(e.target.checked)} /> Online via Teams (met Teams-link)</label>
+          {clientEmail && <label className="wide check-line"><input type="checkbox" checked={invite} onChange={(e) => setInvite(e.target.checked)} /> Klant uitnodigen ({clientEmail}): krijgt een uitnodiging van Outlook{teams ? ' met de Teams-link' : ''}</label>}
         </div>
         {err && <p className="auth-msg error">{err}</p>}
-        <div className="toolbar"><button className="primary" disabled={busy} onClick={save}>{busy ? 'Bewaren…' : 'In Outlook zetten'}</button><button onClick={onClose}>Annuleren</button></div>
+        <div className="toolbar"><button className="primary" disabled={busy} onClick={save}>{busy ? 'Bewaren…' : invite ? 'In Outlook zetten en uitnodigen' : 'In Outlook zetten'}</button><button onClick={onClose}>Annuleren</button></div>
       </div>
     </div>
   )
