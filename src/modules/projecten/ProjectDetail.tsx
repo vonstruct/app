@@ -3,7 +3,7 @@ import { HoursQuickAdd } from '../../core/Hours'
 import { YukiHistory } from '../../core/YukiHistory'
 import type { Timeline } from './KeyDates'
 import { toast } from '../../core/toast'
-import { Overview, PhaseBar } from './Overview'
+import { Overview, PhaseSteps } from './Overview'
 import { PlanningPanel } from './PlanningPanel'
 import { numbersOf, useProjectPage } from './projectStatus'
 import { BrochurePanel } from '../brochure/BrochurePanel'
@@ -24,7 +24,7 @@ import { DataTable } from '../../core/DataTable'
 import { ErrorBox, Loading } from '../../core/ui'
 import { fmtDate, fmtEur, fmtInt } from '../../core/format'
 import { Compare } from './Compare'
-import { usePhases } from '../../core/projects'
+import { PhaseSelect, usePhases } from '../../core/projects'
 import { ClientPanel } from './ClientPanel'
 import { SurveyPanel } from './SurveyPanel'
 import { MailList } from '../../core/MailList'
@@ -43,20 +43,37 @@ export type Version = {
   n_warnings: number
 }
 
-/** De 5 tabbladen en welk onderdeel bij welk tabblad hoort. */
-const MAIN: [string, string][] = [['overzicht', 'Overzicht'], ['ontwerp', 'Ontwerp'], ['geld', 'Geld'], ['uitvoering', 'Uitvoering'], ['dossier', 'Dossier']]
+/**
+ * Eén rij (8/11/2026, Olivier: de tabbladen stonden los van de fasebalk en waren bij elke fase dezelfde):
+ * Overzicht · de 6 fasen · Dossier. Een fase aantikken toont haar stappen (PhaseSteps; enkel lezen als het niet de huidige fase is)
+ * en het werk van die fase. De fase van het project wijzigen kan enkel met "Fase wijzigen".
+ * ?tab= mag een tabblad of een onderdeel zijn (oude links zoals ?tab=offerte, ?tab=kost, ?tab=geld blijven werken).
+ */
+const PHASE_TABS: [string, string, string][] = [
+  ['aanvraag', 'lead', 'Aanvraag'], ['ontwerp', 'design', 'Ontwerp'], ['offerte', 'quote', 'Offerte'],
+  ['voorbereiding', 'signed', 'Voorbereiding'], ['productie', 'production', 'Productie'], ['plaatsing', 'installation', 'Plaatsing'],
+]
+const TAB_IDS = ['overzicht', ...PHASE_TABS.map(([id]) => id), 'dossier']
+const STAGE_OF: Record<string, string> = Object.fromEntries(PHASE_TABS.map(([id, st]) => [id, st]))
 const MAIN_OF: Record<string, string> = {
-  vragenlijst: 'ontwerp', versies: 'ontwerp', brochure: 'ontwerp',
-  kost: 'geld', offerte: 'geld', facturen: 'geld', nacalculatie: 'geld',
-  bestellingen: 'uitvoering', productie: 'uitvoering', opdrachten: 'uitvoering', oplevering: 'uitvoering',
+  vragenlijst: 'aanvraag',
+  versies: 'ontwerp', kost: 'ontwerp', brochure: 'ontwerp',
+  offerte: 'offerte',
+  bestellingen: 'voorbereiding', facturen: 'voorbereiding',
+  productie: 'productie',
+  opdrachten: 'plaatsing', oplevering: 'plaatsing', nacalculatie: 'plaatsing',
   mails: 'dossier', documenten: 'dossier', tijdlijn: 'dossier',
 }
-/** Welk onderdeel open staat als je een tabblad kiest: de stap waar het project nu zit. */
+/** oude tabbladen (tot 8/11/2026) */
+const LEGACY: Record<string, string> = { planning: 'overzicht', geld: 'kost', uitvoering: 'bestellingen' }
+/** Welk onderdeel open staat als je een tabblad kiest */
 function defaultSub(tab: string, stage: string | null) {
-  const s = stage ?? ''
-  if (tab === 'ontwerp') return s === 'lead' ? 'vragenlijst' : 'versies'
-  if (tab === 'geld') return ['lead', 'design'].includes(s) ? 'kost' : s === 'quote' ? 'offerte' : s === 'closed' ? 'nacalculatie' : 'facturen'
-  if (tab === 'uitvoering') return s === 'production' ? 'productie' : s === 'installation' ? 'opdrachten' : s === 'closed' ? 'oplevering' : 'bestellingen'
+  if (tab === 'aanvraag') return 'vragenlijst'
+  if (tab === 'ontwerp') return 'versies'
+  if (tab === 'offerte') return 'offerte'
+  if (tab === 'voorbereiding') return 'bestellingen'
+  if (tab === 'productie') return 'productie'
+  if (tab === 'plaatsing') return stage === 'closed' ? 'oplevering' : 'opdrachten'
   if (tab === 'dossier') return 'mails'
   return ''
 }
@@ -90,8 +107,9 @@ export function ProjectDetail() {
   const project = pd?.project ?? undefined
   // 5 tabbladen (6 nov 2026; waren er 14). ?tab= mag een tabblad of een onderdeel zijn (oude links zoals ?tab=offerte blijven werken).
   // tab Planning is opgegaan in het Overzicht (5 nov): ?tab=planning toont het Overzicht.
-  const raw = ((t) => (t === 'planning' ? 'overzicht' : t))(params.get('tab') ?? (focus === 'survey' ? 'vragenlijst' : focus === 'mails' ? 'mails' : 'overzicht'))
-  const tab = MAIN_OF[raw] ?? (MAIN.some(([id]) => id === raw) ? raw : 'overzicht')
+  const raw0 = params.get('tab') ?? (focus === 'survey' ? 'vragenlijst' : focus === 'mails' ? 'mails' : 'overzicht')
+  const raw = LEGACY[raw0] ?? raw0
+  const tab = MAIN_OF[raw] ?? (TAB_IDS.includes(raw) ? raw : 'overzicht')
   const sub = MAIN_OF[raw] ? raw : defaultSub(tab, project?.stage ?? null)
   const setTab = (t: string) => setParams(t === 'overzicht' ? {} : { tab: t }, { replace: true })
   const nums = { data: pd ? numbersOf(pd) : null }
@@ -125,22 +143,28 @@ export function ProjectDetail() {
   const day = (d: string) => new Date(d + 'T12:00').toLocaleDateString('nl-BE', { weekday: 'short', day: 'numeric', month: 'short' })
   // korte status bij elk onderdeel; de stap waar het project nu zit, staat open
   const STEPS: Record<string, Step[]> = {
-    ontwerp: [
+    aanvraag: [
       { id: 'vragenlijst', label: 'Wensen van de klant', status: project?.survey_status === 'submitted' ? 'vragenlijst ingediend' : project?.survey_status === 'open' ? 'vragenlijst bezig' : 'vragenlijst en intake' },
+    ],
+    ontwerp: [
       { id: 'versies', label: 'Ontwerpen', status: versions.length ? `${versions.length} ${versions.length === 1 ? 'versie' : 'versies'} · nieuwste v${versions[0].version}` : 'nog geen ontwerp' },
+      { id: 'kost', label: 'Kostprijs', status: !n ? '' : n.nCost ? `${fmtEur(n.cost)}${n.noPrice ? ` · ${n.noPrice} zonder prijs` : ''}` : 'nog niet berekend', bad: !!n?.noPrice },
       { id: 'brochure', label: 'Brochure', status: 'voor de klant, zonder prijzen' },
     ],
-    geld: [
-      { id: 'kost', label: 'Kostprijs', status: !n ? '' : n.nCost ? `${fmtEur(n.cost)}${n.noPrice ? ` · ${n.noPrice} zonder prijs` : ''}` : 'nog niet berekend', bad: !!n?.noPrice },
+    offerte: [
       { id: 'offerte', label: 'Offerte', status: !n ? '' : n.quote ? [n.quote.number, n.quote.status, n.quote.total_incl != null ? fmtEur(n.quote.total_incl) : null].filter(Boolean).join(' · ') : 'nog geen offerte' },
-      { id: 'facturen', label: 'Facturen', status: !n ? '' : n.nInv ? `${fmtEur(n.paid)} van ${fmtEur(n.inv)} betaald` : 'na de offerte' },
-      { id: 'nacalculatie', label: 'Nacalculatie', status: stage === 'closed' ? 'klaar om na te kijken' : 'na de plaatsing' },
     ],
-    uitvoering: [
+    voorbereiding: [
       { id: 'bestellingen', label: 'Bestellingen', status: !n ? '' : !n.orders.n ? 'nog geen bestellingen' : [n.orders.toOrder ? `${n.orders.toOrder} te bestellen` : null, n.orders.late ? `${n.orders.late} te laat` : null, `${n.orders.inside} van ${n.orders.n} binnen`].filter(Boolean).join(' · '), bad: !!n?.orders.late },
+      { id: 'facturen', label: 'Facturen', status: !n ? '' : n.nInv ? `${fmtEur(n.paid)} van ${fmtEur(n.inv)} betaald` : 'na de offerte' },
+    ],
+    productie: [
       { id: 'productie', label: 'Productie', status: !n?.partner ? (after('production') ? 'productiepakket' : 'productiepakket en partner') : n.partner.picked_up_at ? 'opgehaald' : n.partner.ready_at ? 'klaar bij de partner' : n.partner.status === 'doorgegeven' ? (n.partner.pickup_date ? `ophalen ${day(n.partner.pickup_date)}` : 'ophaaldatum ontbreekt') : 'nog niet doorgegeven', bad: n?.partner?.status === 'doorgegeven' && !n.partner.pickup_date && !n.partner.ready_at },
+    ],
+    plaatsing: [
       { id: 'opdrachten', label: 'Plaatsing en opdrachten', status: [t?.install_start ? `plaatsing ${day(t.install_start)}` : t?.target_install_week ? `plaatsing week ${t.target_install_week.split('-W')[1]}` : 'nog geen plaatsingsdatum', n?.jobsAhead ? `${n.jobsAhead} ${n.jobsAhead === 1 ? 'opdracht' : 'opdrachten'}` : null].filter(Boolean).join(' · ') },
       { id: 'oplevering', label: 'Oplevering', status: stage === 'closed' ? 'opgeleverd' : stage === 'installation' ? 'PV en werkpunten' : 'na de plaatsing' },
+      { id: 'nacalculatie', label: 'Nacalculatie', status: stage === 'closed' ? 'klaar om na te kijken' : 'na de plaatsing' },
     ],
     dossier: [
       { id: 'mails', label: 'Mails' },
@@ -161,7 +185,7 @@ export function ProjectDetail() {
     else if (sub === 'kost') body = <ProjectCost project={code} onQuote={() => setTab('offerte')} />
     else if (sub === 'productie') body = <ProductionPanel project={code} />
     else if (sub === 'bestellingen') body = <><Orders project={code} /><div className="panel"><h2>Uit de mailbox</h2><p className="muted small">Orderbevestigingen, facturen en leveringsbons van leveranciers die aan dit project gekoppeld zijn (bijlage gelezen). Na te kijken: Inkoop → Uit je mailbox.</p><MailDocs project={code} /></div></>
-    else if (sub === 'vragenlijst') body = <>{!['lead', 'intake', 'survey', 'measuring'].includes(project.phase) && <LeadActions p={project} onDone={pq.reload} />}<IntakeCard code={code} /><SurveyPanel code={code} focus={focus === 'survey'} /></>
+    else if (sub === 'vragenlijst') body = <><LeadActions p={project} onDone={pq.reload} /><IntakeCard code={code} /><SurveyPanel code={code} focus={focus === 'survey'} /></>
     else if (sub === 'opdrachten') body = <PlanningPanel project={project} />
     else if (sub === 'tijdlijn') body = <EventFeed project={code} title="Tijdlijn" limit={40} />
     else if (sub === 'versies') body = (
@@ -201,7 +225,11 @@ export function ProjectDetail() {
         <Overview project={project} page={pd!} t={tl.t} gates={tl.gates} nums={nums.data} saveDates={tl.save} onTab={(t) => setTab(t)} onSaved={page.reload} />
       </>
     )
-    else body = <><Steps items={STEPS[tab]} active={sub} onPick={setTab} plain={tab === 'dossier'} />{body}</>
+    else body = <>
+      {STAGE_OF[tab] && <PhaseSteps project={project} page={pd!} gates={tl.gates} stage={STAGE_OF[tab]} onTab={setTab} onSaved={page.reload} onDates={() => setParams({ focus: 'datums' }, { replace: true })} />}
+      {STEPS[tab].length > 1 && <Steps items={STEPS[tab]} active={sub} onPick={setTab} plain={tab === 'dossier'} />}
+      {body}
+    </>
   }
 
   return (
@@ -225,13 +253,28 @@ export function ProjectDetail() {
         )}
       </header>
       {project && (showClient || clientFocus) && <div className="pd-client"><ClientPanel project={project} focus={clientFocus} onSaved={pq.reload} /></div>}
-      {project && ph.data && <PhaseBar project={project} gates={tl.gates} phases={ph.data} onSaved={page.reload} focus={focus === 'fase'} />}
-      <nav className="pd-tabs" aria-label="Onderdelen van het project" ref={tabsRef}>
-        {MAIN.map(([id, label]) => {
-          const o = n?.open[id]
-          return <button key={id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{label}{o && tab !== id && <span className={'pd-badge' + (o.urgent ? ' red' : '')} title={`${o.n} open ${o.n === 1 ? 'punt' : 'punten'}`}>{o.n}</span>}</button>
-        })}
-      </nav>
+      <div className={'pd-nav' + (focus === 'fase' ? ' focus' : '')}>
+        <nav className="pd-tabs pd-phases" aria-label="Overzicht, fasen en dossier van het project" ref={tabsRef}>
+          {TAB_IDS.map((id) => {
+            const o = n?.open[id]
+            const badge = o && tab !== id ? <span className={'pd-badge' + (o.urgent ? ' red' : '')} title={`${o.n} open ${o.n === 1 ? 'punt' : 'punten'}`}>{o.n}</span> : null
+            const ph = PHASE_TABS.find(([x]) => x === id)
+            if (!ph) return <button key={id} className={'plain' + (tab === id ? ' on' : '')} onClick={() => setTab(id)}>{id === 'overzicht' ? 'Overzicht' : 'Dossier'}{badge}</button>
+            const g = tl.gates.find((x) => x.stage === ph[1])
+            const cur = tl.gates.find((x) => !x.passed)
+            const closed = !['lead', 'design', 'quote', 'signed', 'production', 'installation'].includes(stage)
+            const st = g?.passed ? 'done' : g && g === cur && !closed ? 'now' : ''
+            return (
+              <button key={id} className={'ph ' + st + (tab === id ? ' on' : '')} onClick={() => setTab(id)} title={g?.gate_label ?? undefined}>
+                <b>{g?.label ?? ph[2]}{badge}</b>
+                <small>{st === 'done' ? '✓ klaar' : st === 'now' ? 'nu' : g?.due ? `tegen ${new Date(g.due + 'T12:00').toLocaleDateString('nl-BE', { day: 'numeric', month: 'short' })}` : '\u00a0'}</small>
+              </button>
+            )
+          })}
+        </nav>
+        {project && ph.data && <label className="ov-phase pd-phase">{!['lead', 'design', 'quote', 'signed', 'production', 'installation'].includes(stage) ? <b>{project.phase_label}</b> : <span className="muted small">Fase wijzigen</span>}<PhaseSelect p={project} phases={ph.data} onSaved={page.reload} /></label>}
+      </div>
+      {focus === 'fase' && <p className="notice">Kies rechts bij "Fase wijzigen" de fase waarin het project nu zit.</p>}
       <ErrorBox error={page.error} />
       {!pd ? (page.loading ? <Loading /> : null) : !project ? <p className="muted">Project {code} niet gevonden.</p> : <div className="pd-body"><ErrorBoundary key={tab + '/' + sub} title="Dit onderdeel kon niet getoond worden">{body}</ErrorBoundary></div>}
       {addHours && <HoursQuickAdd project={code} onClose={() => setAddHours(false)} onSaved={page.reload} />}

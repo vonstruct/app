@@ -33,16 +33,18 @@ export type ProjectNumbers = {
   open: Record<string, { n: number; urgent: boolean }>
 }
 
-/** Bij welk tabblad een punt uit Vandaag hoort (kind uit app_today). Onbekend = enkel op het Overzicht. */
+/** Bij welk tabblad (fase of Dossier) een punt uit Vandaag hoort (kind uit app_today). Onbekend = enkel op het Overzicht. */
 const AREA: Record<string, string> = {
-  prijzen: 'geld', kosten: 'geld', offerte: 'geld', factuur: 'geld', nacalculatie: 'geld', aankoopfactuur: 'geld', poort: 'geld',
-  levertijd: 'uitvoering', bestelling: 'uitvoering', partner: 'uitvoering', opdracht: 'uitvoering', inkoop_docs: 'uitvoering',
-  oplevering: 'uitvoering', werkpunt: 'uitvoering', garantie: 'uitvoering', review: 'uitvoering', planning: 'uitvoering',
-  stuklijst_fout: 'ontwerp', stuklijst_opm: 'ontwerp', optimalisatie: 'ontwerp', survey_nieuw: 'ontwerp', survey_open: 'ontwerp',
+  survey_nieuw: 'aanvraag', survey_open: 'aanvraag',
+  prijzen: 'ontwerp', kosten: 'ontwerp', stuklijst_fout: 'ontwerp', stuklijst_opm: 'ontwerp', optimalisatie: 'ontwerp',
+  offerte: 'offerte', poort: 'offerte',
+  factuur: 'voorbereiding', aankoopfactuur: 'voorbereiding', levertijd: 'voorbereiding', bestelling: 'voorbereiding', inkoop_docs: 'voorbereiding',
+  partner: 'productie',
+  opdracht: 'plaatsing', planning: 'plaatsing', oplevering: 'plaatsing', werkpunt: 'plaatsing', garantie: 'plaatsing', review: 'plaatsing', nacalculatie: 'plaatsing',
   mail_antwoord: 'dossier', mail: 'dossier',
 }
 const areaOf = (kind: string, title: string) =>
-  kind === 'controle' ? (/^Bestelling/.test(title) ? 'uitvoering' : 'geld') : AREA[kind] ?? null
+  kind === 'controle' ? (/^Bestelling/.test(title) ? 'voorbereiding' : 'offerte') : AREA[kind] ?? null
 
 export function numbersOf(d: ProjectPage): ProjectNumbers {
   const rank = (s: string) => (s === 'aanvaard' ? 0 : s === 'verstuurd' ? 1 : s === 'concept' ? 2 : 3)

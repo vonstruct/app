@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router'
 import { supabase } from '../../core/supabase'
 import { toast } from '../../core/toast'
 import { fmtEur } from '../../core/format'
-import { PhaseSelect, type Phase, type ProjectRow } from '../../core/projects'
+import type { ProjectRow } from '../../core/projects'
 import { actionFor, cleanTitle, dueText, InlineProposal, keyOf, type Flag } from '../controltower/ControlTower'
 import { DatesForm, dayLabel, type Gate, type Timeline } from './KeyDates'
 import { useProjectPlanning } from './PlanningPanel'
@@ -78,7 +78,7 @@ function StepRow({ s }: { s: Step }) {
     <li className={'ovn-step ' + s.state}>
       <i className="ovn-box" aria-hidden="true">{s.state === 'done' ? '✓' : ''}</i>
       <span className="ovn-t"><b>{s.text}</b>{s.hint && <small>{s.hint}</small>}</span>
-      <span className="ovn-act">{s.act ?? (s.side ? <span className="ovn-side">{s.side}</span> : null)}</span>
+      <span className="ovn-act">{s.side && <span className="ovn-side">{s.side}</span>}{s.act}</span>
     </li>
   )
 }
@@ -109,10 +109,8 @@ export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSa
   const tasks = page.tasks
   const [openProp, setOpenProp] = useState<string | null>(null)
   // ?focus=datums (vanuit Vandaag: datum ontbreekt): het formulier met de datums meteen open
-  const [params, setParams] = useSearchParams()
+  const [params] = useSearchParams()
   const [dates, setDates] = useState(params.get('focus') === 'datums')
-  // ?fase=<stage>: een andere fase bekijken (fasebalk); enkel tonen, de fase van het project verandert niet
-  const viewStage = params.get('fase')
   const [newTask, setNewTask] = useState<string | null>(null)
   const plan = useProjectPlanning(project)
   const load = onSaved
@@ -129,13 +127,7 @@ export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSa
     supabase.from('agenda_notes').upsert(past.map((e) => ({ event_key: agendaKey(e), project_code: code, event_title: e.title, event_start: e.start })), { onConflict: 'event_key' })
       .then(({ error }) => { if (!error) onSaved() })
   }, [plan.events, rules, words, code]) // eslint-disable-line react-hooks/exhaustive-deps
-  const reload = onSaved
 
-  const tick = async (it: CheckItem, na = false, by?: string) => {
-    const { error } = await supabase.from('project_checklist').upsert({ project_code: code, template_id: it.template_id, done_at: na ? null : new Date().toISOString(), na, ...(by ? { done_by: by } : {}) })
-    if (error) return toast(error.message, 'err')
-    toast(na ? 'Op n.v.t. gezet' : 'Afgevinkt'); reload()
-  }
   const taskDone = async (id: string) => {
     const { error } = await supabase.from('tasks').update({ done_at: new Date().toISOString() }).eq('id', id)
     if (error) return toast(error.message, 'err')
@@ -152,14 +144,7 @@ export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSa
   const today = todayIso()
   const nowMs = Date.now()
   const nowGate = gates.find((g) => !g.passed)
-  const viewed = viewStage ? gates.find((g) => g.stage === viewStage) : undefined
-  const cur = viewed ?? nowGate
-  const looking = !!viewed && viewed !== nowGate
-  const flagKinds = new Set(flags.map((f) => f.kind))
   const partnerName = po?.partner ?? 'de partner'
-  const tabBtnN = (tab: string) => tab === 'datums'
-    ? <button className="ovn-btn" onClick={() => setDates(true)}>Invullen</button>
-    : <button className="ovn-btn" onClick={() => onTab(tab)}>Openen</button>
   const tabBtn = (tab: string, label: string) => tab === 'datums'
     ? <button className="go" onClick={() => setDates(true)}>{label}</button>
     : <button className="go" onClick={() => onTab(tab)}>{label}</button>
@@ -167,9 +152,6 @@ export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSa
   const v = useMemo(() => {
     const all = items ?? []
     const rule = (it: CheckItem) => rules[it.template_id] ?? null
-    const covered = (it: CheckItem) => (STEP[rule(it) ?? '']?.flags ?? []).some((k) => flagKinds.has(k))
-
-    // ---- Klaar (ingeklapt): afgevinkte stappen van vorige fasen; die van de huidige fase staan bij de stappen
 
     // ---- Te doen: meldingen van Vandaag (enkel dit project) en eigen taken; één reden, één knop van vaste breedte
     const todo: Todo[] = []
@@ -187,40 +169,6 @@ export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSa
       })
     }
     for (const tk of tasks) todo.push({ key: 't' + tk.id, dot: tk.due_date && tk.due_date <= today ? 'red' : 'grey', text: tk.text, why: 'taak', due: dueText(tk.due_date), act: <button className="ovn-btn" onClick={() => taskDone(tk.id)}>Klaar</button> })
-
-    // ---- Stappen van de huidige fase, als afvinklijst (optionele stappen enkel als ze gedaan zijn)
-    const steps: Step[] = []
-    for (const it of all.filter((x) => cur && x.stage === cur.stage).sort((a, b) => a.sort - b.sort)) {
-      const r = rule(it), s = r ? STEP[r] : null
-      const w = r === 'agenda' && words[it.template_id] ? words[it.template_id]!.split(',')[0].trim() : null
-      if (r === 'survey_submitted') { // vragenlijst: optioneel, altijd zichtbaar met de stand (8/11/2026)
-        const req = project.survey_requested_at
-        const early = ['lead', 'intake', 'survey', 'measuring'].includes(project.phase)
-        steps.push(it.done
-          ? { key: 's' + it.template_id, state: 'done', text: 'Vragenlijst', hint: 'optioneel · ingevuld door de klant', side: it.done_at ? short(it.done_at) : null }
-          : { key: 's' + it.template_id, state: 'opt', text: 'Vragenlijst', hint: 'optioneel', side: project.survey_status === 'open' ? 'begonnen, nog niet ingediend' : req ? `gevraagd ${short(req)}` : 'niet gevraagd',
-              act: !looking && !req && project.survey_status !== 'open' ? <button className="ovn-btn" onClick={() => early ? document.querySelector('.lead-actions')?.scrollIntoView({ behavior: 'smooth', block: 'center' }) : onTab('vragenlijst')}>Sturen</button> : undefined })
-        continue
-      }
-      if (it.done) { steps.push({ key: 's' + it.template_id, state: 'done', text: it.label, side: it.done_at ? short(it.done_at) : null, hint: r === 'measures_known' && it.done_by && it.done_by !== 'automatisch' && it.done_by !== 'met de hand' ? it.done_by : null }); continue }
-      if (it.na) { steps.push({ key: 's' + it.template_id, state: 'na', text: it.label, side: 'n.v.t.' }); continue }
-      if (looking) { // andere fase bekijken: enkel tonen, geen knoppen
-        steps.push({ key: 's' + it.template_id, state: it.skipped ? 'na' : 'open', text: it.label, side: it.skipped ? 'overgeslagen' : viewed && nowGate && viewed.sort > nowGate.sort ? 'later' : 'niet gedaan' })
-        continue
-      }
-      if (it.skipped) continue
-      if (r === 'measures_known') {
-        steps.push({ key: 's' + it.template_id, state: 'open', text: it.label, hint: 'vanzelf na opmeting of vragenlijst',
-          act: <select className="ovn-btn" value="" aria-label="Waar komen de maten vandaan?" onChange={(e) => e.target.value && tick(it, false, e.target.value)}><option value="">Gekend ▾</option>{MEASURE_SRC.map((m) => <option key={m} value={m}>{m}</option>)}</select> })
-      } else if (!r || s?.tick) {
-        steps.push({ key: 's' + it.template_id, state: 'open', text: it.label, hint: w ? `vanzelf na afspraak "${w}"` : null,
-          act: <><button className="ovn-btn" onClick={() => tick(it)}>Gedaan</button><button className="ovn-na" onClick={() => tick(it, true)} title="Niet van toepassing">n.v.t.</button></> })
-      } else {
-        const hint = r === 'design_version' ? 'vanzelf na upload uit PaletteCAD' : r === 'production_done' ? `wacht op ${partnerName}` : s && !s.now ? WAIT[s.who] ?? null : null
-        steps.push({ key: 's' + it.template_id, state: 'open', text: it.label, hint: covered(it) ? 'zie Te doen' : hint,
-          act: s?.now && s.tab && !covered(it) && r !== 'design_version' ? tabBtnN(s.tab) : undefined, side: s && !s.now ? 'vanzelf' : null })
-      }
-    }
 
     // ---- Komt eraan (met datum)
     const soon: Line[] = []
@@ -263,10 +211,9 @@ export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSa
     soon.sort((a, b) => (a.date ? d10(a.date) : '9999').localeCompare(b.date ? d10(b.date) : '9999') || (a.date ?? '').localeCompare(b.date ?? ''))
 
 
-    // ---- Daarna: de volgende fase
-    return { todo, steps, soon }
+    return { todo, soon }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, rules, words, flags, tasks, orders, po, t, gates, plan.jobs, plan.events, openProp, viewStage])
+  }, [items, rules, words, flags, tasks, orders, po, t, gates, plan.jobs, plan.events, openProp])
 
 
   return (
@@ -282,32 +229,20 @@ export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSa
         {!items ? <p className="muted small">Laden…</p> : (
           <>
 
-            {looking && cur && (
-              <div className="ovn ovn-look">
-                <div className="ovn-h">{cur.label} bekijken<span>{cur.passed ? (cur.done_at ? `klaar op ${short(cur.done_at)}` : 'klaar') : 'nog niet aan de beurt'} · de fase van het project blijft {nowGate?.label ?? ''}</span></div>
-                {v.steps.length > 0 ? <ol className="ovn-list">{v.steps.map((x) => <StepRow key={x.key} s={x} />)}</ol> : <p className="muted small">Geen stappen in deze fase.</p>}
-                <button className="ovn-back" onClick={() => { const n = new URLSearchParams(params); n.delete('fase'); setParams(n, { replace: true }) }}>← Terug naar nu ({nowGate?.label})</button>
-              </div>
-            )}
-            {!looking && v.todo.length > 0 && (
+            {v.todo.length > 0 && (
               <div className="ovn">
                 <div className="ovn-h">Te doen</div>
                 <ol className="ovn-list">{v.todo.map((r) => <TodoRow key={r.key} r={r} />)}</ol>
               </div>
             )}
-            {!looking && cur && v.steps.length > 0 && (
-              <div className="ovn">
-                <div className="ovn-h">Stappen · {cur.label}<span>{cur.gate_label ? `daarna: ${cur.gate_label.toLowerCase()}` : ''}</span></div>
-                <ol className="ovn-list">{v.steps.map((x) => <StepRow key={x.key} s={x} />)}</ol>
-              </div>
-            )}
-            {!looking && <div className="ovn-add">
+            {nowGate && <PhaseSteps project={project} page={page} gates={gates} stage={nowGate.stage} onTab={onTab} onSaved={onSaved} onDates={() => setDates(true)} />}
+            <div className="ovn-add">
               {newTask === null
                 ? <button className="link small" onClick={() => setNewTask('')}>+ taak</button>
                 : <span className="toolbar small"><input autoFocus value={newTask} placeholder="Wat moet er gebeuren?" onChange={(e) => setNewTask(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addTask(); if (e.key === 'Escape') setNewTask(null) }} /><button onClick={addTask}>Bewaren</button><button className="link small" onClick={() => setNewTask(null)}>annuleren</button></span>}
-            </div>}
+            </div>
 
-            {!looking && v.soon.length > 0 && (
+            {v.soon.length > 0 && (
               <>
                 <div className="ov-sec">Komt eraan</div>
                 <ol className="ov-list">
@@ -360,38 +295,88 @@ function KeyFigures({ d, t, onTab, onDates }: { d: ProjectNumbers | null; t: Tim
 
 /** Dunne fasebalk boven de tabbladen (enkel tonen) + fase met de hand kiezen. */
 /**
- * Dunne fasebalk boven de tabbladen. Een fase aantikken = enkel bekijken (?fase=<stage>: het Verloop toont de stappen van die fase);
- * de fase van het project wijzigt NIET (8/11/2026, Olivier: "als ik naar een vorige fase ga om te kijken, gaat het project terug").
- * Fase wijzigen kan enkel met de keuzelijst "Fase wijzigen".
+ * Stappen van één fase als afvinklijst (8/11/2026): in het Overzicht de huidige fase, bovenaan elk fase-tabblad de stappen van die fase.
+ * Huidige fase: met knoppen (Gedaan / n.v.t., "Gekend ▾", Openen). Een andere fase: enkel lezen (✓ met datum, overgeslagen, later).
+ * De vragenlijst staat er altijd bij als optionele stap met de stand.
  */
-export function PhaseBar({ project, gates, phases, onSaved, focus }: { project: ProjectRow; gates: Gate[]; phases: Phase[]; onSaved: () => void; focus: boolean }) {
-  const [params, setParams] = useSearchParams()
-  const cur = gates.find((g) => !g.passed)
-  const closed = !['lead', 'design', 'quote', 'signed', 'production', 'installation'].includes(project.stage ?? '')
-  const viewing = params.get('fase')
-  const look = (stage: string) => {
-    const n = new URLSearchParams(params)
-    n.delete('tab')
-    if (stage === cur?.stage || stage === viewing) n.delete('fase'); else n.set('fase', stage)
-    setParams(n, { replace: true })
+export function PhaseSteps({ project, page, gates, stage, onTab, onSaved, onDates }: {
+  project: ProjectRow; page: ProjectPage; gates: Gate[]; stage: string; onTab: (tab: string) => void; onSaved: () => void; onDates?: () => void
+}) {
+  const code = project.project_code
+  const items: CheckItem[] = page.checklist
+  const rules = useMemo(() => Object.fromEntries(page.templates.map((x) => [x.id, x.auto_rule])) as Record<number, string | null>, [page.templates])
+  const words = useMemo(() => Object.fromEntries(page.templates.map((x) => [x.id, x.agenda_words])) as Record<number, string | null>, [page.templates])
+  const flagKinds = new Set(page.today.map((f) => f.kind))
+  const partnerName = page.partner?.partner ?? 'de partner'
+  const nowGate = gates.find((g) => !g.passed)
+  const viewed = gates.find((g) => g.stage === stage)
+  const cur = viewed
+  const looking = !!viewed && viewed !== nowGate
+  const rule = (it: CheckItem) => rules[it.template_id] ?? null
+  const covered = (it: CheckItem) => (STEP[rule(it) ?? '']?.flags ?? []).some((k) => flagKinds.has(k))
+  const tick = async (it: CheckItem, na = false, by?: string) => {
+    const { error } = await supabase.from('project_checklist').upsert({ project_code: code, template_id: it.template_id, done_at: na ? null : new Date().toISOString(), na, ...(by ? { done_by: by } : {}) })
+    if (error) return toast(error.message, 'err')
+    toast(na ? 'Op n.v.t. gezet' : 'Afgevinkt'); onSaved()
   }
+  const tabBtnN = (tab: string) => tab === 'datums'
+    ? <button className="ovn-btn" onClick={() => onDates ? onDates() : onTab('overzicht')}>Invullen</button>
+    : <button className="ovn-btn" onClick={() => onTab(tab)}>Openen</button>
+  const all = items ?? []
+  const steps: Step[] = []
+  // elke fase is aan te passen (8/11/2026, Olivier: "ik kan hier ook niets wijzigen"): met de hand afgevinkt = ongedaan te maken,
+  // automatisch = toont waar het vandaan komt (kennismaking: datum wijzigen; Go: via Fase wijzigen)
+  const later = !!(cur && nowGate && cur.sort > nowGate.sort)
+  const untick = async (it: CheckItem) => {
+    const { error } = await supabase.from('project_checklist').upsert({ project_code: code, template_id: it.template_id, done_at: null, na: false, done_by: null })
+    if (error) return toast(error.message, 'err')
+    toast('Ongedaan gemaakt'); onSaved()
+  }
+  const goSurvey = () => { const el = document.querySelector('.lead-actions'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); else onTab('vragenlijst') }
+  const undoBtn = (it: CheckItem) => <button className="ovn-na" onClick={() => untick(it)} title="Afvinken ongedaan maken">ongedaan</button>
+  for (const it of all.filter((x) => cur && x.stage === cur.stage).sort((a, b) => a.sort - b.sort)) {
+    const r = rule(it), s = r ? STEP[r] : null
+    const w = r === 'agenda' && words[it.template_id] ? words[it.template_id]!.split(',')[0].trim() : null
+    const k = 's' + it.template_id
+    const auto = it.done_by === 'automatisch'
+    if (r === 'survey_submitted') { // vragenlijst: optioneel, altijd zichtbaar met de stand
+      const req = project.survey_requested_at
+      steps.push(it.done
+        ? { key: k, state: 'done', text: 'Vragenlijst', hint: 'optioneel · ingevuld door de klant', side: it.done_at ? short(it.done_at) : null }
+        : { key: k, state: 'opt', text: 'Vragenlijst', hint: 'optioneel · ' + (project.survey_status === 'open' ? 'begonnen, nog niet ingediend' : req ? `gevraagd ${short(req)}` : 'niet gevraagd'),
+            act: <button className="ovn-btn" onClick={goSurvey}>{req || project.survey_status === 'open' ? 'Opvolgen' : 'Sturen'}</button> })
+      continue
+    }
+    if (it.done) {
+      const src = r === 'measures_known' && it.done_by && !auto && it.done_by !== 'met de hand' ? it.done_by : null
+      steps.push({ key: k, state: 'done', text: it.label, side: it.done_at ? short(it.done_at) : null,
+        hint: src ?? (auto && r === 'go_given' ? 'terugzetten: Fase wijzigen' : auto && r === 'intro_done' ? 'datum van de kennismaking' : auto ? 'vanzelf' : null),
+        act: !auto ? undoBtn(it) : r === 'intro_done' ? <button className="ovn-na" onClick={() => onDates ? onDates() : onTab('overzicht')}>datum wijzigen</button> : undefined })
+      continue
+    }
+    if (it.na) { steps.push({ key: k, state: 'na', text: it.label, side: 'n.v.t.', act: undoBtn(it) }); continue }
+    const skippedHint = it.skipped ? 'overgeslagen' : null
+    if (r === 'measures_known') {
+      steps.push({ key: k, state: 'open', text: it.label, hint: skippedHint ?? 'vanzelf na opmeting of vragenlijst',
+        act: <select className="ovn-btn" value="" aria-label="Waar komen de maten vandaan?" onChange={(e) => e.target.value && tick(it, false, e.target.value)}><option value="">Gekend ▾</option>{MEASURE_SRC.map((m) => <option key={m} value={m}>{m}</option>)}</select> })
+    } else if (!r || s?.tick) {
+      steps.push({ key: k, state: 'open', text: it.label, hint: skippedHint ?? (w ? `vanzelf na afspraak "${w}"` : null),
+        act: <><button className="ovn-btn" onClick={() => tick(it)}>Gedaan</button><button className="ovn-na" onClick={() => tick(it, true)} title="Niet van toepassing">n.v.t.</button></> })
+    } else if (r === 'intro_done') {
+      steps.push({ key: k, state: 'open', text: it.label, hint: project.intro_at ? `gepland ${short(project.intro_at)}` : 'datum van de kennismaking nog niet ingevuld',
+        act: <button className="ovn-btn" onClick={() => onDates ? onDates() : onTab('overzicht')}>{project.intro_at ? 'Wijzigen' : 'Invullen'}</button> })
+    } else {
+      const hint = r === 'design_version' ? 'vanzelf na upload uit PaletteCAD' : r === 'go_given' ? 'knop Go bij Aanvraag' : r === 'production_done' ? `wacht op ${partnerName}` : s && !s.now ? WAIT[s.who] ?? null : null
+      steps.push({ key: k, state: it.skipped ? 'na' : 'open', text: it.label, hint: skippedHint ?? (covered(it) ? 'zie Te doen' : hint),
+        act: s?.now && s.tab && !covered(it) && r !== 'design_version' ? tabBtnN(s.tab) : undefined, side: later ? 'later' : s && !s.now ? 'vanzelf' : null })
+    }
+  }
+
+  if (!cur) return null
   return (
-    <div className={'ov-bar-wrap' + (focus ? ' focus' : '')}>
-      <ol className="ov-bar" aria-label="Fasen van het project: aantikken om te bekijken">
-        {gates.map((g) => {
-          const st = g.passed ? 'done' : g === cur && !closed ? 'now' : ''
-          return (
-            <li key={g.stage} className={st + (viewing === g.stage ? ' sel' : '')}>
-              <button type="button" onClick={() => look(g.stage)} title={`${g.label} bekijken (de fase van het project blijft ${project.phase_label ?? ''})`}>
-                <b>{g.label}</b>
-                <small>{g.passed ? '✓ klaar' : st === 'now' ? 'nu' : g.due ? `tegen ${short(g.due)}` : ''}</small>
-              </button>
-            </li>
-          )
-        })}
-      </ol>
-      <label className="ov-phase">{closed ? <b>{project.phase_label}</b> : <span className="muted small">Fase wijzigen</span>}<PhaseSelect p={project} phases={phases} onSaved={onSaved} /></label>
-      {focus && <p className="notice">Kies hier de fase waarin het project nu zit.</p>}
+    <div className={'ovn' + (looking ? ' ovn-look' : '')}>
+      <div className="ovn-h">Stappen · {cur.label}<span>{looking ? (cur.passed ? (cur.done_at ? `klaar op ${short(cur.done_at)}` : 'klaar') : 'nog niet aan de beurt') : cur.gate_label ? `daarna: ${cur.gate_label.toLowerCase()}` : ''}</span></div>
+      {steps.length > 0 ? <ol className="ovn-list">{steps.map((x) => <StepRow key={x.key} s={x} />)}</ol> : <p className="muted small">Geen stappen in deze fase.</p>}
     </div>
   )
 }
