@@ -7,6 +7,7 @@ import { toast } from '../../core/toast'
 import { RuleSentence, type Rule } from './RuleSentence'
 import { ruleTables } from './tables'
 import { PriceListUpload } from './PriceListUpload'
+import { PlateFamilies } from './PlateFamilies'
 
 const SECTIONS = ['Bestellen', 'Platen', 'Plaatoptimalisatie', 'Kanten', 'Lades', 'Productiekosten', 'Prijzen', 'Kasten', 'Offerte', 'Facturen', 'Oplevering', 'Nacalculatie', 'Brochure', 'Capaciteit', 'Productie', 'Meldingen', 'Berichten', 'Checklist']
 const REVIEW = 'Na te kijken'
@@ -55,6 +56,7 @@ export function RulesPage() {
           )}
         </div>
       ))}
+      {section === 'Plaatoptimalisatie' && <PlateFamilies />}
       {tables.map((t) => (
         <div key={t.table}>
           <h2>{t.title}</h2>

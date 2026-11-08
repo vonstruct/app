@@ -167,7 +167,7 @@ export const ruleTables: RuleTable[] = [
     table: 'sheet_formats',
     title: 'Plaatformaten',
     explanation:
-      'Per materiaal de formaten die je kan bestellen. De optimalisatie kiest de combinatie met de laagste kost. Materiaal = naam zoals in PaletteCAD (het begin volstaat) of artikelnummer. Prijs leeg = m²-prijs van de leverancier.',
+      'Extra formaten bovenop de prijslijsten (Plaatmaterialen hierboven): een formaat dat niet in de prijslijst staat, een eigen prijs, of een materiaal zonder prijslijst (bv. HPL). De optimizer weegt ze mee en kiest het voordeligste zaagplan. Materiaal = naam zoals in PaletteCAD (het begin volstaat) of artikelnummer. Prijs leeg = geschat met de laagste m²-prijs van dat materiaal. Leverancier leeg = de vaste leverancier of de catalogusleverancier.',
     columns: [
       { key: 'material', label: 'Materiaal' },
       { key: 'length_mm', label: 'Lengte (mm)', type: 'number', width: 110 },

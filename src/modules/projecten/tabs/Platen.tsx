@@ -4,9 +4,10 @@ import { useQuery } from '../../../core/useQuery'
 import { DataTable } from '../../../core/DataTable'
 import { ErrorBox, Loading } from '../../../core/ui'
 import { fmtEur, fmtMm, fmtNum } from '../../../core/format'
+import { PlateChoices, type SheetData } from './PlateChoices'
 
-type Sheet = { id: string; material_label: string; thickness_mm: number; length_mm: number; width_mm: number; qty: number; yield_pct: number | null; price_per_sheet: number | null; format_source: string | null; article_no: string | null; ordered_by: string | null; cost: number }
-type Opt = { optimizer_status: string | null; optimizer_at: string | null; cutplan_path: string | null }
+type Sheet = { id: string; material_label: string; thickness_mm: number; length_mm: number; width_mm: number; qty: number; yield_pct: number | null; price_per_sheet: number | null; format_source: string | null; supplier: string | null; article_no: string | null; ordered_by: string | null; cost: number; data: SheetData | null }
+type Opt = { optimizer_status: string | null; optimizer_at: string | null; cutplan_path: string | null; project_code: string }
 
 type Sum = { material_label: string | null; thickness_mm: number; n_parts: number; area_m2: number }
 type Part = {
@@ -22,8 +23,8 @@ const edgeShort = (e: Part['edges'], side: string) => {
 
 export function Platen({ dvId }: { dvId: string }) {
   const [detail, setDetail] = useState(false)
-  const sheets = useQuery<Sheet[]>(() => supabase.from('app_sheets').select('*').eq('design_version_id', dvId).order('material_label'), [dvId])
-  const opt = useQuery<Opt>(() => supabase.from('design_versions').select('optimizer_status, optimizer_at, cutplan_path').eq('id', dvId).single(), [dvId])
+  const sheets = useQuery<Sheet[]>(() => supabase.from('app_sheets').select('*').eq('design_version_id', dvId).order('material_label').order('thickness_mm').order('qty', { ascending: false }), [dvId])
+  const opt = useQuery<Opt>(() => supabase.from('design_versions').select('optimizer_status, optimizer_at, cutplan_path, project_code').eq('id', dvId).single(), [dvId])
   // zaagplan: in de pagina tonen (een nieuw venster na het laden wordt door browsers vaak geblokkeerd)
   const [plan, setPlan] = useState<{ html: string | null; busy: boolean; error: string | null }>({ html: null, busy: false, error: null })
   const togglePlan = async () => {
@@ -70,10 +71,12 @@ export function Platen({ dvId }: { dvId: string }) {
           { key: 'yield_pct', label: 'Benutting', align: 'right', render: (r) => (r.yield_pct == null ? '' : `${fmtNum(r.yield_pct, 0)} %`) },
           { key: 'price_per_sheet', label: 'Prijs per plaat', align: 'right', render: (r) => fmtEur(r.price_per_sheet) },
           { key: 'cost', label: 'Totaal', align: 'right', total: true, value: (r) => Number(r.cost), render: (r) => fmtEur(r.cost) },
-          { key: 'format_source', label: 'Leverancier' },
+          { key: 'supplier', label: 'Leverancier', value: (r) => r.supplier ?? r.format_source ?? '' },
+          { key: 'article_no', label: 'Artikel', render: (r) => <span title={r.data?.description ?? ''}>{r.article_no ?? ''}</span> },
           { key: 'ordered_by', label: 'Besteld door' },
         ]}
       />
+      {opt.data && <PlateChoices sheets={sheets.data ?? []} dvId={dvId} projectCode={opt.data.project_code} onChanged={() => sheets.reload()} />}
       <h2>Onderdelen per materiaal</h2>
       <DataTable
         rows={sum.data ?? []}

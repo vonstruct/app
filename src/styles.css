@@ -2359,3 +2359,24 @@ select.ovn-btn { appearance: none; -webkit-appearance: none; text-align-last: ce
 .ovn-step.done .ovn-na, .ovn-step.na .ovn-na { color: var(--muted); text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
 .pd-phases button { border-left: 0; border-right: 0; border-radius: 0; background: none; box-shadow: none; }
 .pd-phases button.ph.on { background: color-mix(in srgb, #b38b3a 9%, transparent); }
+
+/* Platen: keuze per materiaal (8/11/2026) */
+.pc-list { margin: 18px 0 8px; }
+.pc-row { display: flex; gap: 16px; align-items: flex-start; justify-content: space-between; padding: 10px 0; border-top: 1px solid var(--line); }
+.pc-main { min-width: 0; flex: 1; }
+.pc-plan { margin-top: 2px; }
+.pc-why { margin: 4px 0 0; padding-left: 18px; color: var(--muted); font-size: 12.5px; }
+.pc-why li { margin: 1px 0; }
+.pc-pick { max-width: 420px; flex: 0 1 420px; }
+@media (max-width: 720px) { .pc-row { flex-direction: column; gap: 6px; } .pc-pick { max-width: 100%; width: 100%; flex: none; } }
+.pf-card { margin: 10px 0; padding: 0; }
+.pf-card > summary { cursor: pointer; padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; list-style: none; }
+.pf-card > summary::-webkit-details-marker { display: none; }
+.pf-card > summary::before { content: "▸"; color: var(--muted); }
+.pf-card[open] > summary::before { content: "▾"; }
+.pf-body { padding: 0 16px 12px; }
+.pf-off td { color: var(--muted); text-decoration: line-through; }
+.pf-off td:last-child { text-decoration: none; }
+.pf-search input { flex: 1; min-width: 220px; }
+.pf-hits { list-style: none; padding: 0; margin: 4px 0 8px; }
+.pf-hits li { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 13px; }

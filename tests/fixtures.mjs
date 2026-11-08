@@ -168,11 +168,19 @@ const tables = {
   agent_runs: [{ cost_usd: 1.23, created_at: iso(-1), question: 'Wat moet ik vandaag doen?', answer: 'Drie dingen…' }],
   mail_events: [{ email_id: 'e1', status: 'delivered', to: 'jan@voorbeeld.be', subject: 'Uitnodiging', created_at: iso(-1), seen: false }],
   events: [{ id: 1, at: iso(-1), kind: 'versie', importance: 2, project_code: '209901', title: 'Nieuwe versie v3', detail: null, actor: 'PaletteCAD' }],
-  design_versions: [{ id: 'dv3', version: 3, received_at: iso(-1), scene_title: 'Keuken v3', n_cabinets: 14, n_parts: 312, n_errors: 1, n_warnings: 3, project: { customer: 'Jan Peeters', street: 'Dorpsstraat 1', city: 'Brussel', drawn_by: 'OV' }, optimizer_status: 'klaar', optimizer_at: iso(-1), cutplan_path: '209901/v3-zaagplan.html', cost_status: 'klaar' }],
+  design_versions: [{ id: 'dv3', version: 3, received_at: iso(-1), scene_title: 'Keuken v3', n_cabinets: 14, n_parts: 312, n_errors: 1, n_warnings: 3, project: { customer: 'Jan Peeters', street: 'Dorpsstraat 1', city: 'Brussel', drawn_by: 'OV' }, optimizer_status: 'klaar', optimizer_at: iso(-1), cutplan_path: '209901/v3-zaagplan.html', cost_status: 'klaar', project_code: '209901' }],
   app_version_summary: [{ design_version_id: 'dv3', n_cabinets: 14, n_parts: 312, n_sheets: 9, edge_m: 120 }],
   app_cost_summary: [{ design_version_id: 'dv3', category: 'Platen', amount: 800 }, { design_version_id: 'dv3', category: 'Beslag', amount: 200 }],
   app_cabinets: [{ kind_label: 'Kasten', kind_prio: 1, name: '1_onderkast', width_mm: 600, height_mm: 720, depth_mm: 560 }, { kind_label: 'Kasten', kind_prio: 1, name: '2_hoge kast', width_mm: 600, height_mm: 2100, depth_mm: 560 }],
-  app_sheets: [{ id: 'sh1', material_label: 'Eik fineer', thickness_mm: 19, length_mm: 2800, width_mm: 2070, qty: 4, yield_pct: 81, price_per_sheet: 50, format_source: 'Voorbeeldhout', article_no: 'A1', ordered_by: 'Partner', cost: 200 }],
+  app_sheets: [
+    { id: 'sh1', material_label: 'Eik fineer', thickness_mm: 19, length_mm: 2800, width_mm: 2070, qty: 4, yield_pct: 81, price_per_sheet: 50, format_source: 'prijslijst', supplier: 'Voorbeeldhout', article_no: 'A1', ordered_by: 'Partner', cost: 200,
+      data: { family: 'eik fineer', plan: '4× 2800×2070 + 1× 3050×1220', plan_cost: 245, suppliers: ['Voorbeeldhout'], reasons: ['1 onderdeel past niet op 2800×2070 (Zijwand 3000×600) → 3050×1220', 'voordeligste: € 245,00; daarna Houthandel B 5× 2800×2070 € 260,00'],
+        locked: null, alternatives: [
+          { plan: '4× 2800×2070 + 1× 3050×1220', suppliers: ['Voorbeeldhout'], supplier: 'Voorbeeldhout', length_mm: 2800, width_mm: 2070, count: 5, cost: 245, unfit: 0, chosen: true },
+          { plan: '5× 2800×2070', suppliers: ['Houthandel B'], supplier: 'Houthandel B', length_mm: 2800, width_mm: 2070, count: 5, cost: 260, unfit: 1, chosen: false }] } },
+    { id: 'sh2', material_label: 'Eik fineer', thickness_mm: 19, length_mm: 3050, width_mm: 1220, qty: 1, yield_pct: 40, price_per_sheet: 45, format_source: 'prijslijst', supplier: 'Voorbeeldhout', article_no: 'A2', ordered_by: 'Partner', cost: 45,
+      data: { family: 'eik fineer', plan: '4× 2800×2070 + 1× 3050×1220', plan_cost: 245, suppliers: ['Voorbeeldhout'], reasons: [], alternatives: [] } },
+  ],
   app_parts_summary: [{ material_label: 'Eik fineer', thickness_mm: 19, n_parts: 120, area_m2: 18.2 }],
   app_checks: [{ code: 'GEEN_ARTIKELNR', level: 'opmerking', part: 'Greep 400', message: 'Artikelnummer ontbreekt' }],
   app_capacity_weeks: capacity,
@@ -203,6 +211,13 @@ const rpc = {
 export { tables, rpc, projectPage, events, iso, day }
 
 // brochure: zelfde vorm als RPC brochure_data
+rpc.plate_families_overview = [
+  { family: 'eik fineer', family_name: 'Eik fineer', labels: ['Eik fineer'], aliases: [], used_thickness: [19], projects: ['209901'], n_parts: 40, members: [
+    { supplier: 'Voorbeeldhout', sku: 'A1', description: 'Eik fineer 19mm', thickness_mm: 19, length_mm: 2800, width_mm: 2070, price: 50, price_m2: 8.6, protective_film: false, note: null, added: false, excluded_id: null },
+    { supplier: 'Houthandel B', sku: 'B7', description: 'Eik fineer 19mm', thickness_mm: 19, length_mm: 2800, width_mm: 2070, price: 52, price_m2: 9, protective_film: false, note: null, added: false, excluded_id: 3 },
+    { supplier: 'Voorbeeldhout', sku: 'A9', description: 'Eik fineer 25mm', thickness_mm: 25, length_mm: 2800, width_mm: 2070, price: 70, price_m2: 12, protective_film: false, note: null, added: false, excluded_id: null }] },
+  { family: 'hpl eik', family_name: 'HPL Eik', labels: ['HPL Eik'], aliases: [], used_thickness: [0.7], projects: ['209901'], n_parts: 6, members: [] },
+]
 rpc.brochure_data = { project_code: '209901', title: 'Keuken en berging', intro: null, client: 'Jan Peeters', published: false, company: {}, renders: [], cabinets: [{ name: 'Onderkast', width: 600, depth: 560, height: 720, image: null, text: null }], materials: [], drawers: null, appliances: [] }
 // vragenlijst: zelfde vorm als RPC portal_survey
 rpc.portal_survey = { project_code: '209901', modules: [{ module: 'keuken', label: 'Keuken' }], questions: [], answers: {}, status: 'open', known: {} }

@@ -21,6 +21,12 @@ export function RecalcButton({ dvId, onDone }: { dvId: string; onDone: () => voi
   }, [dvId])
 
   useEffect(() => { load() }, [load])
+  // ook gestart vanuit een ander onderdeel (bv. een andere keuze bij Platen)
+  useEffect(() => {
+    const on = () => { setStarted(Date.now()); load() }
+    window.addEventListener('vonstruct:recalc', on)
+    return () => window.removeEventListener('vonstruct:recalc', on)
+  }, [load])
 
   useEffect(() => {
     if (!busy(st)) {
