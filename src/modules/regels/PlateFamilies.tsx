@@ -211,7 +211,9 @@ function FamilySearch({ label, onDone }: { label: string; onDone: () => void }) 
   )
 }
 
-type ListItem = { name: string; family: string; thicknesses: number[]; formats: string; suppliers: string; price_m2_from: number | null; n: number }
+type ListItem = { name: string; family: string; thicknesses: number[]; formats: string; suppliers: string; price_m2_from: number | null; n: number; own?: boolean }
+// bestandsnaam voor de afbeelding: tekens die Windows niet toelaat (\ / : * ? " < > |) worden "-"
+const fileName = (n: string) => n.replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim()
 
 /**
  * Lijst met plaatmaterialen voor PaletteCAD (8/11/2026, Olivier: "één naam per materiaal, zonder dikte"): één regel per materiaal
@@ -230,8 +232,8 @@ function MaterialList() {
     if (!rows.length) return toast('Geen materialen met die woorden', 'err')
     const cell = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
     const lines = [
-      ['Materiaal (naam in PaletteCAD)', 'Diktes (mm)', 'Formaten (mm)', 'Leveranciers', 'Vanaf per m²'].map(cell).join(';'),
-      ...rows.map((r) => [r.name, (r.thicknesses ?? []).map((t) => fmtNum(t)).join(' · '), r.formats, r.suppliers, r.price_m2_from == null ? '' : fmtNum(r.price_m2_from, 2)].map(cell).join(';')),
+      ['Materiaal (naam in PaletteCAD)', 'Afbeelding (bestandsnaam, zonder extensie)', 'Diktes (mm)', 'Formaten (mm)', 'Leveranciers', 'Vanaf per m²', 'Eigen naam'].map(cell).join(';'),
+      ...rows.map((r) => [r.name, fileName(r.name), (r.thicknesses ?? []).map((t) => fmtNum(t)).join(' · '), r.formats, r.suppliers, r.price_m2_from == null ? '' : fmtNum(r.price_m2_from, 2), r.own ? 'ja' : ''].map(cell).join(';')),
     ]
     const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' })
     const a = document.createElement('a')
@@ -245,8 +247,10 @@ function MaterialList() {
     <div className="card pf-list">
       <b>Lijst voor PaletteCAD</b>
       <p className="small muted">
-        Eén naam per materiaal, zonder dikte en formaat. Geef een plaat in PaletteCAD deze naam: na de upload herkent de app het materiaal,
-        de dikte komt uit de tekening en de optimizer kiest formaat en leverancier. Leeg = alle materialen; of beperk met woorden (bv. "Finsa Superpan" of "HI-MACS").
+        Eén naam per materiaal, zonder dikte en formaat, zoals in de PaletteCAD-platendatabase (bv. "Finsa Superpan 030 Blanco Super Soft III").
+        Geef een plaat in PaletteCAD exact deze naam: na de upload herkent de app het materiaal, de dikte komt uit de tekening en de optimizer kiest
+        formaat en leverancier. Kolom "Afbeelding" = dezelfde naam als geldige bestandsnaam ("/" wordt "-"). Je eigen gekoppelde namen staan er ook in.
+        Leeg = alle materialen; of beperk met woorden (bv. "Finsa Superpan" of "HI-MACS").
       </p>
       <div className="toolbar">
         <input placeholder="alle materialen, of enkel met deze woorden" value={filter} onChange={(e) => setFilter(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && download()} />
