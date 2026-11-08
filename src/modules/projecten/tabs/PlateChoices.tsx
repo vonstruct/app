@@ -142,7 +142,7 @@ export function PlateChoices({ sheets, dvId, projectCode, outsourcing, stock, fi
                 <ul className="pc-why">{d.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul>
               )}
               {d.family && (
-                <label className="pc-stock small">
+                <label className="pc-own small">
                   <input type="checkbox" checked={inStock(d.family, g.thickness_mm)} onChange={() => toggleStock(g)} /> uit eigen voorraad: telt mee in de kost, niet bestellen (enkel dit project)
                 </label>
               )}
