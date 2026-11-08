@@ -1868,6 +1868,7 @@ summary.vd-h::-webkit-details-marker { display: none; }
 .m-done .ov-mk { border: 0; width: auto; height: auto; margin: 0; color: var(--accent); font-size: 13px; }
 .m-done .ov-t { color: var(--muted); }
 .go { display: inline-block; border: 1px solid var(--line); background: var(--panel); color: var(--accent) !important; padding: 4px 10px; border-radius: 7px; font: 500 12.5px system-ui, sans-serif; cursor: pointer; white-space: nowrap; text-decoration: none !important; }
+select.go { width: auto; min-height: 0; appearance: auto; }
 .go:hover { border-color: var(--accent); }
 .go.ghost { color: var(--muted) !important; }
 .ov-link { border: 0; background: none; padding: 0; font: inherit; color: var(--ink); cursor: pointer; text-align: left; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }

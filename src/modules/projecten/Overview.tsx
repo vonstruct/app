@@ -26,6 +26,7 @@ import type { CheckItem, ProjectNumbers, ProjectPage } from './projectStatus'
 /** Per automatische stap: wie aan zet is, of jij er nu iets aan kan doen, en waar (tab). Met de hand = jij, afvinken. */
 const STEP: Record<string, { who: string; now: boolean; tab?: string; flags?: string[]; tick?: boolean }> = {
   agenda: { who: 'jij', now: true, tick: true }, // vinkt vanzelf af na een afspraak/opdracht met een van de woorden (checklist_template.agenda_words), of met de hand
+  measures_known: { who: 'jij', now: true, tick: true }, // Maten gekend: na een afspraak "opmeting" of de vragenlijst, of met de hand met de bron (8/11/2026)
   intro_done: { who: 'jij', now: false },
   survey_submitted: { who: 'klant', now: false, tab: 'vragenlijst', flags: ['survey_open', 'survey_nieuw'] },
   go_given: { who: 'jij', now: true, flags: ['aanvraag_nieuw'] },
@@ -48,6 +49,8 @@ const STEP: Record<string, { who: string; now: boolean; tab?: string; flags?: st
   final_invoice: { who: 'jij', now: false, tab: 'facturen', flags: ['factuur'] },
   review_requested: { who: 'jij', now: false, tab: 'oplevering', flags: ['review'] },
 }
+/** Waar de maten vandaan komen (stap "Maten gekend", met de hand): komt in project_checklist.done_by */
+const MEASURE_SRC = ['Opmeting', 'Maten van de klant', 'Grondplan', 'Andere']
 const WAIT: Record<string, string> = { klant: 'wacht op de klant', partner: 'wacht op de partner', leveranciers: 'wacht op de leveranciers', onderaannemers: 'wacht op de onderaannemers', automatisch: 'gaat vanzelf', jij: 'jij, later' }
 
 const todayIso = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Brussels' })
@@ -91,7 +94,7 @@ export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSa
   // eindopmeting, ontwerpbespreking …) bewaren in agenda_notes, dan vinkt de stap vanzelf af (project_agenda_done_at).
   // Enkel als de stap nog open staat, zodat dit niet bij elk bezoek opnieuw gebeurt.
   useEffect(() => {
-    const open = items.filter((it) => rules[it.template_id] === 'agenda' && !it.done && !it.na)
+    const open = items.filter((it) => (rules[it.template_id] === 'agenda' || rules[it.template_id] === 'measures_known') && !it.done && !it.na)
     const ws = open.flatMap((it) => (words[it.template_id] ?? '').split(',')).map((w) => w.trim().toLowerCase()).filter(Boolean)
     if (!ws.length || !plan.events?.length) return
     const re = new RegExp('(^|[^\\p{L}\\p{N}])(' + ws.map((w) => w.replace(/[^\p{L}\p{N} ]/gu, '')).join('|') + ')', 'u')
@@ -102,8 +105,8 @@ export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSa
   }, [plan.events, rules, words, code]) // eslint-disable-line react-hooks/exhaustive-deps
   const reload = onSaved
 
-  const tick = async (it: CheckItem, na = false) => {
-    const { error } = await supabase.from('project_checklist').upsert({ project_code: code, template_id: it.template_id, done_at: na ? null : new Date().toISOString(), na })
+  const tick = async (it: CheckItem, na = false, by?: string) => {
+    const { error } = await supabase.from('project_checklist').upsert({ project_code: code, template_id: it.template_id, done_at: na ? null : new Date().toISOString(), na, ...(by ? { done_by: by } : {}) })
     if (error) return toast(error.message, 'err')
     toast(na ? 'Op n.v.t. gezet' : 'Afgevinkt'); reload()
   }
@@ -137,7 +140,7 @@ export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSa
 
     // ---- Klaar
     const done: Line[] = []
-    for (const it of all) if (it.done && it.done_at) done.push({ key: 'c' + it.template_id, date: it.done_at, text: it.label, mark: 'done' })
+    for (const it of all) if (it.done && it.done_at) done.push({ key: 'c' + it.template_id, date: it.done_at, text: it.label, sub: [rule(it) === 'measures_known' && it.done_by && it.done_by !== 'automatisch' && it.done_by !== 'met de hand' ? it.done_by : null], mark: 'done' })
 
     // ---- Nu, jij aan zet
     const now: Line[] = []
@@ -164,7 +167,9 @@ export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSa
     const curItems = all.filter((it) => cur && it.stage === cur.stage && !it.done && !it.na && !it.skipped)
     for (const it of curItems) {
       const r = rule(it), s = r ? STEP[r] : null
-      if (!r || s?.tick) now.push({ key: 'm' + it.template_id, date: null, text: it.label, sub: [r === 'agenda' && words[it.template_id] ? `vinkt vanzelf af na een afspraak of opdracht "${words[it.template_id]!.split(',')[0].trim()}", of hier met de hand` : 'zelf afvinken als het gebeurd is'], mark: 'or', act: <><button className="go" onClick={() => tick(it)}>✓ Gedaan</button><button className="go ghost" onClick={() => tick(it, true)} title="Niet van toepassing">n.v.t.</button></> })
+      if (r === 'measures_known') now.push({ key: 'm' + it.template_id, date: null, text: it.label, sub: ['vinkt vanzelf af na een afspraak "opmeting" of als de klant de vragenlijst indient; anders hier kiezen waar de maten vandaan komen'], mark: 'or',
+        act: <select className="go" value="" aria-label="Waar komen de maten vandaan?" onChange={(e) => e.target.value && tick(it, false, e.target.value)}><option value="">✓ Gekend via…</option>{MEASURE_SRC.map((m) => <option key={m} value={m}>{m}</option>)}</select> })
+      else if (!r || s?.tick) now.push({ key: 'm' + it.template_id, date: null, text: it.label, sub: [r === 'agenda' && words[it.template_id] ? `vinkt vanzelf af na een afspraak of opdracht "${words[it.template_id]!.split(',')[0].trim()}", of hier met de hand` : 'zelf afvinken als het gebeurd is'], mark: 'or', act: <><button className="go" onClick={() => tick(it)}>✓ Gedaan</button><button className="go ghost" onClick={() => tick(it, true)} title="Niet van toepassing">n.v.t.</button></> })
       else if (s?.now && !covered(it)) now.push({ key: 'a' + it.template_id, date: null, text: it.label, mark: 'or', act: s.tab ? tabBtn(s.tab, 'Openen') : undefined })
     }
 
