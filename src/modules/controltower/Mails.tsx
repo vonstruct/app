@@ -12,9 +12,11 @@ const ST: Record<string, { label: string; cls: string }> = {
   bounced: { label: 'Geweigerd', cls: 'bad' },
   complained: { label: 'Als spam gemeld', cls: 'bad' },
   failed: { label: 'Niet verstuurd', cls: 'bad' },
+  outlook: { label: '✓ Via Outlook', cls: 'ok' },
 }
 
-/** Alle mails van de app (via Resend) en of ze aangekomen zijn. Gevuld door de Resend-webhook. */
+/** Alle mails van de app en of ze aangekomen zijn. Sinds 8/11/2026 via Outlook (status 'outlook', staat in Verzonden items van info@);
+ * Resend enkel als reserve en voor inloglinks van het inlogscherm (gevuld door de Resend-webhook). */
 export function Mails() {
   const [params] = useSearchParams()
   const focus = params.get('focus')
@@ -31,7 +33,7 @@ export function Mails() {
       <div className="page-head">
         <div>
           <h1>Mails</h1>
-          <p className="muted">Alles wat de app verstuurt (uitnodigingen, opdrachten, bevestigingen …) en of het aangekomen is. Gegevens van Resend.</p>
+          <p className="muted">Alles wat de app verstuurt (uitnodigingen, offertes, opdrachten, bevestigingen …). Via Outlook: staat ook in Verzonden items van info@; komt een mail niet aan, dan krijg je een foutmelding in de inbox. Via Resend (reserve en inloglinks): met de status of ze aangekomen is.</p>
         </div>
         <label className="check"><input type="checkbox" checked={onlyProblems} onChange={(e) => setOnlyProblems(e.target.checked)} /> Enkel problemen</label>
       </div>
@@ -53,7 +55,7 @@ export function Mails() {
                 <span className="mail-side">
                   <span className="muted small">{new Date(m.created_at).toLocaleString('nl-BE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
                   {problem && !m.seen && <button className="link small" onClick={() => seen(m.email_id)}>Gezien (weg uit control tower)</button>}
-                  <a className="small" href={`https://resend.com/emails/${m.email_id}`} target="_blank" rel="noreferrer">In Resend</a>
+                  {!m.email_id.startsWith('outlook:') && <a className="small" href={`https://resend.com/emails/${m.email_id}`} target="_blank" rel="noreferrer">In Resend</a>}
                 </span>
               </div>
             )
