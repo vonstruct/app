@@ -1,5 +1,5 @@
 import { supabase } from '../../core/supabase'
-import { useQuery } from '../../core/useQuery'
+import { useCallback, useEffect, useState } from 'react'
 import type { ProjectRow } from '../../core/projects'
 import type { Flag } from '../controltower/ControlTower'
 import type { Gate, Timeline } from './KeyDates'
@@ -71,9 +71,51 @@ export function numbersOf(d: ProjectPage): ProjectNumbers {
   }
 }
 
-export function useProjectPage(code: string, rev: unknown = null) {
-  return useQuery<ProjectPage>(async () => {
-    const { data, error } = await supabase.rpc('project_page', { p_code: code })
-    return { data: (data as ProjectPage | null) ?? null, error }
-  }, [code, rev])
+/**
+ * Projectpagina: één verzoek (RPC project_page), onthouden per project (8/11/2026).
+ * Een ander tabblad vraagt niets opnieuw op; terugkeren naar een project toont meteen wat er al was en ververst op de achtergrond
+ * (als het ouder is dan VERS ms). Loopt er al een verzoek voor dit project, dan wordt dat hergebruikt (nooit twee tegelijk).
+ * Vroeger: elk tabblad = nieuw verzoek; snel doorklikken gaf tot 15 zware verzoeken tegelijk en legde de database stil.
+ */
+type PageRes = { data: ProjectPage | null; error: { message: string } | null }
+const VERS = 30_000
+const pageCache = new Map<string, { data: ProjectPage; at: number }>()
+const pageInflight = new Map<string, Promise<PageRes>>()
+function loadPage(code: string, force: boolean): Promise<PageRes> {
+  const cur = pageInflight.get(code)
+  if (cur && !force) return cur
+  // opnieuw laden na een wijziging terwijl er nog een verzoek loopt: daarna één keer, nooit tegelijk
+  const start: Promise<unknown> = cur ? cur.then(() => undefined, () => undefined) : Promise.resolve()
+  const p: Promise<PageRes> = start
+    .then(() => supabase.rpc('project_page', { p_code: code }))
+    .then(({ data, error }) => {
+      if (data) pageCache.set(code, { data: data as ProjectPage, at: Date.now() })
+      return { data: (data as ProjectPage | null) ?? null, error }
+    }, (e: unknown) => ({ data: null, error: { message: String(e) } }))
+    .finally(() => { if (pageInflight.get(code) === p) pageInflight.delete(code) })
+  pageInflight.set(code, p)
+  return p
+}
+export function useProjectPage(code: string) {
+  const cached = pageCache.get(code)
+  const [data, setData] = useState<ProjectPage | null>(cached?.data ?? null)
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(!cached)
+  const [tick, setTick] = useState(0)
+  const reload = useCallback(() => setTick((t) => t + 1), [])
+  useEffect(() => {
+    let alive = true
+    const c = pageCache.get(code)
+    setData(c?.data ?? null)
+    setLoading(!c)
+    if (c && tick === 0 && Date.now() - c.at < VERS) return
+    loadPage(code, tick > 0).then((r) => {
+      if (!alive) return
+      if (r.data) setData(r.data)
+      setError(r.error ? r.error.message : null)
+      setLoading(false)
+    })
+    return () => { alive = false }
+  }, [code, tick])
+  return { data, error, loading, reload }
 }

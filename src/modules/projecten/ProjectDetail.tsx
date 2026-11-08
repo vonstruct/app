@@ -97,8 +97,8 @@ export function ProjectDetail() {
   const { code = '' } = useParams()
   const [params, setParams] = useSearchParams()
   const focus = params.get('focus')
-  // alles van deze pagina in één verzoek (RPC project_page); opnieuw laden bij een ander tabblad (cijfers en status vers)
-  const page = useProjectPage(code, params.get('tab'))
+  // alles van deze pagina in één verzoek (RPC project_page), onthouden per project: een ander tabblad vraagt niets opnieuw op
+  const page = useProjectPage(code)
   const pd = page.data
   const pq = { reload: page.reload, error: page.error }
   // iets nieuws gemaakt via "+ Nieuw" of "+ Te doen": de pagina opnieuw laden

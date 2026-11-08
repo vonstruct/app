@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { supabase } from '../../core/supabase'
 import { toast } from '../../core/toast'
@@ -113,6 +113,7 @@ export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSa
   const [dates, setDates] = useState(params.get('focus') === 'datums')
   const [newTask, setNewTask] = useState<string | null>(null)
   const plan = useProjectPlanning(project)
+  const notesSent = useRef(new Set<string>())
   const load = onSaved
   // Outlook-afspraken staan niet in de database: een voorbije afspraak van dit project met een woord uit de checklist (opmeting,
   // eindopmeting, ontwerpbespreking …) bewaren in agenda_notes, dan vinkt de stap vanzelf af (project_agenda_done_at).
@@ -122,8 +123,10 @@ export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSa
     const ws = open.flatMap((it) => (words[it.template_id] ?? '').split(',')).map((w) => w.trim().toLowerCase()).filter(Boolean)
     if (!ws.length || !plan.events?.length) return
     const re = new RegExp('(^|[^\\p{L}\\p{N}])(' + ws.map((w) => w.replace(/[^\p{L}\p{N} ]/gu, '')).join('|') + ')', 'u')
-    const past = plan.events.filter((e) => new Date(e.end).getTime() < Date.now() - 3600000 && re.test(e.title.toLowerCase()))
+    // elke afspraak maar één keer bewaren (anders: bewaren → pagina herladen → opnieuw bewaren …)
+    const past = plan.events.filter((e) => new Date(e.end).getTime() < Date.now() - 3600000 && re.test(e.title.toLowerCase()) && !notesSent.current.has(agendaKey(e)))
     if (!past.length) return
+    past.forEach((e) => notesSent.current.add(agendaKey(e)))
     supabase.from('agenda_notes').upsert(past.map((e) => ({ event_key: agendaKey(e), project_code: code, event_title: e.title, event_start: e.start })), { onConflict: 'event_key' })
       .then(({ error }) => { if (!error) onSaved() })
   }, [plan.events, rules, words, code]) // eslint-disable-line react-hooks/exhaustive-deps
