@@ -110,8 +110,10 @@ export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSa
   const tasks = page.tasks
   const [openProp, setOpenProp] = useState<string | null>(null)
   // ?focus=datums (vanuit Vandaag: datum ontbreekt): het formulier met de datums meteen open
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const [dates, setDates] = useState(params.get('focus') === 'datums')
+  // ?fase=<stage>: een andere fase bekijken (fasebalk); enkel tonen, de fase van het project verandert niet
+  const viewStage = params.get('fase')
   const [newTask, setNewTask] = useState<string | null>(null)
   const plan = useProjectPlanning(project)
   const load = onSaved
@@ -150,8 +152,11 @@ export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSa
 
   const today = todayIso()
   const nowMs = Date.now()
-  const cur = gates.find((g) => !g.passed)
-  const next = cur ? gates.find((g) => g.sort > cur.sort && !g.passed) : undefined
+  const nowGate = gates.find((g) => !g.passed)
+  const viewed = viewStage ? gates.find((g) => g.stage === viewStage) : undefined
+  const cur = viewed ?? nowGate
+  const looking = !!viewed && viewed !== nowGate
+  const next = nowGate ? gates.find((g) => g.sort > nowGate.sort && !g.passed) : undefined
   const flagKinds = new Set(flags.map((f) => f.kind))
   const partnerName = po?.partner ?? 'de partner'
   const tabBtnN = (tab: string) => tab === 'datums'
@@ -168,7 +173,7 @@ export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSa
 
     // ---- Klaar (ingeklapt): afgevinkte stappen van vorige fasen; die van de huidige fase staan bij de stappen
     const done: Line[] = []
-    for (const it of all) if (it.done && it.done_at && !(cur && it.stage === cur.stage)) done.push({ key: 'c' + it.template_id, date: it.done_at, text: it.label, sub: [rule(it) === 'measures_known' && it.done_by && it.done_by !== 'automatisch' && it.done_by !== 'met de hand' ? it.done_by : null], mark: 'done' })
+    for (const it of all) if (it.done && it.done_at && !(nowGate && it.stage === nowGate.stage)) done.push({ key: 'c' + it.template_id, date: it.done_at, text: it.label, sub: [rule(it) === 'measures_known' && it.done_by && it.done_by !== 'automatisch' && it.done_by !== 'met de hand' ? it.done_by : null], mark: 'done' })
 
     // ---- Te doen: meldingen van Vandaag (enkel dit project) en eigen taken; één reden, één knop van vaste breedte
     const todo: Todo[] = []
@@ -194,6 +199,11 @@ export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSa
       const w = r === 'agenda' && words[it.template_id] ? words[it.template_id]!.split(',')[0].trim() : null
       if (it.done) { steps.push({ key: 's' + it.template_id, state: 'done', text: it.label, side: it.done_at ? short(it.done_at) : null, hint: r === 'measures_known' && it.done_by && it.done_by !== 'automatisch' && it.done_by !== 'met de hand' ? it.done_by : null }); continue }
       if (it.na) { steps.push({ key: 's' + it.template_id, state: 'na', text: it.label, side: 'n.v.t.' }); continue }
+      if (looking) { // andere fase bekijken: enkel tonen, geen knoppen
+        if (it.skipped && (STEP[r ?? '']?.who === 'klant' || it.label.toLowerCase().includes('vragenlijst'))) continue
+        steps.push({ key: 's' + it.template_id, state: it.skipped ? 'na' : 'open', text: it.label, side: it.skipped ? 'overgeslagen' : viewed && nowGate && viewed.sort > nowGate.sort ? 'later' : 'niet gedaan' })
+        continue
+      }
       if (it.skipped) continue
       if (r === 'measures_known') {
         steps.push({ key: 's' + it.template_id, state: 'open', text: it.label, hint: 'vanzelf na opmeting of vragenlijst',
@@ -254,7 +264,7 @@ export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSa
     const after = next ? all.filter((it) => it.stage === next.stage && !it.done && !it.na && !it.skipped).map((it) => it.label) : []
     return { done, todo, steps, soon, after }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, rules, words, flags, tasks, orders, po, t, gates, plan.jobs, plan.events, openProp])
+  }, [items, rules, words, flags, tasks, orders, po, t, gates, plan.jobs, plan.events, openProp, viewStage])
 
   const passed = gates.filter((g) => g.passed).map((g) => g.label)
   const doneSummary = passed.length ? `${passed.length > 1 ? passed.slice(0, -1).join(', ') + ' en ' + passed[passed.length - 1] : passed[0]} klaar` : 'Klaar'
@@ -278,25 +288,32 @@ export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSa
               </details>
             )}
 
-            {v.todo.length > 0 && (
+            {looking && cur && (
+              <div className="ovn ovn-look">
+                <div className="ovn-h">{cur.label} bekijken<span>{cur.passed ? (cur.done_at ? `klaar op ${short(cur.done_at)}` : 'klaar') : 'nog niet aan de beurt'} · de fase van het project blijft {nowGate?.label ?? ''}</span></div>
+                {v.steps.length > 0 ? <ol className="ovn-list">{v.steps.map((x) => <StepRow key={x.key} s={x} />)}</ol> : <p className="muted small">Geen stappen in deze fase.</p>}
+                <button className="ovn-back" onClick={() => { const n = new URLSearchParams(params); n.delete('fase'); setParams(n, { replace: true }) }}>← Terug naar nu ({nowGate?.label})</button>
+              </div>
+            )}
+            {!looking && v.todo.length > 0 && (
               <div className="ovn">
                 <div className="ovn-h">Te doen</div>
                 <ol className="ovn-list">{v.todo.map((r) => <TodoRow key={r.key} r={r} />)}</ol>
               </div>
             )}
-            {cur && v.steps.length > 0 && (
+            {!looking && cur && v.steps.length > 0 && (
               <div className="ovn">
                 <div className="ovn-h">Stappen · {cur.label}<span>{cur.gate_label ? `daarna: ${cur.gate_label.toLowerCase()}` : ''}</span></div>
                 <ol className="ovn-list">{v.steps.map((x) => <StepRow key={x.key} s={x} />)}</ol>
               </div>
             )}
-            <div className="ovn-add">
+            {!looking && <div className="ovn-add">
               {newTask === null
                 ? <button className="link small" onClick={() => setNewTask('')}>+ taak</button>
                 : <span className="toolbar small"><input autoFocus value={newTask} placeholder="Wat moet er gebeuren?" onChange={(e) => setNewTask(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addTask(); if (e.key === 'Escape') setNewTask(null) }} /><button onClick={addTask}>Bewaren</button><button className="link small" onClick={() => setNewTask(null)}>annuleren</button></span>}
-            </div>
+            </div>}
 
-            {v.soon.length > 0 && (
+            {!looking && v.soon.length > 0 && (
               <>
                 <div className="ov-sec">Komt eraan</div>
                 <ol className="ov-list">
@@ -349,23 +366,38 @@ function KeyFigures({ d, t, onTab, onDates }: { d: ProjectNumbers | null; t: Tim
 }
 
 /** Dunne fasebalk boven de tabbladen (enkel tonen) + fase met de hand kiezen. */
+/**
+ * Dunne fasebalk boven de tabbladen. Een fase aantikken = enkel bekijken (?fase=<stage>: het Verloop toont de stappen van die fase);
+ * de fase van het project wijzigt NIET (8/11/2026, Olivier: "als ik naar een vorige fase ga om te kijken, gaat het project terug").
+ * Fase wijzigen kan enkel met de keuzelijst "Fase wijzigen".
+ */
 export function PhaseBar({ project, gates, phases, onSaved, focus }: { project: ProjectRow; gates: Gate[]; phases: Phase[]; onSaved: () => void; focus: boolean }) {
+  const [params, setParams] = useSearchParams()
   const cur = gates.find((g) => !g.passed)
   const closed = !['lead', 'design', 'quote', 'signed', 'production', 'installation'].includes(project.stage ?? '')
+  const viewing = params.get('fase')
+  const look = (stage: string) => {
+    const n = new URLSearchParams(params)
+    n.delete('tab')
+    if (stage === cur?.stage || stage === viewing) n.delete('fase'); else n.set('fase', stage)
+    setParams(n, { replace: true })
+  }
   return (
     <div className={'ov-bar-wrap' + (focus ? ' focus' : '')}>
-      <ol className="ov-bar" aria-label="Fase van het project">
+      <ol className="ov-bar" aria-label="Fasen van het project: aantikken om te bekijken">
         {gates.map((g) => {
           const st = g.passed ? 'done' : g === cur && !closed ? 'now' : ''
           return (
-            <li key={g.stage} className={st} title={g.passed && g.done_at ? `${g.gate_label} · klaar ${short(g.done_at)}` : g.gate_label}>
-              <b>{g.label}</b>
-              <small>{g.passed ? '✓ klaar' : st === 'now' ? `nu · ${g.n_done}/${g.n}${g.due ? ` · tegen ${short(g.due)}` : ''}` : g.due ? `tegen ${short(g.due)}` : ''}</small>
+            <li key={g.stage} className={st + (viewing === g.stage ? ' sel' : '')}>
+              <button type="button" onClick={() => look(g.stage)} title={`${g.label} bekijken (de fase van het project blijft ${project.phase_label ?? ''})`}>
+                <b>{g.label}</b>
+                <small>{g.passed ? '✓ klaar' : st === 'now' ? 'nu' : g.due ? `tegen ${short(g.due)}` : ''}</small>
+              </button>
             </li>
           )
         })}
       </ol>
-      <label className="ov-phase">{closed ? <b>{project.phase_label}</b> : <span className="muted small">fase</span>}<PhaseSelect p={project} phases={phases} onSaved={onSaved} /></label>
+      <label className="ov-phase">{closed ? <b>{project.phase_label}</b> : <span className="muted small">Fase wijzigen</span>}<PhaseSelect p={project} phases={phases} onSaved={onSaved} /></label>
       {focus && <p className="notice">Kies hier de fase waarin het project nu zit.</p>}
     </div>
   )

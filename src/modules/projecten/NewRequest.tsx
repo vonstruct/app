@@ -8,7 +8,7 @@ import { DateTimeInput } from '../../core/DateInput'
  * Klant zoeken (naam, e-mail, telefoon) of een nieuwe persoon; standaard begint het in de stap Aanvraag.
  * RPC create_request herkent een bestaande persoon ook zelf op e-mail of telefoon (geen dubbels).
  */
-type Client = { id: string; first_name: string | null; last_name: string | null; company: string | null; email: string | null; phone: string | null }
+type Client = { id: string; first_name: string | null; last_name: string | null; company: string | null; email: string | null; phone: string | null; street: string | null; postal_code: string | null; city: string | null }
 type Proj = { project_code: string; title: string | null; phase_label: string | null; phase_active: boolean | null }
 
 const nameOf = (c: Client) => [c.first_name, c.last_name].filter(Boolean).join(' ') || c.company || '—'
@@ -22,12 +22,12 @@ export function NewRequest({ onClose, initialClient, onCreated }: { onClose: () 
   const [clients, setClients] = useState<Client[]>([])
   const [pick, setPick] = useState<string>(initialClient ?? '')
   const [q, setQ] = useState('')
-  const [f, setF] = useState({ name: '', email: '', phone: '', title: '', source: '', intro: '', phase: 'lead', code: '', notes: '' })
+  const [f, setF] = useState({ name: '', email: '', phone: '', title: '', source: '', intro: '', phase: 'lead', code: '', notes: '', site: 'klant', site_street: '', site_pc: '', site_city: '' })
   const [projs, setProjs] = useState<Proj[]>([])
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   useEffect(() => {
-    supabase.from('clients').select('id,first_name,last_name,company,email,phone').then(({ data }) => setClients((data as Client[]) ?? []))
+    supabase.from('clients').select('id,first_name,last_name,company,email,phone,street,postal_code,city').then(({ data }) => setClients((data as Client[]) ?? []))
   }, [])
   // lopende projecten van de gekozen persoon (één verzoek)
   useEffect(() => {
@@ -62,6 +62,10 @@ export function NewRequest({ onClose, initialClient, onCreated }: { onClose: () 
     setBusy(false)
     if (error) return setErr(error.message)
     const code = String(data)
+    // werf: standaard het adres van de klant (projects.site_same_as_client = true); anders het ingevulde adres
+    if (f.site === 'ander') {
+      await supabase.from('projects').update({ site_same_as_client: false, site_street: f.site_street.trim() || null, site_postal_code: f.site_pc.trim() || null, site_city: f.site_city.trim() || null }).eq('project_code', code)
+    }
     onCreated?.(code)
     nav(`/projecten/${encodeURIComponent(code)}`)
   }
@@ -106,6 +110,18 @@ export function NewRequest({ onClose, initialClient, onCreated }: { onClose: () 
           <label>Kennismaking<DateTimeInput value={f.intro} onChange={set('intro')} /></label>
           <label>Stap<select value={f.phase} onChange={set('phase')}>{PHASES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
           <label>Projectnummer<input placeholder="leeg = volgend nummer" value={f.code} onChange={set('code')} /></label>
+        </div>
+        <div className="nr-row">
+          <span className="nr-lbl">Werf</span>
+          <div className="seg"><button type="button" className={f.site === 'klant' ? 'on' : ''} onClick={() => setF({ ...f, site: 'klant' })}>Adres van de klant</button><button type="button" className={f.site === 'ander' ? 'on' : ''} onClick={() => setF({ ...f, site: 'ander' })}>Ander adres</button></div>
+        </div>
+        {f.site === 'klant' && <p className="muted small nr-site">{chosen && (chosen.street || chosen.city) ? [chosen.street, [chosen.postal_code, chosen.city].filter(Boolean).join(' ')].filter(Boolean).join(', ') : 'Adres van de klant nog niet gekend: vul het later in bij Klant.'}</p>}
+        <div className="form-grid">
+          {f.site === 'ander' && <>
+            <label className="wide">Straat en nummer<input value={f.site_street} onChange={set('site_street')} /></label>
+            <label>Postcode<input inputMode="numeric" value={f.site_pc} onChange={set('site_pc')} /></label>
+            <label>Gemeente<input value={f.site_city} onChange={set('site_city')} /></label>
+          </>}
           <label className="wide">Notitie<textarea rows={2} value={f.notes} onChange={set('notes')} /></label>
         </div>
         {err && <p className="error">{err}</p>}

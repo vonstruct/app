@@ -2323,3 +2323,14 @@ select.ovn-btn { appearance: none; -webkit-appearance: none; text-align-last: ce
   .ovn-step .ovn-act { flex-direction: column; align-items: flex-end; gap: 2px; }
 }
 @media (hover: none) and (pointer: coarse) { .ovn-btn { font-size: 15px !important; } }
+
+/* Fasebalk: aantikken = bekijken (8/11/2026); de fase wijzigen kan enkel met "Fase wijzigen" */
+.ov-bar li > button { all: unset; display: flex; flex-direction: column; min-width: 0; cursor: pointer; padding: 2px 2px 3px; border-radius: 4px; }
+.ov-bar li > button:hover b { color: var(--ink); }
+.ov-bar li > button:focus-visible { outline: 2px solid #b38b3a; outline-offset: 1px; }
+.ov-bar li.sel { border-top-color: var(--ink); }
+.ov-bar li.sel b { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.ovn-look { border: 1px dashed color-mix(in srgb, #b38b3a 55%, transparent); }
+.ovn-back { border: 0; background: none; color: var(--accent); font: 500 13.5px system-ui, sans-serif; padding: 10px 0 8px; cursor: pointer; }
+
+.nr-site { margin: -4px 0 6px; }
