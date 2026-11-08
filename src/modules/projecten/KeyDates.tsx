@@ -20,7 +20,7 @@ export const dayLabel = (v: string | null) => (v ? new Date(v.length === 10 ? v 
 /** datum + uur (ISO) → "YYYY-MM-DDTHH:MM" in Belgische tijd, zoals DateTimeInput het verwacht */
 const localDt = (v: string | null) => (v ? new Date(v).toLocaleString('sv-SE', { timeZone: 'Europe/Brussels' }).slice(0, 16).replace(' ', 'T') : '')
 
-/** Formulier "Kennismaking, deadline en plaatsing": kennismaking (projects.intro_at), deadline, start van de werken, plaatsing (+ dagen), en "plan vanaf deadline". */
+/** Formulier "Kennismaking, deadline en plaatsing": kennismaking (projects.intro_at), deadline, start van de werken, plaatsing vanaf + tot (of dagen; tot = vanaf + dagen − 1, ook weekend), en "plan vanaf deadline". */
 export function DatesForm({ t, save, intro, onClose }: { t: Timeline; save: (patch: Partial<Timeline> & { intro_at?: string | null }) => Promise<void>; intro?: string | null; onClose: () => void }) {
   const [introVal, setIntroVal] = useState(localDt(intro ?? null))
   const introChanged = introVal !== localDt(intro ?? null)
@@ -41,6 +41,7 @@ export function DatesForm({ t, save, intro, onClose }: { t: Timeline; save: (pat
         </label>
         <label>Deadline klant
           <DateInput defaultValue={t.deadline ?? ''} key={'dl' + t.deadline} onBlur={(e) => (e.target.value || null) !== t.deadline && save({ deadline: e.target.value || null })} />
+          <small className="muted">waartegen de klant het klaar wil (bv. verhuis)</small>
         </label>
         <label>Reden (optioneel)
           <input defaultValue={t.deadline_reason ?? ''} key={'dr' + t.deadline_reason} placeholder="bv. verhuis, feest" onBlur={(e) => (e.target.value.trim() || null) !== t.deadline_reason && save({ deadline_reason: e.target.value.trim() || null })} />
@@ -53,9 +54,21 @@ export function DatesForm({ t, save, intro, onClose }: { t: Timeline; save: (pat
           <DateInput defaultValue={t.install_start ?? ''} key={'is' + t.install_start} onBlur={(e) => (e.target.value || null) !== t.install_start && save({ install_start: e.target.value || null })} />
           {!t.install_start && t.target_install_week && <small className="muted">nu enkel week {t.target_install_week.split('-W')[1]}</small>}
         </label>
-        <label>Dagen plaatsing (ook weekend)
-          <input type="number" min={1} max={30} defaultValue={t.install_days ?? ''} key={'id' + t.install_days} placeholder="4" onBlur={(e) => (e.target.value ? Number(e.target.value) : null) !== t.install_days && save({ install_days: e.target.value ? Number(e.target.value) : null })} />
+        <label>Plaatsing tot
+          <DateInput defaultValue={t.install_end ?? ''} key={'ie' + t.install_end} disabled={!t.install_start} onBlur={(e) => {
+            const v = e.target.value
+            if (!v || !t.install_start || v === t.install_end) return
+            if (v < t.install_start) return toast('De einddatum ligt vóór de start van de plaatsing', 'err')
+            // aantal dagen = van start tot en met einde (ook weekend), zoals install_end_date in de database
+            const days = Math.round((new Date(v + 'T12:00').getTime() - new Date(t.install_start + 'T12:00').getTime()) / 864e5) + 1
+            save({ install_days: days })
+          }} />
+          <small className="muted">{t.install_start ? 'laatste dag van de plaatsing' : 'vul eerst "Plaatsing vanaf" in'}</small>
         </label>
+        <label>Dagen plaatsing (ook weekend)
+          <input type="number" min={1} max={60} defaultValue={t.install_days ?? ''} key={'id' + t.install_days} placeholder="4" onBlur={(e) => (e.target.value ? Number(e.target.value) : null) !== t.install_days && save({ install_days: e.target.value ? Number(e.target.value) : null })} />
+        </label>
+
       </div>
       {late && <p className="notice bad-txt">Deadline in gevaar: de plaatsing is pas klaar op {dayLabel(t.install_end)}, de deadline is {dayLabel(t.deadline)}.</p>}
       <div className="toolbar small">
