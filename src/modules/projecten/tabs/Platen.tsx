@@ -4,7 +4,7 @@ import { useQuery } from '../../../core/useQuery'
 import { DataTable } from '../../../core/DataTable'
 import { ErrorBox, Loading } from '../../../core/ui'
 import { fmtEur, fmtMm, fmtNum } from '../../../core/format'
-import { PlateChoices, type SheetData } from './PlateChoices'
+import { PlateChoices, type Outsourcing, type SheetData } from './PlateChoices'
 
 type Sheet = { id: string; material_label: string; thickness_mm: number; length_mm: number; width_mm: number; qty: number; yield_pct: number | null; price_per_sheet: number | null; format_source: string | null; supplier: string | null; article_no: string | null; ordered_by: string | null; cost: number; data: SheetData | null }
 type Opt = { optimizer_status: string | null; optimizer_at: string | null; cutplan_path: string | null; project_code: string }
@@ -25,6 +25,16 @@ export function Platen({ dvId }: { dvId: string }) {
   const [detail, setDetail] = useState(false)
   const sheets = useQuery<Sheet[]>(() => supabase.from('app_sheets').select('*').eq('design_version_id', dvId).order('material_label').order('thickness_mm').order('qty', { ascending: false }), [dvId])
   const opt = useQuery<Opt>(() => supabase.from('design_versions').select('optimizer_status, optimizer_at, cutplan_path, project_code').eq('id', dvId).single(), [dvId])
+  const code = opt.data?.project_code
+  // uitbesteed werk van dit project + namen van leveranciers, partners en onderaannemers (keuzelijst firma)
+  const outs = useQuery<Outsourcing[]>(() => (code ? supabase.from('project_outsourcing').select('*').eq('project_code', code).order('id') : Promise.resolve({ data: [], error: null })), [code])
+  const firms = useQuery<string[]>(async () => {
+    const [a, b, c] = await Promise.all([
+      supabase.from('suppliers').select('name').eq('active', true), supabase.from('partners').select('name').eq('active', true), supabase.from('subcontractors').select('name').eq('active', true),
+    ])
+    const names = [...(a.data ?? []), ...(b.data ?? []), ...(c.data ?? [])].map((r: { name: string }) => r.name).filter(Boolean)
+    return { data: [...new Set(names)].sort((x, y) => x.localeCompare(y, 'nl')), error: null }
+  }, [])
   // zaagplan: in de pagina tonen (een nieuw venster na het laden wordt door browsers vaak geblokkeerd)
   const [plan, setPlan] = useState<{ html: string | null; busy: boolean; error: string | null }>({ html: null, busy: false, error: null })
   const togglePlan = async () => {
@@ -76,7 +86,7 @@ export function Platen({ dvId }: { dvId: string }) {
           { key: 'ordered_by', label: 'Besteld door' },
         ]}
       />
-      {opt.data && <PlateChoices sheets={sheets.data ?? []} dvId={dvId} projectCode={opt.data.project_code} onChanged={() => sheets.reload()} />}
+      {opt.data && <PlateChoices sheets={sheets.data ?? []} dvId={dvId} projectCode={opt.data.project_code} outsourcing={outs.data ?? []} firms={firms.data ?? []} onChanged={() => { sheets.reload(); outs.reload() }} />}
       <h2>Onderdelen per materiaal</h2>
       <DataTable
         rows={sum.data ?? []}

@@ -2380,3 +2380,8 @@ select.ovn-btn { appearance: none; -webkit-appearance: none; text-align-last: ce
 .pf-search input { flex: 1; min-width: 220px; }
 .pf-hits { list-style: none; padding: 0; margin: 4px 0 8px; }
 .pf-hits li { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.pc-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.pc-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px 12px; margin: 10px 0 4px; padding: 10px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.pc-form label { display: flex; flex-direction: column; gap: 3px; font-size: 12.5px; color: var(--muted); }
+.pc-form .toolbar, .pc-form p { grid-column: 1 / -1; margin: 0; }
+@media (max-width: 720px) { .pc-actions { flex-direction: row; align-items: center; } }

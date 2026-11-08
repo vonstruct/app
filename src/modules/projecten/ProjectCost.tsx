@@ -228,7 +228,9 @@ function LineRow({ l, groups, onMove, onStock, onRemove, onSaved }: { l: Line; g
   const [find, setFind] = useState(false)
   const [own, setOwn] = useState(false)
   // eenheidsprijs van beslag en rubrieken uit de stuklijst aanpassen = eigen prijs (geldt ook voor volgende projecten)
-  const priceEditable = l.kind === 'stuklijst' && !l.no_price && !['Platen', 'Kanten', 'Productiekosten', 'Lades'].includes(l.rubriek ?? '')
+  const priceEditable = l.kind === 'stuklijst' && !l.no_price && !['Platen', 'Kanten', 'Productiekosten', 'Lades', 'Uitbesteed'].includes(l.rubriek ?? '')
+  // uitbesteed werk (andere firma maakt dit, bv. een werkblad): prijs = offerte van die firma, bewaard bij het project
+  const outsourced = l.kind === 'stuklijst' && l.rubriek === 'Uitbesteed' && !!l.source_ref
   return (
     <>
       <tr className={l.no_price ? 'warn-row' : ''}>
@@ -237,6 +239,7 @@ function LineRow({ l, groups, onMove, onStock, onRemove, onSaved }: { l: Line; g
           {l.explanation && <div className="small muted">{l.explanation}</div>}
           <div>
             {l.kind === 'eigen' && <span className="tag t-src">{SRC[l.source] ?? l.source}</span>}
+            {outsourced && <span className="tag t-src" title="Een andere firma maakt dit; geen platen, kanten of productiekost. Wijzigen bij de versie › Platen.">uitbesteed{l.note && !l.no_price ? ` · ${l.note}` : ''}</span>}
             {l.no_price && <span className="tag t-noprice">geen prijs</span>}
             {l.duplicate && <span className="tag t-noprice" title="Hetzelfde artikel staat ook in de stuklijst">ook in de stuklijst</span>}
             {l.in_stock && <span className="tag t-stock">op voorraad</span>}
@@ -244,7 +247,7 @@ function LineRow({ l, groups, onMove, onStock, onRemove, onSaved }: { l: Line; g
         </td>
         <td>{l.supplier}{l.article_no && <div className="small muted">{l.article_no}</div>}</td>
         <td className="num">{l.qty == null ? '' : `${fmtNum(l.qty, 2)}${l.unit ? ' ' + l.unit : ''}`}</td>
-        <td className="num">{priceEditable ? <PriceEdit l={l} onSaved={onSaved} /> : l.unit_price == null ? '' : fmtEur(l.unit_price)}</td>
+        <td className="num">{outsourced ? <OutsourcePriceEdit l={l} onSaved={onSaved} /> : priceEditable ? <PriceEdit l={l} onSaved={onSaved} /> : l.unit_price == null ? '' : fmtEur(l.unit_price)}</td>
         <td className="num">{fmtEur(l.total)}</td>
         <td>
           <select value={l.group_name} onChange={(e) => onMove(e.target.value)} aria-label="Groep">
@@ -255,8 +258,8 @@ function LineRow({ l, groups, onMove, onStock, onRemove, onSaved }: { l: Line; g
         </td>
         <td className="pc-stock"><input type="checkbox" checked={l.in_stock} onChange={onStock} aria-label="Op voorraad" /></td>
         <td className="nowrap">
-          {l.no_price && <button className="link small" onClick={() => { setFind((x) => !x); setOwn(false) }}>prijs zoeken</button>}
-          {l.no_price && <button className="link small" onClick={() => { setOwn((x) => !x); setFind(false) }} title="Herkomst (bestellen, zelf maken, negeren) en prijs per stuk">zelf invullen</button>}
+          {l.no_price && !outsourced && <button className="link small" onClick={() => { setFind((x) => !x); setOwn(false) }}>prijs zoeken</button>}
+          {l.no_price && !outsourced && <button className="link small" onClick={() => { setOwn((x) => !x); setFind(false) }} title="Herkomst (bestellen, zelf maken, negeren) en prijs per stuk">zelf invullen</button>}
           {l.kind === 'eigen' && <button className="link small" onClick={onRemove}>weg</button>}
         </td>
       </tr>
@@ -280,6 +283,24 @@ function LineRow({ l, groups, onMove, onStock, onRemove, onSaved }: { l: Line; g
       )}
     </>
   )
+}
+
+/** Offerteprijs van de firma voor uitbesteed werk (project_outsourcing.amount); de kostregel volgt meteen (trigger). */
+function OutsourcePriceEdit({ l, onSaved }: { l: Line; onSaved: () => void }) {
+  const [edit, setEdit] = useState(false)
+  const [val, setVal] = useState('')
+  const save = async () => {
+    setEdit(false)
+    const t = val.trim().replace(/\./g, '').replace(',', '.')
+    const amount = t === '' ? null : Number(t)
+    if (amount != null && isNaN(amount)) return
+    if (!l.no_price && amount === Number(l.unit_price)) return
+    const { error } = await supabase.from('project_outsourcing').update({ amount, updated_at: new Date().toISOString() }).eq('id', Number(l.source_ref))
+    if (error) return toast(error.message, 'err')
+    toast(amount == null ? 'Prijs leeggemaakt' : `Offerteprijs ${l.supplier ?? ''} bewaard: ${fmtEur(amount)}`); onSaved()
+  }
+  if (edit) return <input autoFocus className="price-input" inputMode="decimal" placeholder="offerteprijs" value={val} onChange={(e) => setVal(e.target.value)} onBlur={save} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') setEdit(false) }} />
+  return <button type="button" className="price-btn" title={`Offerteprijs van ${l.supplier ?? 'de firma'} (excl. btw)`} onClick={() => { setVal(l.no_price || l.unit_price == null ? '' : String(l.unit_price).replace('.', ',')); setEdit(true) }}>{l.no_price || l.unit_price == null ? 'prijs invullen' : fmtEur(l.unit_price)}</button>
 }
 
 /** Eenheidsprijs aanklikken en wijzigen; bewaard als eigen prijs (RPC set_manual_price), ook voor volgende projecten. */
