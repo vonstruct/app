@@ -49,13 +49,13 @@ export function JobsOverview() {
   const [q, setQ] = useState(() => params.get('project') ?? '')
   const [showCancelled, setShowCancelled] = useState(false)
   const [open, setOpen] = useState<Row | null>(null)
-  const [creating, setCreating] = useState(false)
 
   const load = useCallback(async () => {
     const { data } = await supabase.from('jobs').select('*, subcontractors(name,trade), partners(name)').order('start_at')
     setRows((data as Row[]) ?? [])
   }, [])
   useEffect(() => { load() }, [load])
+  useEffect(() => { window.addEventListener('nieuw-created', load); return () => window.removeEventListener('nieuw-created', load) }, [load])
   useEffect(() => {
     const f = params.get('focus')
     if (f && rows) { const r = rows.find((x) => x.id === f); if (r) setOpen(r) }
@@ -92,7 +92,6 @@ export function JobsOverview() {
           <button className={filter === 'afgewerkt' ? 'on' : ''} onClick={() => setFilter('afgewerkt')}>Afgewerkt</button>
         </div>
         <input className="jo-search" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Zoek op persoon, project, adres…" />
-        <button className="primary" onClick={() => setCreating(true)}>+ Opdracht</button>
       </div>
       {filter === 'afgewerkt' && <label className="small muted jo-cancel"><input type="checkbox" checked={showCancelled} onChange={(e) => setShowCancelled(e.target.checked)} /> ook geschrapte tonen</label>}
       {filter === 'regelen' && counts.regelen > 0 && <p className="muted small">Opdrachten die nog niet bevestigd zijn of waarvoor een ander moment voorgesteld is.</p>}
@@ -120,7 +119,6 @@ export function JobsOverview() {
         </section>
       ))}
       {open && <JobEditor draft={open} onClose={close} onSaved={load} />}
-      {creating && <JobEditor draft={{}} onClose={() => setCreating(false)} onSaved={load} />}
     </div>
   )
 }

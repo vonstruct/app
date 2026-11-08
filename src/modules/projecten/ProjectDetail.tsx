@@ -15,6 +15,7 @@ import { QuotePanel } from '../offerte/QuotePanel'
 import { ProjectCost } from './ProjectCost'
 import { ProductionPanel } from './ProductionPanel'
 import { Orders } from '../bestellingen/Orders'
+import { openNew } from '../../core/NewMenu'
 import { MailDocs } from '../bestellingen/MailDocs'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
@@ -83,6 +84,8 @@ export function ProjectDetail() {
   const page = useProjectPage(code, params.get('tab'))
   const pd = page.data
   const pq = { reload: page.reload, error: page.error }
+  // iets nieuws gemaakt via "+ Nieuw" of "+ Te doen": de pagina opnieuw laden
+  useEffect(() => { const on = () => page.reload(); window.addEventListener('nieuw-created', on); return () => window.removeEventListener('nieuw-created', on) }, [page.reload]) // eslint-disable-line react-hooks/exhaustive-deps
   const ph = usePhases()
   const project = pd?.project ?? undefined
   // 5 tabbladen (6 nov 2026; waren er 14). ?tab= mag een tabblad of een onderdeel zijn (oude links zoals ?tab=offerte blijven werken).
@@ -215,7 +218,7 @@ export function ProjectDetail() {
             {project.client_phone && <a className="pd-q" href={`tel:${project.client_phone}`}>Bel</a>}
             {project.client_phone && wa && <a className="pd-q" href={`https://wa.me/${wa}`} target="_blank" rel="noreferrer">WhatsApp</a>}
             <button className={'pd-q' + (showClient || clientFocus ? ' on' : '')} onClick={() => setShowClient(!showClient)}>Klantgegevens</button>
-            <button className="pd-q gold" onClick={() => setParams({ tab: 'overzicht', nieuw: 'opdracht' }, { replace: true })}>+ Opdracht</button>
+            <button className="pd-q gold" onClick={() => openNew({ kind: 'todo', project: code })}>+ Te doen</button>
             <button className="pd-q" onClick={() => setParams({ tab: 'overzicht', nieuw: 'afspraak' }, { replace: true })}>+ Afspraak</button>
             <button className="pd-q" onClick={() => setAddHours(true)}>+ Uren</button>
           </div>

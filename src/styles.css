@@ -2247,3 +2247,34 @@ a.vd5-sup:hover { color: var(--accent); }
 .rc-status.klant { background: #e6f2ec; color: #2a6a4e; }
 .rc-status.aanvrager { background: #fbf5e6; color: #6b5214; }
 .rc-status.niet-doorgegaan { background: #f3f1ee; color: #6d6a64; }
+/* Eén knop "+ Nieuw" (8 nov 2026) */
+.nw { position: relative; flex: none; margin-left: auto; }
+.tb-new { height: 34px; padding: 0 14px; border-radius: 17px; border: 0; background: #c9a24a; color: #1f1a0e; font: 600 13.5px system-ui, sans-serif; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.tb-new:hover { filter: brightness(1.06); }
+.tb-new > span:first-child { font-size: 18px; line-height: 1; margin-top: -2px; }
+.nw ~ .tb-search { margin-left: 0; }
+.nw-menu { position: absolute; right: 0; top: calc(100% + 8px); z-index: 30; width: 300px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 16px 40px -18px rgba(5,7,12,.45); padding: 6px; display: flex; flex-direction: column; }
+.nw-menu button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 10px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--ink); font: inherit; cursor: pointer; }
+.nw-menu button:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.nw-menu b { font-size: 14.5px; }
+.nw-menu span { font-size: 12.5px; color: var(--muted); }
+.nr .nr-block { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 14px; }
+.nr .nr-lbl { font-size: 13px; font-weight: 600; }
+.nr .nr-search { width: 100%; box-sizing: border-box; }
+.nr .nr-hits { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.nr .nr-hits button { display: flex; justify-content: space-between; gap: 10px; text-align: left; padding: 9px 12px; border: 0; border-bottom: 1px solid var(--line); background: var(--panel); font: inherit; cursor: pointer; }
+.nr .nr-hits button:last-child { border-bottom: 0; }
+.nr .nr-hits button:hover { background: color-mix(in srgb, var(--ink) 5%, var(--panel)); }
+.nr .nr-chosen { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: color-mix(in srgb, #2a6a4e 7%, var(--panel)); }
+.nr .nr-chosen > div { display: flex; flex-direction: column; }
+.nr .nr-twin { margin: 0; color: var(--warn); }
+.nr .nr-open { margin: 0; }
+.nr .nr-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 10px 0; }
+.nr .nr-row .nr-lbl { width: 76px; }
+@media (max-width: 720px) {
+  .tb-new { width: 34px; padding: 0; justify-content: center; }
+  .tb-new-label { display: none; }
+  .nw-menu { position: fixed; left: 12px; right: 12px; top: 58px; width: auto; }
+  .nr .nr-row .nr-lbl { width: 100%; }
+  .nr .nr-row .seg { flex-wrap: wrap; }
+}

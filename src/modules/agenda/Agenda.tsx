@@ -80,7 +80,6 @@ export function Agenda() {
   const [warn, setWarn] = useState<string[]>([])
   const [err, setErr] = useState<string | null>(null)
   const [sel, setSel] = useState<Ev | null>(null)
-  const [creating, setCreating] = useState(false)
   const [jobDraft, setJobDraft] = useState<JobDraft | null>(null)
   const [jobs, setJobs] = useState<Ev[]>([])
   const [jobsNext, setJobsNext] = useState<Ev[]>([])
@@ -155,6 +154,12 @@ export function Agenda() {
     setWarn((ag.data as { warnings: string[] }).warnings ?? [])
   }, [from, to])
   useEffect(() => { load() }, [load])
+  // iets nieuws gemaakt via "+ Nieuw" bovenaan: opnieuw laden
+  useEffect(() => {
+    const on = () => { loadNotes(); load(); loadJobs() }
+    window.addEventListener('nieuw-created', on)
+    return () => window.removeEventListener('nieuw-created', on)
+  }, [load, loadNotes, loadJobs])
   // vanuit een project: ?d=YYYY-MM-DD&e=<id> opent die afspraak
   useEffect(() => {
     const id = params.get('e')
@@ -227,8 +232,6 @@ export function Agenda() {
           <button onClick={() => setAnchor(new Date())}>Vandaag</button>
           <button onClick={() => step(1)} aria-label="Volgende">→</button>
           <strong className="agenda-range">{label}</strong>
-          <button onClick={() => setJobDraft({ start_at: (() => { const d = new Date(view === 'dag' ? anchor : new Date()); d.setHours(8, 0, 0, 0); return d.toISOString() })() })}>+ Opdracht</button>
-          <button className="primary" onClick={() => setCreating(true)}>+ Nieuwe afspraak</button>
         </div>
       </div>
       <div className="agenda-legend">
@@ -292,7 +295,6 @@ export function Agenda() {
       {sel?.source === 'job' && <JobEditor draft={sel.job!} onClose={() => setSel(null)} onSaved={loadJobs} />}
       {jobDraft && <JobEditor draft={jobDraft} onClose={() => setJobDraft(null)} onSaved={loadJobs} />}
       {sel && sel.source !== 'job' && <Detail onJob={(d) => { setSel(null); setJobDraft(d) }} ev={sel} cat={classify(sel)} note={notes[keyOf(sel)]} project={projectOf(sel)} projects={projects} onClose={() => setSel(null)} onChanged={(reload) => { setSel(null); loadNotes(); if (reload) load() }} />}
-      {creating && <NewEvent day={view === 'dag' ? anchor : days.find((d) => sameDay(d, today)) ?? from} projects={projects} onClose={() => setCreating(false)} onCreated={() => { setCreating(false); loadNotes(); load() }} />}
     </div>
   )
 }

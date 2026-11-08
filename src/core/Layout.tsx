@@ -5,6 +5,7 @@ import { supabase } from './supabase'
 import logo from '../assets/vonstruct-logo.webp'
 import { Von } from './Von'
 import { SearchButton } from './Search'
+import { NewMenu } from './NewMenu'
 import { ToastHost } from './toast'
 import { ErrorBoundary } from './ErrorBoundary'
 
@@ -65,6 +66,7 @@ export function Layout() {
             </NavLink>
           ))}
         </nav>
+        <NewMenu />
         <SearchButton />
         <button className="tb-von" onClick={() => window.dispatchEvent(new Event('von-open'))} title="Vraag VON (zijpaneel)" aria-label="Vraag VON"><span className="tb-von-mark">V</span><span className="tb-von-label">Vraag VON</span></button>
         <div className="tb-me" ref={menuRef}>

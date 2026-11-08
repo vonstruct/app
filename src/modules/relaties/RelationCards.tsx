@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import { supabase } from '../../core/supabase'
 import { tradeLabel } from './NewRelation'
 import { YukiHistory } from '../../core/YukiHistory'
+import { openNew } from '../../core/NewMenu'
 
 /** Relaties als contactkaarten: naam, wat ze doen, contact (mail, bel, WhatsApp) en hun projecten. Bewerken gebeurt in de tabel. */
 type Row = Record<string, any>
@@ -89,7 +90,7 @@ export function RelationCards({ table, onEdit }: { table: 'clients' | 'subcontra
                   <div className="rc-projs">
                     {projs.map((p) => <Link key={p.project_code} to={`/projecten/${encodeURIComponent(p.project_code)}`} className={'rc-proj' + (p.phase_active === false ? ' done' : '')}><b>{p.project_code}</b> {p.title ? p.title + ' · ' : ''}{p.phase_label}</Link>)}
                     {!projs.length && <span className="muted small">Nog geen project in de app.</span>}
-                    <Link to={`/projecten?nieuw=${r.id}`} className="rc-proj add">+ Nieuw project</Link>
+                    <button type="button" onClick={() => openNew({ kind: 'aanvraag', client: r.id })} className="rc-proj add">+ Aanvraag of project</button>
                   </div>
                 )}
               </article>

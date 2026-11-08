@@ -4,8 +4,7 @@ import { useSearchParams } from 'react-router'
 import { supabase } from '../../core/supabase'
 import { ErrorBox, Loading } from '../../core/ui'
 import { gatesOf, ProjectCard, usePhases, useProjects, type ProjectPlanning, type ProjectProgress } from '../../core/projects'
-import { NewLead } from './NewLead'
-import { NewProject } from './NewProject'
+import { openNew } from '../../core/NewMenu'
 import { Pipeline } from './Pipeline'
 
 type Filter = 'lopend' | 'alle' | 'afgesloten'
@@ -15,11 +14,10 @@ export function ProjectList() {
   const ph = usePhases()
   const [filter, setFilter] = useState<Filter>('lopend')
   const [search, setSearch] = useState('')
-  const [adding, setAdding] = useState(false)
-  // ?nieuw=<client_id> (vanuit Relaties) opent meteen "Nieuw project" voor die klant
+  // ?nieuw=<client_id> (oude links) opent meteen "Aanvraag of project" voor die klant
   const [params, setParams] = useSearchParams()
   const newFor = params.get('nieuw')
-  const [addingProject, setAddingProject] = useState(!!newFor)
+  useEffect(() => { if (newFor) { openNew({ kind: 'aanvraag', client: newFor }); setParams({}, { replace: true }) } }, [newFor, setParams])
   const [plan, setPlan] = useState<Record<string, ProjectPlanning>>({})
   const [prog, setProg] = useState<Record<string, ProjectProgress>>({})
   useEffect(() => { supabase.from('app_project_progress').select('*').then(({ data }) => setProg(Object.fromEntries(((data ?? []) as ProjectProgress[]).map((r) => [r.project_code, r])))) }, [])
@@ -33,18 +31,14 @@ export function ProjectList() {
 
   return (
     <section>
-      {adding && <NewLead onClose={() => setAdding(false)} />}
-      {addingProject && <NewProject initialClient={newFor ?? undefined} onClose={() => { setAddingProject(false); if (newFor) setParams({}, { replace: true }) }} />}
       <div className="page-head vd-pagehead">
         <div>
           <div className="vd-date">{new Date().toLocaleDateString('nl-BE', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
           <h1>Projecten</h1>
-          <p className="muted">Een aanvraag maakt de klant en het project aan met een projectcode. Gebruik die code in PaletteCAD: elke upload wordt dan een nieuwe versie van dat project.</p>
+          <p className="muted">Nieuwe aanvraag of project: knop <b>+ Nieuw</b> bovenaan. Gebruik de projectcode in PaletteCAD: elke upload wordt dan een nieuwe versie van dat project.</p>
         </div>
         <div className="toolbar">
           <input className="search-input" placeholder="Zoek op code, klant, gemeente…" value={search} onChange={(e) => setSearch(e.target.value)} />
-          <button onClick={() => setAddingProject(true)}>+ Nieuw project</button>
-          <button className="primary" onClick={() => setAdding(true)}>+ Nieuwe aanvraag</button>
         </div>
       </div>
       <SectionTabs tabs={PROJECTEN} />
