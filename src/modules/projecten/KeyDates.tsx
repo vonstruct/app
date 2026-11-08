@@ -1,11 +1,12 @@
 import { supabase } from '../../core/supabase'
 import { toast } from '../../core/toast'
-import { DateInput } from '../../core/DateInput'
+import { useState } from 'react'
+import { DateInput, DateTimeInput } from '../../core/DateInput'
 
 /**
  * Datums van een project (view app_project_timeline) en de stage gates (view app_project_gates: due / done_at / passed).
  * Zelf in te vullen: deadline klant (+ reden), start van de werken (eerste werfdag) en plaatsing (start + dagen, ook weekend).
- * De app rekent terug. Gegevens via project_page (projectStatus.ts); getoond in het Verloop (Overview.tsx); "Datums wijzigen" opent DatesForm.
+ * De app rekent terug. Gegevens via project_page (projectStatus.ts); getoond in het Verloop (Overview.tsx); "Kennismaking, deadline en plaatsing" opent DatesForm.
  */
 export type Timeline = {
   project_code: string; deadline: string | null; deadline_reason: string | null; works_start: string | null; install_start: string | null; install_days: number | null
@@ -16,8 +17,13 @@ export type Gate = { stage: string; label: string; gate_label: string; sort: num
 
 export const dayLabel = (v: string | null) => (v ? new Date(v.length === 10 ? v + 'T12:00' : v).toLocaleDateString('nl-BE', { weekday: 'short', day: 'numeric', month: 'short' }) : '—')
 
-/** Formulier "Datums wijzigen": deadline, start van de werken, plaatsing (+ dagen), en "plan vanaf deadline". */
-export function DatesForm({ t, save, onClose }: { t: Timeline; save: (patch: Partial<Timeline>) => Promise<void>; onClose: () => void }) {
+/** datum + uur (ISO) → "YYYY-MM-DDTHH:MM" in Belgische tijd, zoals DateTimeInput het verwacht */
+const localDt = (v: string | null) => (v ? new Date(v).toLocaleString('sv-SE', { timeZone: 'Europe/Brussels' }).slice(0, 16).replace(' ', 'T') : '')
+
+/** Formulier "Kennismaking, deadline en plaatsing": kennismaking (projects.intro_at), deadline, start van de werken, plaatsing (+ dagen), en "plan vanaf deadline". */
+export function DatesForm({ t, save, intro, onClose }: { t: Timeline; save: (patch: Partial<Timeline> & { intro_at?: string | null }) => Promise<void>; intro?: string | null; onClose: () => void }) {
+  const [introVal, setIntroVal] = useState(localDt(intro ?? null))
+  const introChanged = introVal !== localDt(intro ?? null)
   const planFromDeadline = async () => {
     if (!t.deadline) return
     const { data, error } = await supabase.rpc('latest_free_install_week', { p_deadline: t.deadline })
@@ -29,6 +35,10 @@ export function DatesForm({ t, save, onClose }: { t: Timeline; save: (patch: Par
   return (
     <div className="ov-dates">
       <div className="kd-fields">
+        <label>Kennismaking
+          <DateTimeInput value={introVal} onChange={(e) => setIntroVal(e.target.value)} />
+          {introChanged && <button type="button" className="link small" onClick={() => save({ intro_at: introVal ? new Date(introVal).toISOString() : null })}>bewaren</button>}
+        </label>
         <label>Deadline klant
           <DateInput defaultValue={t.deadline ?? ''} key={'dl' + t.deadline} onBlur={(e) => (e.target.value || null) !== t.deadline && save({ deadline: e.target.value || null })} />
         </label>

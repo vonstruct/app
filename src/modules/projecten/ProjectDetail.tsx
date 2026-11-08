@@ -102,7 +102,7 @@ export function ProjectDetail() {
     if (n && el) n.scrollLeft += el.getBoundingClientRect().left - n.getBoundingClientRect().left - (n.clientWidth - el.clientWidth) / 2
   }, [tab])
   // datums (deadline, start werken, plaatsing) bewaren op het project, daarna de pagina opnieuw laden
-  const saveDates = async (patch: Partial<Timeline>) => {
+  const saveDates = async (patch: Partial<Timeline> & { intro_at?: string | null }) => {
     const { error } = await supabase.from('projects').update(patch).eq('project_code', code)
     if (error) toast(error.message, 'err'); else { toast('Bewaard'); page.reload() }
   }
@@ -161,7 +161,7 @@ export function ProjectDetail() {
     else if (sub === 'kost') body = <ProjectCost project={code} onQuote={() => setTab('offerte')} />
     else if (sub === 'productie') body = <ProductionPanel project={code} />
     else if (sub === 'bestellingen') body = <><Orders project={code} /><div className="panel"><h2>Uit de mailbox</h2><p className="muted small">Orderbevestigingen, facturen en leveringsbons van leveranciers die aan dit project gekoppeld zijn (bijlage gelezen). Na te kijken: Inkoop → Uit je mailbox.</p><MailDocs project={code} /></div></>
-    else if (sub === 'vragenlijst') body = <>{!['lead', 'intake', 'survey'].includes(project.phase) && <LeadActions p={project} onDone={pq.reload} />}<IntakeCard code={code} /><SurveyPanel code={code} focus={focus === 'survey'} /></>
+    else if (sub === 'vragenlijst') body = <>{!['lead', 'intake', 'survey', 'measuring'].includes(project.phase) && <LeadActions p={project} onDone={pq.reload} />}<IntakeCard code={code} /><SurveyPanel code={code} focus={focus === 'survey'} /></>
     else if (sub === 'opdrachten') body = <PlanningPanel project={project} />
     else if (sub === 'tijdlijn') body = <EventFeed project={code} title="Tijdlijn" limit={40} />
     else if (sub === 'versies') body = (
@@ -196,7 +196,7 @@ export function ProjectDetail() {
     )
     if (tab === 'overzicht') body = (
       <>
-        {['lead', 'intake', 'survey'].includes(project.phase) && <LeadActions p={project} onDone={pq.reload} />}
+        {['lead', 'intake', 'survey', 'measuring'].includes(project.phase) && <LeadActions p={project} onDone={pq.reload} />}
         {project.stage === 'lead' && <IntakeCard code={code} />}
         <Overview project={project} page={pd!} t={tl.t} gates={tl.gates} nums={nums.data} saveDates={tl.save} onTab={(t) => setTab(t)} onSaved={page.reload} />
       </>

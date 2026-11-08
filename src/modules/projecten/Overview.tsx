@@ -69,7 +69,7 @@ function LineRow({ l, dateText }: { l: Line; dateText?: string }) {
 }
 
 export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSaved }: {
-  project: ProjectRow; page: ProjectPage; t: Timeline | null; nums: ProjectNumbers | null; gates: Gate[]; saveDates: (p: Partial<Timeline>) => Promise<void>; onTab: (tab: string) => void; onSaved: () => void
+  project: ProjectRow; page: ProjectPage; t: Timeline | null; nums: ProjectNumbers | null; gates: Gate[]; saveDates: (p: Partial<Timeline> & { intro_at?: string | null }) => Promise<void>; onTab: (tab: string) => void; onSaved: () => void
 }) {
   const code = project.project_code
   // alle gegevens komen uit project_page (één verzoek, ProjectDetail); opnieuw laden = onSaved
@@ -238,10 +238,10 @@ export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSa
         <div className="ov-h">
           <h2>Verloop</h2>
           <span className="toolbar small">
-            <button className="link small" onClick={() => setDates(!dates)}>Datums wijzigen</button>
+            <button className="link small" onClick={() => setDates(!dates)}>Kennismaking, deadline en plaatsing</button>
           </span>
         </div>
-        {dates && t && <DatesForm t={t} save={saveDates} onClose={() => setDates(false)} />}
+        {dates && t && <DatesForm t={t} save={saveDates} intro={project.intro_at ?? null} onClose={() => setDates(false)} />}
         {!items ? <p className="muted small">Laden…</p> : (
           <>
             {v.done.length > 0 && (

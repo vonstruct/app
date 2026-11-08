@@ -172,7 +172,7 @@ function ClientProjects({ preview, lang, onSurvey }: { preview: boolean; lang: L
             {dates[p.project_code]?.install_start
               ? <p className="muted">{t.plannedInstallDate(fd(dates[p.project_code].install_start!), dates[p.project_code].install_end && dates[p.project_code].install_end !== dates[p.project_code].install_start ? fd(dates[p.project_code].install_end!) : null)}</p>
               : p.target_install_week && <p className="muted">{t.plannedInstall(p.target_install_week)}</p>}
-            {p.survey_status !== 'submitted' ? (
+            {p.survey_status === 'niet_gevraagd' ? null : p.survey_status !== 'submitted' ? (
               <div className="portal-todo">
                 <div>
                   <span className="portal-todo-k">{t.nextStep}</span>
