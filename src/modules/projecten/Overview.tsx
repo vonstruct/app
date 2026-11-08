@@ -12,13 +12,12 @@ import type { CheckItem, ProjectNumbers, ProjectPage } from './projectStatus'
 
 /**
  * Overzicht van een project (voorstel 6 nov 2026, stap 1): één Verloop + Kerncijfers.
- * Het Verloop brengt checklist, planning en "wat ontbreekt" samen in één lijst, in de volgorde van de tijd:
- *  - Klaar (ingeklapt): afgevinkte stappen (app_project_checklist) en voorbije afspraken/opdrachten.
+ * Het Verloop (8/11/2026):
  *  - Te doen: dezelfde punten als in Vandaag (app_today, enkel dit project) en eigen taken; één reden en één knop.
- *  - Stappen · <fase>: de stappen van de huidige fase als afvinklijst (✓ gedaan, ○ open), met een korte hint en hoogstens één knop
- *    (8/11/2026, Olivier: het vroegere "Nu · jij aan zet" was "slordig en niet duidelijk").
+ *  - Stappen · <fase>: de stappen van de huidige fase als afvinklijst (✓ gedaan met datum, ○ open met korte hint en hoogstens één knop).
+ *    De vragenlijst staat er altijd bij als optionele stap met de stand (niet gevraagd / gevraagd op … / ingevuld op …).
+ *    Een andere fase bekijken: aantikken in de fasebalk (?fase=), enkel lezen; de fase van het project verandert niet.
  *  - Komt eraan: afspraken, opdrachten, leveringen, ophaling bij de partner, plaatsing, deadline, met datum.
- *  - Daarna: de stappen van de volgende fase, op één regel.
  * Elk ding staat er één keer. Welke stap wie aan zet heeft en waar je hem oplost: STEP hieronder (één regel per auto_rule).
  */
 
@@ -61,7 +60,7 @@ type Line = { key: string; date: string | null; when?: ReactNode; text: ReactNod
 /** "Te doen": melding of taak, met één reden en één knop (8/11/2026, Olivier: "slordig en niet duidelijk") */
 type Todo = { key: string; dot: 'red' | 'or' | 'grey'; text: ReactNode; why?: ReactNode; due?: { text: string; cls: string } | null; act?: ReactNode; extra?: ReactNode }
 /** Stap van de huidige fase: afgevinkt, open of n.v.t., met een korte hint en hoogstens één knop */
-type Step = { key: string; state: 'done' | 'open' | 'na'; text: string; hint?: string | null; act?: ReactNode; side?: string | null }
+type Step = { key: string; state: 'done' | 'open' | 'na' | 'opt'; text: string; hint?: string | null; act?: ReactNode; side?: string | null }
 
 function TodoRow({ r }: { r: Todo }) {
   return (
@@ -156,7 +155,6 @@ export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSa
   const viewed = viewStage ? gates.find((g) => g.stage === viewStage) : undefined
   const cur = viewed ?? nowGate
   const looking = !!viewed && viewed !== nowGate
-  const next = nowGate ? gates.find((g) => g.sort > nowGate.sort && !g.passed) : undefined
   const flagKinds = new Set(flags.map((f) => f.kind))
   const partnerName = po?.partner ?? 'de partner'
   const tabBtnN = (tab: string) => tab === 'datums'
@@ -172,8 +170,6 @@ export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSa
     const covered = (it: CheckItem) => (STEP[rule(it) ?? '']?.flags ?? []).some((k) => flagKinds.has(k))
 
     // ---- Klaar (ingeklapt): afgevinkte stappen van vorige fasen; die van de huidige fase staan bij de stappen
-    const done: Line[] = []
-    for (const it of all) if (it.done && it.done_at && !(nowGate && it.stage === nowGate.stage)) done.push({ key: 'c' + it.template_id, date: it.done_at, text: it.label, sub: [rule(it) === 'measures_known' && it.done_by && it.done_by !== 'automatisch' && it.done_by !== 'met de hand' ? it.done_by : null], mark: 'done' })
 
     // ---- Te doen: meldingen van Vandaag (enkel dit project) en eigen taken; één reden, één knop van vaste breedte
     const todo: Todo[] = []
@@ -197,10 +193,18 @@ export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSa
     for (const it of all.filter((x) => cur && x.stage === cur.stage).sort((a, b) => a.sort - b.sort)) {
       const r = rule(it), s = r ? STEP[r] : null
       const w = r === 'agenda' && words[it.template_id] ? words[it.template_id]!.split(',')[0].trim() : null
+      if (r === 'survey_submitted') { // vragenlijst: optioneel, altijd zichtbaar met de stand (8/11/2026)
+        const req = project.survey_requested_at
+        const early = ['lead', 'intake', 'survey', 'measuring'].includes(project.phase)
+        steps.push(it.done
+          ? { key: 's' + it.template_id, state: 'done', text: 'Vragenlijst', hint: 'optioneel · ingevuld door de klant', side: it.done_at ? short(it.done_at) : null }
+          : { key: 's' + it.template_id, state: 'opt', text: 'Vragenlijst', hint: 'optioneel', side: project.survey_status === 'open' ? 'begonnen, nog niet ingediend' : req ? `gevraagd ${short(req)}` : 'niet gevraagd',
+              act: !looking && !req && project.survey_status !== 'open' ? <button className="ovn-btn" onClick={() => early ? document.querySelector('.lead-actions')?.scrollIntoView({ behavior: 'smooth', block: 'center' }) : onTab('vragenlijst')}>Sturen</button> : undefined })
+        continue
+      }
       if (it.done) { steps.push({ key: 's' + it.template_id, state: 'done', text: it.label, side: it.done_at ? short(it.done_at) : null, hint: r === 'measures_known' && it.done_by && it.done_by !== 'automatisch' && it.done_by !== 'met de hand' ? it.done_by : null }); continue }
       if (it.na) { steps.push({ key: 's' + it.template_id, state: 'na', text: it.label, side: 'n.v.t.' }); continue }
       if (looking) { // andere fase bekijken: enkel tonen, geen knoppen
-        if (it.skipped && (STEP[r ?? '']?.who === 'klant' || it.label.toLowerCase().includes('vragenlijst'))) continue
         steps.push({ key: 's' + it.template_id, state: it.skipped ? 'na' : 'open', text: it.label, side: it.skipped ? 'overgeslagen' : viewed && nowGate && viewed.sort > nowGate.sort ? 'later' : 'niet gedaan' })
         continue
       }
@@ -258,16 +262,12 @@ export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSa
     if (t?.deadline && t.deadline >= today) soon.push({ key: 'dl', date: t.deadline, text: 'Deadline klant', sub: [t.deadline_reason, late ? 'in gevaar: de plaatsing is pas later klaar' : null], mark: late ? 'ms-red' : 'ms' })
     soon.sort((a, b) => (a.date ? d10(a.date) : '9999').localeCompare(b.date ? d10(b.date) : '9999') || (a.date ?? '').localeCompare(b.date ?? ''))
 
-    done.sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''))
 
     // ---- Daarna: de volgende fase
-    const after = next ? all.filter((it) => it.stage === next.stage && !it.done && !it.na && !it.skipped).map((it) => it.label) : []
-    return { done, todo, steps, soon, after }
+    return { todo, steps, soon }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, rules, words, flags, tasks, orders, po, t, gates, plan.jobs, plan.events, openProp, viewStage])
 
-  const passed = gates.filter((g) => g.passed).map((g) => g.label)
-  const doneSummary = passed.length ? `${passed.length > 1 ? passed.slice(0, -1).join(', ') + ' en ' + passed[passed.length - 1] : passed[0]} klaar` : 'Klaar'
 
   return (
     <div className="ov-grid">
@@ -281,12 +281,6 @@ export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSa
         {dates && t && <DatesForm t={t} save={saveDates} intro={project.intro_at ?? null} onClose={() => setDates(false)} />}
         {!items ? <p className="muted small">Laden…</p> : (
           <>
-            {v.done.length > 0 && (
-              <details className="ov-done">
-                <summary><span className="ok-t">✓</span> {doneSummary} <span className="muted small">· {v.done.length} {v.done.length === 1 ? 'stap' : 'stappen'} · tonen</span></summary>
-                <ol className="ov-list">{v.done.map((l) => <LineRow key={l.key} l={l} />)}</ol>
-              </details>
-            )}
 
             {looking && cur && (
               <div className="ovn ovn-look">
@@ -321,7 +315,6 @@ export function Overview({ project, page, t, gates, nums, saveDates, onTab, onSa
                 </ol>
               </>
             )}
-            {v.after.length > 0 && next && <p className="ov-after"><span className="muted">Daarna, {next.label}:</span> {v.after.join(' · ').toLowerCase()}</p>}
             {plan.evErr && <p className="muted small">{plan.evErr}</p>}
           </>
         )}

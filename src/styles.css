@@ -2334,3 +2334,5 @@ select.ovn-btn { appearance: none; -webkit-appearance: none; text-align-last: ce
 .ovn-back { border: 0; background: none; color: var(--accent); font: 500 13.5px system-ui, sans-serif; padding: 10px 0 8px; cursor: pointer; }
 
 .nr-site { margin: -4px 0 6px; }
+.ovn-step.opt .ovn-box { border-style: dashed; }
+.ovn-step.opt b { color: var(--muted); }

@@ -47,6 +47,8 @@ export type ProjectRow = {
   intro_at: string | null
   lead_source: string | null
   survey_status: string | null
+  /** wanneer de vragenlijst naar de klant ging (enkel via project_page) */
+  survey_requested_at?: string | null
 }
 
 export type Phase = { phase: string; sort: number; label: string; active: boolean; idle_days: number | null; stage: string | null; selectable: boolean; gate: string | null }
