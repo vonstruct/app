@@ -9,15 +9,20 @@ import { NewMenu } from './NewMenu'
 import { ToastHost } from './toast'
 import { ErrorBoundary } from './ErrorBoundary'
 
+let countsAt = 0
+let lastCounts: { inbox: number; von: number; controltower: number } | null = null
 /** Teller op Vandaag: mails die op antwoord wachten + open VON-voorstellen (alles wat jou nodig heeft staat in Vandaag). */
 function useCounts() {
   const [n, setN] = useState({ inbox: 0, von: 0, controltower: 0 })
   const loc = useLocation()
   useEffect(() => {
-    // één verzoek (RPC nav_counts, bewaard plan) in plaats van twee tellingen
+    // één verzoek (RPC nav_counts, bewaard plan) in plaats van twee tellingen; hoogstens om de 20 s (niet bij elke klik)
+    if (Date.now() - countsAt < 20_000 && lastCounts) { setN(lastCounts); return }
+    countsAt = Date.now()
     supabase.rpc('nav_counts').then(({ data }) => {
       const d = (data ?? {}) as { inbox?: number; von?: number }
-      setN({ inbox: d.inbox ?? 0, von: d.von ?? 0, controltower: (d.inbox ?? 0) + (d.von ?? 0) })
+      lastCounts = { inbox: d.inbox ?? 0, von: d.von ?? 0, controltower: (d.inbox ?? 0) + (d.von ?? 0) }
+      setN(lastCounts)
     })
   }, [loc.pathname])
   return n
