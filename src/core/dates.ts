@@ -65,7 +65,10 @@ export function dmy(v: string | null | undefined): string {
 
 /** 'DD/MM/YYYY' (ook D/M/YY, met - of .) → 'YYYY-MM-DD', of null als het geen geldige datum is. Tijdens het typen enkel met 4 cijfers voor het jaar. */
 export function parseDmy(s: string, allowShortYear = true): string | null {
-  const m = (allowShortYear ? /^\s*(\d{1,2})[/.-](\d{1,2})[/.-](\d{2}|\d{4})\s*$/ : /^\s*(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})\s*$/).exec(s)
+  // ook enkel cijfers (gsm-cijferklavier zonder "/"): 07112026 = 07/11/2026, 071126 = 07/11/26; spatie mag ook als scheiding
+  const digits = /^\s*(\d{2})(\d{2})(\d{4}|\d{2})\s*$/.exec(s)
+  const m = (digits && (digits[3].length === 4 || allowShortYear)) ? digits
+    : (allowShortYear ? /^\s*(\d{1,2})[/.\- ](\d{1,2})[/.\- ](\d{2}|\d{4})\s*$/ : /^\s*(\d{1,2})[/.\- ](\d{1,2})[/.\- ](\d{4})\s*$/).exec(s)
   if (!m) return null
   const y = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3])
   const mo = Number(m[2]), d = Number(m[1])

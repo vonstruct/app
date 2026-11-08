@@ -33,7 +33,9 @@ export function DateInput({ value, defaultValue, onChange, onBlur, className, ti
   const bad = text.trim() !== '' && parseDmy(text) === null
 
   const emit = (v: string) => { setIso(v); onChange?.(fake<ChangeEvent<HTMLInputElement>>(v, name)) }
-  const type = (t: string) => {
+  const type = (raw: string) => {
+    // gsm (cijferklavier zonder "/"): de schuine strepen komen er vanzelf bij tijdens het typen (07 → 07/, 07/11 → 07/11/)
+    const t = raw.length > text.length && /^(\d{2}|\d{2}\/\d{2})$/.test(raw) ? raw + '/' : raw
     setText(t)
     if (t.trim() === '') return emit('')
     const v = parseDmy(t, false)
