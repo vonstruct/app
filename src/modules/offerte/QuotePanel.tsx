@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase, SUPABASE_URL } from '../../core/supabase'
 import { useQuery } from '../../core/useQuery'
 import { ErrorBox, Loading } from '../../core/ui'
-import { fmtEur } from '../../core/format'
+import { fmtEur, parseAmount } from '../../core/format'
 import { toast } from '../../core/toast'
 import { QuoteDoc, printQuote, lineAmount, quoteTotals, lineOn, type Company, type QLang, type QSignature } from '../../core/QuoteDoc'
 import { RuleLink } from '../../core/RuleLink'
 import { DateInput } from '../../core/DateInput'
+import { DecimalInput } from '../../core/DecimalInput'
 
 /**
  * Tab "Offerte" op de projectpagina. Offertes worden in de app gemaakt (Olivier, 7 nov 2026): opbouwen uit de projectkost = RPC quote_generate
@@ -177,8 +178,8 @@ function QuoteEditor({ q, company, btw6, onChange, onGenerate, busy }: { q: Quot
         {editable && (
           <span className="quote-margin">
             <small>Projectmarge %</small>
-            <span><input type="number" value={margin} onChange={(e) => setMargin(e.target.value)} />
-              <button disabled={busy} onClick={() => onGenerate(margin === '' ? null : Number(margin))}>{busy ? '…' : 'Opnieuw opbouwen'}</button></span>
+            <span><input type="text" inputMode="decimal" value={margin} onChange={(e) => setMargin(e.target.value)} />
+              <button disabled={busy} onClick={() => { const m = parseAmount(margin); onGenerate(m == null || Number.isNaN(m) ? null : m) }}>{busy ? '…' : 'Opnieuw opbouwen'}</button></span>
           </span>
         )}
       </div>
@@ -224,9 +225,9 @@ function QuoteEditor({ q, company, btw6, onChange, onGenerate, busy }: { q: Quot
                 </div>
               </div>
               <div className="qline-nums">
-                <label>Aantal<input type="number" disabled={!editable} defaultValue={l.qty} onBlur={(e) => Number(e.target.value) !== Number(l.qty) && saveL(l.id, { qty: Number(e.target.value) })} /></label>
-                <label>Prijs excl.<input type="number" step="0.01" disabled={!editable} defaultValue={l.unit_price} onBlur={(e) => Number(e.target.value) !== Number(l.unit_price) && saveL(l.id, { unit_price: Number(e.target.value) })} /></label>
-                <label>Korting %<input type="number" disabled={!editable} defaultValue={l.discount_pct} onBlur={(e) => Number(e.target.value) !== Number(l.discount_pct) && saveL(l.id, { discount_pct: Number(e.target.value) })} /></label>
+                <label>Aantal<DecimalInput disabled={!editable} value={l.qty == null ? null : Number(l.qty)} onCommit={(v) => saveL(l.id, { qty: v ?? 0 })} /></label>
+                <label>Prijs excl.<DecimalInput disabled={!editable} value={l.unit_price == null ? null : Number(l.unit_price)} onCommit={(v) => saveL(l.id, { unit_price: v ?? 0 })} /></label>
+                <label>Korting %<DecimalInput disabled={!editable} value={l.discount_pct == null ? null : Number(l.discount_pct)} onCommit={(v) => saveL(l.id, { discount_pct: v ?? 0 })} /></label>
                 <label>Btw %<select disabled={!editable} value={Number(l.vat_rate)} onChange={(e) => saveL(l.id, { vat_rate: Number(e.target.value) })}>{[0, 6, 21].map((v) => <option key={v} value={v}>{v}</option>)}</select></label>
                 <span className="qline-amt">{fmtEur(lineAmount(l))}</span>
                 {editable && <span className="qline-act"><button title="Omhoog" onClick={() => move(l, -1)} disabled={i === 0}>↑</button><button title="Omlaag" onClick={() => move(l, 1)} disabled={i === ls.length - 1}>↓</button><button title="Weghalen" onClick={() => removeLine(l)}>×</button></span>}
@@ -293,7 +294,7 @@ function ImportQuote({ project, onDone }: { project: string; onDone: (id: string
   const [note, setNote] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value })
-  const num = (v: string) => Number(String(v).replace(/\s/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.')) || 0
+  const num = (v: string) => parseAmount(v) || 0
   const totExcl = lines.reduce((a, l) => a + num(l.excl), 0)
   const totIncl = lines.reduce((a, l) => a + num(l.excl) * (1 + l.vat_rate / 100), 0)
   const ok = f.number.trim() && totExcl > 0 && path

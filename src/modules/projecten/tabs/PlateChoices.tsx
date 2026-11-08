@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { supabase } from '../../../core/supabase'
 import { toast } from '../../../core/toast'
-import { fmtEur, fmtNum } from '../../../core/format'
+import { fmtEur, fmtNum, parseAmount } from '../../../core/format'
 
 export type Alt = {
   plan: string; suppliers: string[]; supplier: string; length_mm: number; width_mm: number
@@ -10,9 +10,13 @@ export type Alt = {
 export type SheetData = {
   family?: string; family_name?: string | null; labels?: string[]; plan?: string; plan_cost?: number; suppliers?: string[]
   reasons?: string[]; alternatives?: Alt[]; fixed?: string | null; description?: string | null; note?: string | null
-  locked?: { supplier: string; length_mm: number | null; width_mm: number | null } | null; bekleding?: boolean
+  catalog_supplier?: string | null; locked?: { supplier: string; length_mm: number | null; width_mm: number | null } | null; bekleding?: boolean
 }
-export type ChoiceSheet = { id: string; material_label: string; thickness_mm: number; data: SheetData | null }
+export type PlateRow = {
+  id: string; material_label: string; thickness_mm: number; length_mm: number; width_mm: number; qty: number; yield_pct: number | null
+  price_per_sheet: number | null; format_source: string | null; supplier: string | null; article_no: string | null; ordered_by: string | null
+  cost: number; data: SheetData | null
+}
 export type Outsourcing = {
   id: number; project_code: string; family: string; material_label: string | null; firm: string; amount: number | null
   description: string | null; quote_ref: string | null
@@ -28,52 +32,36 @@ async function recalc(dvId: string, done: string) {
 }
 
 /**
- * Keuze per materiaal (sinds 8/11/2026): de optimizer probeert alle formaten van alle leveranciers (materiaalfamilie)
- * en kiest het voordeligste zaagplan. Hier zie je waarom, en kan je een ander plan vastzetten voor dit project
- * (tabel plate_locks: leverancier + hoofdformaat; geldt ook voor volgende versies). Na een keuze wordt opnieuw gerekend.
- * "Uitbesteden" (project_outsourcing): een andere firma maakt dit materiaal (bv. een werkblad); geen platen, kanten of
- * productiekost, wel één kostregel met de offerteprijs van die firma.
+ * Platen van een versie in één tabel (8/11/2026, Olivier: "waarom niet in dezelfde tabel?"): per materiaal de gekozen platen
+ * (één regel per formaat) en, op de eerste regel, de keuze van formaat/leverancier (plate_locks), "uit eigen voorraad"
+ * (plate_stock, enkel dit project) en "via onderaannemer" (project_outsourcing). Wat via een onderaannemer gaat, staat als
+ * regel in dezelfde tabel, met naam, firma, offertenummer en prijs om aan te passen. Prijs per plaat aanklikken = eigen prijs.
  */
-export function PlateChoices({ sheets, dvId, projectCode, outsourcing, stock, firms, onChanged }: {
-  sheets: ChoiceSheet[]; dvId: string; projectCode: string; outsourcing: Outsourcing[]; stock: { family: string; thickness_mm: number }[]; firms: string[]; onChanged: () => void
+export function PlatesTable({ sheets, dvId, projectCode, outsourcing, stock, firms, onChanged }: {
+  sheets: PlateRow[]; dvId: string; projectCode: string; outsourcing: Outsourcing[]; stock: { family: string; thickness_mm: number }[]; firms: string[]; onChanged: () => void
 }) {
-  const inStock = (fam: string | undefined, th: number) => !!fam && stock.some((x) => x.family === fam && Math.abs(Number(x.thickness_mm) - Number(th)) < 0.05)
-  // uit eigen voorraad (plate_stock, enkel dit project): telt mee in de kost, niet op de bestellijst; de kostregels volgen meteen (trigger)
-  const toggleStock = async (g: ChoiceSheet) => {
-    const fam = g.data?.family
-    if (!fam) return
-    const on = inStock(fam, g.thickness_mm)
-    const { error } = on
-      ? await supabase.from('plate_stock').delete().eq('project_code', projectCode).eq('family', fam).eq('thickness_mm', g.thickness_mm)
-      : await supabase.from('plate_stock').insert({ project_code: projectCode, family: fam, thickness_mm: g.thickness_mm, material_label: g.material_label })
-    if (error) { toast(error.message, 'err'); return }
-    toast(on ? `${g.material_label}: weer bestellen` : `${g.material_label} uit eigen voorraad: telt mee in de kost, komt niet op de bestellijst`)
-    onChanged()
-  }
   const [busy, setBusy] = useState<string | null>(null)
-  const [form, setForm] = useState<{ key: string; family: string; label: string; row?: Outsourcing } | null>(null)
-  const groups: ChoiceSheet[] = []
-  const seen = new Set<string>()
+  const [sub, setSub] = useState<string | null>(null)          // groep waarvoor het formulier "via onderaannemer" open staat
+  const [why, setWhy] = useState<Record<string, boolean>>({})
+  const inStock = (fam: string | undefined, th: number) => !!fam && stock.some((x) => x.family === fam && Math.abs(Number(x.thickness_mm) - Number(th)) < 0.05)
+
+  // groepen = materiaal + dikte, met hun platen (één regel per formaat)
+  const groups = new Map<string, PlateRow[]>()
   for (const s of sheets) {
     const k = `${s.data?.family ?? s.material_label}|${s.thickness_mm}`
-    if (!seen.has(k)) { seen.add(k); groups.push(s) }
+    groups.set(k, [...(groups.get(k) ?? []), s])
   }
-  const outFams = new Set(outsourcing.map((o) => o.family))
-  const shown = groups.filter((g) => !g.data?.family || !outFams.has(g.data.family))
-  // één lijst op naam: plaatmaterialen en wat via een onderaannemer gaat, in dezelfde vorm
-  const entries: { label: string; g?: ChoiceSheet; o?: Outsourcing }[] = [
-    ...shown.map((g) => ({ label: g.material_label, g })),
-    ...outsourcing.map((o) => ({ label: o.material_label ?? o.family, o })),
-  ].sort((x, y) => x.label.localeCompare(y.label, 'nl'))
-  if (!shown.some((g) => g.data?.alternatives) && !outsourcing.length) {
-    return sheets.length ? <p className="muted small">Klik <b>Herberekenen</b> om per materiaal te zien welke formaten en leveranciers vergeleken werden.</p> : null
-  }
+  const entries: { label: string; key: string; rows?: PlateRow[]; o?: Outsourcing }[] = [
+    ...[...groups.entries()].map(([key, rows]) => ({ label: rows[0].material_label, key, rows })),
+    ...outsourcing.map((o) => ({ label: o.material_label ?? o.family, key: `o${o.id}`, o })),
+  ].sort((x, y) => x.label.localeCompare(y.label, 'nl') || x.key.localeCompare(y.key))
+  const nPlates = sheets.reduce((a, s) => a + Number(s.qty), 0)
+  const total = sheets.reduce((a, s) => a + Number(s.cost), 0) + outsourcing.reduce((a, o) => a + Number(o.amount ?? 0), 0)
 
-  const choose = async (g: ChoiceSheet, value: string) => {
+  const choose = async (g: PlateRow, value: string) => {
     const d = g.data ?? {}
     if (!d.family) return
     const key = `${d.family}|${g.thickness_mm}`
-    if (value === 'out') { setForm({ key, family: d.family, label: g.material_label }); return }
     setBusy(key)
     let error: { message: string } | null = null
     if (value === 'auto') {
@@ -91,131 +79,201 @@ export function PlateChoices({ sheets, dvId, projectCode, outsourcing, stock, fi
     setBusy(null)
     onChanged()
   }
-
+  const toggleStock = async (g: PlateRow) => {
+    const fam = g.data?.family
+    if (!fam) return
+    const on = inStock(fam, g.thickness_mm)
+    const { error } = on
+      ? await supabase.from('plate_stock').delete().eq('project_code', projectCode).eq('family', fam).eq('thickness_mm', g.thickness_mm)
+      : await supabase.from('plate_stock').insert({ project_code: projectCode, family: fam, thickness_mm: g.thickness_mm, material_label: g.material_label })
+    if (error) { toast(error.message, 'err'); return }
+    toast(on ? `${g.material_label}: weer bestellen` : `${g.material_label} uit eigen voorraad: telt mee in de kost, komt niet op de bestellijst (enkel dit project)`)
+    onChanged()
+  }
   const backInHouse = async (o: Outsourcing) => {
     if (!confirm(`${o.material_label ?? o.family} terug zelf laten maken? Dan komen de platen en kanten terug in de berekening en verdwijnt de regel van ${o.firm}.`)) return
-    setBusy(o.family)
+    setBusy(`o${o.id}`)
     const { error } = await supabase.from('project_outsourcing').delete().eq('id', o.id)
     if (error) { setBusy(null); toast(error.message, 'err'); return }
     await recalc(dvId, 'Terug zelf maken.')
     setBusy(null)
     onChanged()
   }
+  const saveOut = async (o: Outsourcing, patch: Partial<Outsourcing>, msg: string) => {
+    const { error } = await supabase.from('project_outsourcing').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', o.id)
+    if (error) return toast(error.message, 'err')
+    toast(msg); onChanged()
+  }
+  // eigen prijs per plaat (manual_prices, geldt ook voor volgende projecten); de optimizer kiest daarna opnieuw
+  const savePlatePrice = async (r: PlateRow, price: number | null) => {
+    if (price == null || !r.article_no) return
+    const { error } = await supabase.rpc('set_manual_item', {
+      p_article_no: r.article_no, p_description: r.data?.description || r.material_label, p_supplier: r.data?.catalog_supplier || r.supplier, p_price: price, p_origin: 'Bestellen',
+    })
+    if (error) return toast(error.message, 'err')
+    await recalc(dvId, `Eigen prijs ${fmtEur(price)} per plaat bewaard (artikel ${r.article_no}, ook voor volgende projecten).`)
+    onChanged()
+  }
 
+  if (!entries.length) return <p className="muted">Nog geen resultaat van de plaatoptimalisatie</p>
   return (
-    <div className="pc-list">
-      <h3 className="vt-h">Keuze per materiaal</h3>
-      <p className="muted small">De optimizer probeert alle formaten bij alle leveranciers en kiest het voordeligste zaagplan. Rechts kies je een ander plan (geldt ook voor de volgende versies) of "via onderaannemer".</p>
-      {entries.map((en) => {
-        if (en.o) {
-          const o = en.o
-          return (
-            <div key={`o${o.id}`} className="pc-row">
-              <div className="pc-main">
-                <div><b>{en.label}</b> <span className="chip gold" style={{ marginLeft: 8 }}>via onderaannemer</span></div>
-                <div className="pc-plan">
-                  {o.firm} · {o.amount == null ? <span className="bad-text">prijs nog in te vullen</span> : <b>{fmtEur(o.amount)}</b>}
-                  {o.quote_ref ? <span className="muted"> · offerte {o.quote_ref}</span> : null}
-                </div>
-                {form?.row?.id === o.id && <OutsourceForm projectCode={projectCode} dvId={dvId} family={o.family} label={en.label} row={o} onDone={() => { setForm(null); onChanged() }} onCancel={() => setForm(null)} />}
-              </div>
-              <select className="pc-pick" value="sub" disabled={busy === o.family} onChange={(e) => {
-                if (e.target.value === 'edit') setForm({ key: `o${o.id}`, family: o.family, label: en.label, row: o })
-                else if (e.target.value === 'auto') backInHouse(o)
-              }}>
-                <option value="sub">Via onderaannemer: {o.firm}</option>
-                <option value="edit">Firma of prijs wijzigen…</option>
-                <option value="auto">Terug zelf maken: voordeligste plaat</option>
-              </select>
-            </div>
-          )
-        }
-        const g = en.g!
-        const d = g.data ?? {}
-        const alts = d.alternatives ?? []
-        const lk = d.locked
-        const idx = lk ? alts.findIndex((a) => a.supplier === lk.supplier && (lk.length_mm == null || (same(a.length_mm, lk.length_mm) && same(a.width_mm, lk.width_mm)))) : -1
-        const key = `${d.family}|${g.thickness_mm}`
-        return (
-          <div key={g.id} className="pc-row">
-            <div className="pc-main">
-              <div>
-                <b>{g.material_label}</b> <span className="muted">{fmtNum(g.thickness_mm)} mm</span>
-                {lk && <span className="chip gold" style={{ marginLeft: 8 }}>met de hand gekozen</span>}
-                {d.bekleding && <span className="chip" style={{ marginLeft: 8 }}>bekleding</span>}
-                {inStock(d.family, g.thickness_mm) && <span className="chip ok" style={{ marginLeft: 8 }}>uit eigen voorraad</span>}
-              </div>
-              <div className="pc-plan">
-                {d.plan} · {(d.suppliers ?? []).join(' + ') || '—'} · <b>{fmtEur(d.plan_cost)}</b>
-              </div>
-              {!!d.reasons?.length && (
-                <ul className="pc-why">{d.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul>
-              )}
-              {d.family && (
-                <label className="pc-own small">
-                  <input type="checkbox" checked={inStock(d.family, g.thickness_mm)} onChange={() => toggleStock(g)} /> uit eigen voorraad: telt mee in de kost, niet bestellen (enkel dit project)
-                </label>
-              )}
-              {form?.key === key && !form.row && (
-                <OutsourceForm projectCode={projectCode} dvId={dvId} family={form.family} label={form.label} onDone={() => { setForm(null); onChanged() }} onCancel={() => setForm(null)} />
-              )}
-            </div>
-            {d.family && (
-              <select className="pc-pick" value={form?.key === key && !form.row ? 'out' : lk ? (idx >= 0 ? String(idx) : 'lock') : 'auto'} disabled={busy === key} onChange={(e) => choose(g, e.target.value)}>
-                <option value="auto">Automatisch: voordeligste</option>
-                {lk && idx < 0 && <option value="lock">Vast: {lk.supplier}{lk.length_mm ? ` ${Math.round(lk.length_mm)}×${Math.round(lk.width_mm ?? 0)}` : ''}</option>}
-                {alts.map((a, i) => (
-                  <option key={i} value={String(i)}>
-                    {a.plan} · {a.suppliers.join(' + ')} · {fmtEur(a.cost)}{a.unfit ? ` · ${a.unfit} past niet` : ''}{a.chosen ? ' ✓' : ''}
-                  </option>
+    <div className="table-wrap">
+      <table className="plt">
+        <thead>
+          <tr>
+            <th>Materiaal</th><th className="num">Dikte</th><th>Formaat (mm)</th><th className="num">Platen</th><th className="num">Benutting</th>
+            <th className="num">Per plaat</th><th className="num">Totaal</th><th>Leverancier</th><th>Artikel</th><th>Besteld door</th>
+            <th className="ck" title="Uit eigen voorraad: telt mee in de kost, niet bestellen (enkel dit project)">Voorraad</th>
+            <th className="ck" title="Via onderaannemer: een andere firma maakt dit, met zijn prijs">Onder&shy;aannemer</th>
+          </tr>
+        </thead>
+        <tbody>
+          {entries.map((en) => {
+            if (en.o) {
+              const o = en.o
+              return (
+                <tr key={en.key} className="plt-first plt-sub">
+                  <td className="mat">
+                    <InlineText value={o.description || o.material_label || o.family} onSave={(v) => saveOut(o, { description: v }, 'Naam bewaard')} />
+                    <div><span className="chip gold">via onderaannemer</span></div>
+                  </td>
+                  <td /><td className="muted">—</td><td /><td />
+                  <td className="num"><InlineMoney value={o.amount} empty="prijs invullen" onSave={(v) => saveOut(o, { amount: v }, v == null ? 'Prijs leeggemaakt' : `Prijs ${fmtEur(v)} bewaard`)} /></td>
+                  <td className="num">{o.amount == null ? <span className="bad-text">—</span> : fmtEur(o.amount)}</td>
+                  <td><InlineText value={o.firm} list="plt-firms" onSave={(v) => v && saveOut(o, { firm: v }, 'Firma bewaard')} /></td>
+                  <td><InlineText value={o.quote_ref ?? ''} placeholder="offerte nr." onSave={(v) => saveOut(o, { quote_ref: v || null }, 'Offertenummer bewaard')} /></td>
+                  <td>Vonstruct</td>
+                  <td className="ck"><input type="checkbox" disabled aria-label="Voorraad" /></td>
+                  <td className="ck"><input type="checkbox" checked disabled={busy === en.key} onChange={() => backInHouse(o)} aria-label="Via onderaannemer" title="Uitvinken = terug zelf maken" /></td>
+                </tr>
+              )
+            }
+            const rows = en.rows!
+            const g = rows[0]
+            const d = g.data ?? {}
+            const alts = d.alternatives ?? []
+            const lk = d.locked
+            const idx = lk ? alts.findIndex((a) => a.supplier === lk.supplier && (lk.length_mm == null || (same(a.length_mm, lk.length_mm) && same(a.width_mm, lk.width_mm)))) : -1
+            const stockOn = inStock(d.family, g.thickness_mm)
+            return (
+              <Fragment key={en.key}>
+                {rows.map((r, i) => (
+                  <tr key={r.id} className={i === 0 ? 'plt-first' : ''}>
+                    {i === 0 && (
+                      <td className="mat" rowSpan={rows.length}>
+                        <b>{g.material_label}</b>
+                        <div className="chips">
+                          {lk && <span className="chip gold">met de hand gekozen</span>}
+                          {d.bekleding && <span className="chip">bekleding</span>}
+                          {stockOn && <span className="chip ok">uit eigen voorraad</span>}
+                        </div>
+                        {d.family && alts.length > 0 && (
+                          <select className="plt-pick" value={lk ? (idx >= 0 ? String(idx) : 'lock') : 'auto'} disabled={busy === en.key} onChange={(e) => choose(g, e.target.value)} title="Ander formaat of andere leverancier vastzetten (ook voor volgende versies)">
+                            <option value="auto">Automatisch: voordeligste</option>
+                            {lk && idx < 0 && <option value="lock">Vast: {lk.supplier}{lk.length_mm ? ` ${Math.round(lk.length_mm)}×${Math.round(lk.width_mm ?? 0)}` : ''}</option>}
+                            {alts.map((a, j) => (
+                              <option key={j} value={String(j)}>{a.plan} · {a.suppliers.join(' + ')} · {fmtEur(a.cost)}{a.unfit ? ` · ${a.unfit} past niet` : ''}{a.chosen ? ' ✓' : ''}</option>
+                            ))}
+                          </select>
+                        )}
+                        {!!d.reasons?.length && (
+                          <button className="link small" onClick={() => setWhy({ ...why, [en.key]: !why[en.key] })}>{why[en.key] ? 'waarom ▴' : 'waarom ▾'}</button>
+                        )}
+                        {why[en.key] && <ul className="pc-why">{(d.reasons ?? []).map((x, j) => <li key={j}>{x}</li>)}</ul>}
+                      </td>
+                    )}
+                    <td className="num">{fmtNum(r.thickness_mm)}</td>
+                    <td>{fmtNum(r.length_mm, 0)} × {fmtNum(r.width_mm, 0)}</td>
+                    <td className="num">{fmtNum(r.qty, 0)}</td>
+                    <td className="num">{r.yield_pct == null ? '' : `${fmtNum(r.yield_pct, 0)} %`}</td>
+                    <td className="num">
+                      {r.article_no
+                        ? <InlineMoney value={r.price_per_sheet} empty="prijs invullen" title="Eigen prijs per plaat (geldt ook voor volgende projecten); daarna wordt opnieuw berekend" onSave={(v) => savePlatePrice(r, v)} />
+                        : fmtEur(r.price_per_sheet)}
+                    </td>
+                    <td className="num">{fmtEur(r.cost)}</td>
+                    <td>{r.supplier ?? r.format_source ?? ''}</td>
+                    <td title={[r.data?.description, r.data?.note].filter(Boolean).join(' · ')}>{r.article_no ?? ''}{r.data?.note ? <div className="small muted">{r.data.note}</div> : null}</td>
+                    <td>{r.ordered_by}</td>
+                    {i === 0 && (
+                      <>
+                        <td className="ck" rowSpan={rows.length}>{d.family && <input type="checkbox" checked={stockOn} onChange={() => toggleStock(g)} aria-label="Uit eigen voorraad" />}</td>
+                        <td className="ck" rowSpan={rows.length}>{d.family && <input type="checkbox" checked={sub === en.key} onChange={() => setSub(sub === en.key ? null : en.key)} aria-label="Via onderaannemer" />}</td>
+                      </>
+                    )}
+                  </tr>
                 ))}
-                <option value="out">Via onderaannemer: een andere firma maakt dit…</option>
-              </select>
-            )}
-          </div>
-        )
-      })}
-      <datalist id="pc-firms">{firms.map((f) => <option key={f} value={f} />)}</datalist>
+                {sub === en.key && d.family && (
+                  <tr className="find-row"><td colSpan={12}>
+                    <OutsourceForm projectCode={projectCode} dvId={dvId} family={d.family} label={g.material_label} onDone={() => { setSub(null); onChanged() }} onCancel={() => setSub(null)} />
+                  </td></tr>
+                )}
+              </Fragment>
+            )
+          })}
+        </tbody>
+        <tfoot>
+          <tr><td>Totaal</td><td /><td /><td className="num">{fmtNum(nPlates, 0)}</td><td /><td /><td className="num">{fmtEur(total)}</td><td colSpan={5} /></tr>
+        </tfoot>
+      </table>
+      <datalist id="plt-firms">{firms.map((f) => <option key={f} value={f} />)}</datalist>
     </div>
   )
 }
 
-/** Uitbesteden of de uitbesteding wijzigen: firma, offerteprijs (excl. btw, mag later), omschrijving, offertenummer. */
-function OutsourceForm({ projectCode, dvId, family, label, row, onDone, onCancel }: {
-  projectCode: string; dvId: string; family: string; label: string; row?: Outsourcing; onDone: () => void; onCancel?: () => void
+/** tekst in de tabel: aanklikken, wijzigen, Enter of ernaast klikken = bewaren */
+function InlineText({ value, onSave, placeholder, list }: { value: string; onSave: (v: string) => void; placeholder?: string; list?: string }) {
+  const [edit, setEdit] = useState(false)
+  const [v, setV] = useState(value)
+  if (!edit) return <button type="button" className="cell-btn" onClick={() => { setV(value); setEdit(true) }}>{value || <span className="muted">{placeholder ?? '—'}</span>}</button>
+  return (
+    <input autoFocus className="cell-input" list={list} value={v} placeholder={placeholder} onChange={(e) => setV(e.target.value)}
+      onBlur={() => { setEdit(false); if (v.trim() !== value) onSave(v.trim()) }}
+      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') setEdit(false) }} />
+  )
+}
+
+/** bedrag in de tabel: komma of punt (gsm), leeg = geen prijs */
+function InlineMoney({ value, onSave, empty, title }: { value: number | null; onSave: (v: number | null) => void; empty: string; title?: string }) {
+  const [edit, setEdit] = useState(false)
+  const [v, setV] = useState('')
+  if (!edit) return <button type="button" className="price-btn" title={title} onClick={() => { setV(value == null ? '' : String(value).replace('.', ',')); setEdit(true) }}>{value == null ? empty : fmtEur(value)}</button>
+  return (
+    <input autoFocus className="price-input" inputMode="decimal" value={v} onChange={(e) => setV(e.target.value)}
+      onBlur={() => { setEdit(false); const n = parseAmount(v); if (n !== null && Number.isNaN(n)) return toast('Geen geldig bedrag', 'err'); if (n !== (value == null ? null : Number(value))) onSave(n) }}
+      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') setEdit(false) }} />
+  )
+}
+
+/** "Via onderaannemer" voor een materiaal: firma (uit Relaties of vrij), prijs (mag later), naam; daarna herberekenen. */
+function OutsourceForm({ projectCode, dvId, family, label, onDone, onCancel }: {
+  projectCode: string; dvId: string; family: string; label: string; onDone: () => void; onCancel: () => void
 }) {
-  const [firm, setFirm] = useState(row?.firm ?? '')
-  const [amount, setAmount] = useState(row?.amount == null ? '' : String(row.amount).replace('.', ','))
-  const [description, setDescription] = useState(row?.description ?? label)
-  const [quoteRef, setQuoteRef] = useState(row?.quote_ref ?? '')
+  const [firm, setFirm] = useState('')
+  const [amount, setAmount] = useState('')
+  const [description, setDescription] = useState(label)
   const [busy, setBusy] = useState(false)
   const save = async () => {
-    if (!firm.trim()) { toast('Vul de firma in', 'err'); return }
-    const t = amount.trim().replace(/\./g, '').replace(',', '.')
-    const value = t === '' ? null : Number(t)
-    if (value != null && isNaN(value)) { toast('Offerteprijs is geen getal', 'err'); return }
+    if (!firm.trim()) { toast('Kies of typ de firma', 'err'); return }
+    const value = parseAmount(amount)
+    if (value != null && Number.isNaN(value)) { toast('Prijs is geen geldig bedrag', 'err'); return }
     setBusy(true)
-    const fields = { firm: firm.trim(), amount: value, description: description.trim() || null, quote_ref: quoteRef.trim() || null, updated_at: new Date().toISOString() }
-    const { error } = row
-      ? await supabase.from('project_outsourcing').update(fields).eq('id', row.id)
-      : await supabase.from('project_outsourcing').insert({ project_code: projectCode, family, material_label: label, ...fields })
+    const { error } = await supabase.from('project_outsourcing').insert({ project_code: projectCode, family, material_label: label, firm: firm.trim(), amount: value, description: description.trim() || null })
     if (error) { setBusy(false); toast(error.message, 'err'); return }
-    if (row) toast('Uitbesteding bijgewerkt')
-    else await recalc(dvId, `Uitbesteed aan ${firm.trim()}.`)
+    await recalc(dvId, `${label} via ${firm.trim()}.`)
     setBusy(false)
     onDone()
   }
   return (
     <div className="pc-form">
-      <label>Firma<input list="pc-firms" value={firm} onChange={(e) => setFirm(e.target.value)} placeholder="wie maakt het" /></label>
-      <label>Offerteprijs excl. btw<input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="later invullen mag" /></label>
-      <label>Omschrijving<input value={description} onChange={(e) => setDescription(e.target.value)} /></label>
-      <label>Offertenummer firma<input value={quoteRef} onChange={(e) => setQuoteRef(e.target.value)} placeholder="optioneel" /></label>
+      <label>Onderaannemer / firma<input list="plt-firms" value={firm} onChange={(e) => setFirm(e.target.value)} placeholder="kies uit Relaties of typ" autoFocus /></label>
+      <label>Prijs excl. btw<input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="later invullen mag" /></label>
+      <label>Naam<input value={description} onChange={(e) => setDescription(e.target.value)} /></label>
       <div className="toolbar">
-        <button className="primary" disabled={busy} onClick={save}>{busy ? 'Bezig…' : row ? 'Bewaren' : 'Uitbesteden'}</button>
-        {onCancel && <button className="link" onClick={onCancel}>Annuleren</button>}
+        <button className="primary" disabled={busy} onClick={save}>{busy ? 'Bezig…' : 'Via onderaannemer'}</button>
+        <button className="link" onClick={onCancel}>Annuleren</button>
       </div>
-      {!row && <p className="small muted">Geen platen, kanten of productiekost meer voor dit materiaal in dit project; wel één kostregel met de offerteprijs, ook op de bestellijst bij die firma.</p>}
+      <p className="small muted">Alle platen van dit materiaal in dit project: geen plaatkost, kanten of productiekost meer, wel deze prijs (ook op de bestellijst bij die firma).</p>
     </div>
   )
 }

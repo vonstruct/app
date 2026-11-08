@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../core/supabase'
 import { useQuery } from '../../core/useQuery'
 import { ErrorBox, Loading } from '../../core/ui'
-import { fmtEur, fmtNum } from '../../core/format'
+import { fmtEur, fmtNum, parseAmount } from '../../core/format'
 import { toast } from '../../core/toast'
 import { useSearchParams } from 'react-router'
 import { OwnArticleEditor } from '../../core/OwnArticle'
@@ -29,7 +29,7 @@ type Group = {
 type Hit = { src: string; supplier: string | null; article_no: string | null; description: string; unit_price: number | null; unit: string | null; ref: string; seen: string | null; pack_qty?: number | null; pack_price?: number | null; pack_sure?: boolean | null }
 
 const SRC: Record<string, string> = { stuklijst: 'stuklijst', hand: 'met de hand', prijslijst: 'prijslijst', mail: 'uit een mail', artikel: 'nieuw artikel', eigen: 'eigen artikel' }
-const num = (s: string) => { const v = Number(String(s).trim().replace(/\./g, '').replace(',', '.')); return isFinite(v) ? v : NaN }
+const num = (s: string) => { const v = parseAmount(s); return v == null ? NaN : v }
 
 export function ProjectCost({ project, onQuote }: { project: string; onQuote: () => void }) {
   const gq = useQuery<Group[]>(() => supabase.from('app_project_cost_groups').select('*').eq('project_code', project).order('sort').order('group_name'), [project])
@@ -387,8 +387,7 @@ function OutsourcePriceEdit({ l, onSaved }: { l: Line; onSaved: () => void }) {
   const [val, setVal] = useState('')
   const save = async () => {
     setEdit(false)
-    const t = val.trim().replace(/\./g, '').replace(',', '.')
-    const amount = t === '' ? null : Number(t)
+    const amount = parseAmount(val)
     if (amount != null && isNaN(amount)) return
     if (!l.no_price && amount === Number(l.unit_price)) return
     const { error } = await supabase.from('project_outsourcing').update({ amount, updated_at: new Date().toISOString() }).eq('id', Number(l.source_ref))
@@ -405,8 +404,9 @@ function PriceEdit({ l, onSaved }: { l: Line; onSaved: () => void }) {
   const [val, setVal] = useState('')
   const save = async () => {
     setEdit(false)
-    const v = val.trim().replace(/\./g, '').replace(',', '.')
-    if (v === '' || isNaN(Number(v)) || Number(v) === Number(l.unit_price)) return
+    const pv = parseAmount(val)
+    if (pv == null || Number.isNaN(pv) || pv === Number(l.unit_price)) return
+    const v = String(pv)
     const { error } = await supabase.rpc('set_manual_price', { p_article_no: l.article_no ?? '', p_description: l.description, p_supplier: l.supplier, p_price: Number(v) })
     if (error) return toast(error.message, 'err')
     toast(`Prijs voor "${l.description}" bewaard. Geldt ook voor volgende projecten.`); onSaved()

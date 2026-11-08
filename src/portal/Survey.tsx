@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../core/supabase'
 import { Swatch } from './Swatch'
 import { tr, type Lang } from './i18n'
+import { DecimalInput } from '../core/DecimalInput'
 
 type Tr = { label?: string; help?: string; section?: string; intro?: string; options?: (string | { label: string; info?: string })[] }
 type Q = { key: string; module: string; section: string; sort: number; label: string; help: string | null; type: string; options: unknown; required: boolean; i18n?: Record<string, Tr> | null }
@@ -154,7 +155,7 @@ function Field({ q, lang, code, value, answers, readOnly, onChange }: { q: Q; la
     case 'textarea':
       return <label className="q">{label}<textarea rows={3} disabled={dis} value={String(value ?? '')} onChange={(e) => onChange(e.target.value)} /></label>
     case 'number':
-      return <label className="q">{label}<input type="number" disabled={dis} value={String(value ?? '')} onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))} /></label>
+      return <label className="q">{label}<DecimalInput disabled={dis} value={value == null || value === '' ? null : Number(value)} onCommit={(v) => onChange(v)} /></label>
     case 'yesno':
       return (
         <div className="q">{label}

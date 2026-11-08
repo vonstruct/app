@@ -3,10 +3,10 @@ import { supabase } from '../../../core/supabase'
 import { useQuery } from '../../../core/useQuery'
 import { DataTable } from '../../../core/DataTable'
 import { ErrorBox, Loading } from '../../../core/ui'
-import { fmtEur, fmtMm, fmtNum } from '../../../core/format'
-import { PlateChoices, type Outsourcing, type SheetData } from './PlateChoices'
+import { fmtMm, fmtNum } from '../../../core/format'
+import { PlatesTable, type Outsourcing, type PlateRow } from './PlateChoices'
 
-type Sheet = { id: string; material_label: string; thickness_mm: number; length_mm: number; width_mm: number; qty: number; yield_pct: number | null; price_per_sheet: number | null; format_source: string | null; supplier: string | null; article_no: string | null; ordered_by: string | null; cost: number; data: SheetData | null }
+type Sheet = PlateRow
 type Opt = { optimizer_status: string | null; optimizer_at: string | null; cutplan_path: string | null; project_code: string }
 
 type Sum = { material_label: string | null; thickness_mm: number; n_parts: number; area_m2: number }
@@ -59,7 +59,7 @@ export function Platen({ dvId }: { dvId: string }) {
   return (
     <>
       <ErrorBox error={sum.error || parts.error || sheets.error} />
-      <h2>Platen te bestellen</h2>
+      <h2>Platen</h2>
       <div className="toolbar">
         <span className="muted">Plaatoptimalisatie: {opt.data?.optimizer_status ?? '…'}</span>
         {opt.data?.cutplan_path && (
@@ -69,25 +69,8 @@ export function Platen({ dvId }: { dvId: string }) {
       </div>
       <ErrorBox error={plan.error} />
       {plan.html && <iframe id="zaagplan" className="cutplan" title="Zaagplan" srcDoc={plan.html} />}
-      <DataTable
-        rows={sheets.data ?? []}
-        rowKey={(r) => r.id}
-        filter={false}
-        empty="Nog geen resultaat van de plaatoptimalisatie"
-        columns={[
-          { key: 'material_label', label: 'Materiaal' },
-          { key: 'thickness_mm', label: 'Dikte (mm)', align: 'right', render: (r) => fmtNum(r.thickness_mm) },
-          { key: 'format', label: 'Formaat (mm)', value: (r) => `${fmtNum(r.length_mm, 0)} × ${fmtNum(r.width_mm, 0)}` },
-          { key: 'qty', label: 'Platen', align: 'right', total: true },
-          { key: 'yield_pct', label: 'Benutting', align: 'right', render: (r) => (r.yield_pct == null ? '' : `${fmtNum(r.yield_pct, 0)} %`) },
-          { key: 'price_per_sheet', label: 'Prijs per plaat', align: 'right', render: (r) => fmtEur(r.price_per_sheet) },
-          { key: 'cost', label: 'Totaal', align: 'right', total: true, value: (r) => Number(r.cost), render: (r) => fmtEur(r.cost) },
-          { key: 'supplier', label: 'Leverancier', value: (r) => r.supplier ?? r.format_source ?? '' },
-          { key: 'article_no', label: 'Artikel', render: (r) => <span title={r.data?.description ?? ''}>{r.article_no ?? ''}</span> },
-          { key: 'ordered_by', label: 'Besteld door' },
-        ]}
-      />
-      {opt.data && <PlateChoices sheets={sheets.data ?? []} dvId={dvId} projectCode={opt.data.project_code} outsourcing={outs.data ?? []} stock={stock.data ?? []} firms={firms.data ?? []} onChanged={() => { sheets.reload(); outs.reload(); stock.reload() }} />}
+      {opt.data && <PlatesTable sheets={sheets.data ?? []} dvId={dvId} projectCode={opt.data.project_code} outsourcing={outs.data ?? []} stock={stock.data ?? []} firms={firms.data ?? []} onChanged={() => { sheets.reload(); outs.reload(); stock.reload() }} />}
+      <p className="small muted">Per materiaal: links een ander formaat of andere leverancier vastzetten (ook voor volgende versies), rechts uit eigen voorraad of via een onderaannemer. Prijs aanklikken = eigen prijs per plaat. Platen komen uit PaletteCAD; hun naam wijzig je daar.</p>
       <h2>Onderdelen per materiaal</h2>
       <DataTable
         rows={sum.data ?? []}

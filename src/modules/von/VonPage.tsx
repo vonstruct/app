@@ -4,6 +4,7 @@ import { supabase } from '../../core/supabase'
 import { Von } from '../../core/Von'
 import { toast } from '../../core/toast'
 import { useQuery } from '../../core/useQuery'
+import { DecimalInput } from '../../core/DecimalInput'
 
 /**
  * VON (fase 4): het commandocentrum. Wacht op jou (voorstellen, per plan), Gesprek, Wat VON deed (met ongedaan maken),
@@ -487,7 +488,7 @@ function Team() {
                 <select value={a.model} onChange={(e) => save(a.id, { model: e.target.value })}>{MODELS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
               </label>
               <div className="team-nums">
-                <label className="small">Budget per dag ($)<input type="number" step="0.5" min="0" defaultValue={a.daily_budget_usd} onBlur={(e) => Number(e.target.value) !== a.daily_budget_usd && save(a.id, { daily_budget_usd: Number(e.target.value) })} /></label>
+                <label className="small">Budget per dag ($)<DecimalInput value={a.daily_budget_usd} onCommit={(v) => save(a.id, { daily_budget_usd: v ?? 0 })} /></label>
                 <label className="small">Max. keer per dag<input type="number" min="0" defaultValue={a.max_runs_per_day} onBlur={(e) => Number(e.target.value) !== a.max_runs_per_day && save(a.id, { max_runs_per_day: Number(e.target.value) })} /></label>
               </div>
               <p className="small muted">Vandaag: {a.runs_today}× · {usd(a.cost_today)} · 30 dagen: {a.runs_30d}× · {usd(a.cost_30d)}</p>
