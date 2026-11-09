@@ -80,6 +80,13 @@ button.link { border: none; background: none; color: var(--accent); padding: 4px
 /* veel tabbladen (versie: zoals de stuklijst in PaletteCAD): kleiner en op meerdere regels i.p.v. verborgen achter scrollen */
 .tabs.tabs-many { flex-wrap: wrap; overflow-x: visible; row-gap: 0; }
 .tabs.tabs-many .tab { padding: 7px 10px; font-size: 13.5px; }
+/* Projectkosten van een versie: rubrieken openklappen */
+.cost-sum tr.cost-row { cursor: pointer; }
+.cost-sum tr.cost-row:hover td, .cost-sum tr.cost-row.open td { background: color-mix(in srgb, var(--gold) 6%, transparent); }
+.cost-sum .cost-toggle { font-weight: 600; text-decoration: none; color: var(--ink); }
+.cost-sum .cost-tab { margin-left: 10px; text-decoration: none; }
+.cost-sum tr.cost-open > td { padding: 4px 8px 12px 22px; background: color-mix(in srgb, var(--gold) 3%, transparent); }
+.cost-sum tr.cost-open .table-wrap { margin: 0; }
 
 .table-wrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; margin: 8px 0; }
 .table-wrap .search { margin: 10px; width: min(320px, calc(100% - 20px)); }

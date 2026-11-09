@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { supabase } from '../../../core/supabase'
 import { useQuery } from '../../../core/useQuery'
@@ -66,136 +66,135 @@ function PriceCell({ line, onSaved }: { line: Line; onSaved: (msg: string | null
   )
 }
 
-/** Artikels zonder prijs: herkomst (bestellen, zelf maken, negeren) en prijs per stuk kiezen. */
-function NoPrice({ dvId, lines, onSaved, focus }: { dvId: string; lines: Line[]; onSaved: (m: string | null) => void; focus?: boolean }) {
-  const box = useRef<HTMLDivElement>(null)
-  useEffect(() => { if (focus) box.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }, [focus])
-  if (!lines.length) return null
+/** Tabel met kostregels (per subgroep), de prijs aan te klikken waar dat kan; zonder prijs: herkomst + prijs in de regel. */
+function LinesTable({ dvId, lines, onSaved }: { dvId: string; lines: Line[]; onSaved: (m: string | null) => void }) {
+  const sum = lines.reduce((s, l) => s + Number(l.total), 0)
+  const subs = [...new Set(lines.map((l) => (l.category === 'Zelf maken' ? 'Zelf maken' : l.subgroup ?? '')))]
   return (
-    <div ref={box} className={'todo-box' + (focus ? ' focus' : '')}>
-      <h2>Zonder prijs <span className="muted">{lines.length}</span></h2>
-      <p className="muted">
-        Kies per artikel de herkomst en vul de prijs per stuk in. <strong>Bestellen</strong> = bij een leverancier,{' '}
-        <strong>Zelf maken</strong> = niet op bestellijsten, <strong>Negeren</strong> = telt nergens mee.
-        Bewaard in je eigen prijslijst (Eigen artikels) en herkend op artikelnummer of naam, ook in volgende projecten.
-      </p>
+    <div className="table-wrap">
       <table>
-        <thead><tr><th>Omschrijving</th><th>Leverancier</th><th>Artikel</th><th className="num">Aantal</th><th>Herkomst en prijs per stuk</th></tr></thead>
+        <thead>
+          <tr>
+            <th>Omschrijving</th><th>Leverancier</th><th>Artikel</th><th className="num">Aantal</th><th className="num">Eenheidsprijs</th>
+            <th className="num">Totaal</th><th>Besteld door</th><th>Opmerking</th>
+          </tr>
+        </thead>
         <tbody>
-          {lines.map((l) => (
-            <tr key={l.id}>
-              <td>{l.description} <ItemWhere dvId={dvId} name={l.description} /></td><td>{l.supplier}</td><td>{l.article_no}</td>
-              <td className="num">{l.qty == null ? '' : `${fmtNum(l.qty, 2)}${l.unit ? ' ' + l.unit : ''}`}</td>
-              <td><OwnArticleEditor articleNo={l.article_no} description={l.description} supplier={l.supplier} onSaved={onSaved} /></td>
-            </tr>
+          {subs.map((s) => (
+            <Fragment key={s}>
+              {s && <tr className="subhead"><td colSpan={8}>{s}</td></tr>}
+              {lines.filter((l) => (l.category === 'Zelf maken' ? 'Zelf maken' : l.subgroup ?? '') === s).map((l) => (
+                <tr key={l.id}>
+                  <td>{l.description}{!['Platen', 'Kanten', 'Productiekosten', 'Uitbesteed'].includes(l.category) && <> <ItemWhere dvId={dvId} name={l.description} /></>}</td>
+                  <td>{l.supplier}</td>
+                  <td>{l.article_no}</td>
+                  <td className="num">{l.qty == null ? '' : `${fmtNum(l.qty, 2)}${l.unit ? ' ' + l.unit : ''}`}</td>
+                  <td className="num">{missing(l) ? '' : editable(l) ? <PriceCell line={l} onSaved={onSaved} /> : l.unit_price == null ? '' : fmtEur(l.unit_price)}</td>
+                  <td className="num">{fmtEur(l.total)}</td>
+                  <td>{l.ordered_by}</td>
+                  <td className={missing(l) ? 'warn-text' : l.note === 'eigen prijs' || l.note === 'zelf maken' ? 'ok-text' : 'muted'}>
+                    {missing(l)
+                      ? <><div className="small">{l.note}</div><OwnArticleEditor articleNo={l.article_no} description={l.description} supplier={l.supplier} onSaved={onSaved} /></>
+                      : l.note}
+                  </td>
+                </tr>
+              ))}
+            </Fragment>
           ))}
         </tbody>
+        <tfoot>
+          <tr><td colSpan={5}>Totaal</td><td className="num">{fmtEur(sum)}</td><td colSpan={2} /></tr>
+        </tfoot>
       </table>
     </div>
   )
 }
 
-/** Kostregels van één rubriek (tabblad van de versie), met de prijs aan te klikken waar dat kan. */
+/** Kostregels van één rubriek (tabblad van de versie). */
 export function CostLines({ dvId, cats, title }: { dvId: string; cats: string[]; title?: string }) {
   const q = useLines(dvId)
   const [msg, setMsg] = useState<string | null>(null)
   if (q.loading && !q.data) return <Loading />
   const lines = (q.data ?? []).filter((l) => cats.includes(rubriek(l)))
   const onSaved = (m: string | null) => { setMsg(m); q.reload() }
-  const sum = lines.reduce((s, l) => s + Number(l.total), 0)
-  const subs = [...new Set(lines.map((l) => (l.category === 'Zelf maken' ? 'Zelf maken' : l.subgroup ?? '')))]
   return (
     <>
       <ErrorBox error={q.error} />
-      {title && <h2 className="vt-h">{title} <span className="muted">{fmtEur(sum)}</span></h2>}
+      {title && <h2 className="vt-h">{title} <span className="muted">{fmtEur(lines.reduce((s, l) => s + Number(l.total), 0))}</span></h2>}
       {msg && <p className="notice">{msg}</p>}
-      {!lines.length ? <p className="muted">Geen regels in deze rubriek.</p> : (
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Omschrijving</th><th>Leverancier</th><th>Artikel</th><th className="num">Aantal</th><th className="num">Eenheidsprijs</th>
-                <th className="num">Totaal</th><th>Besteld door</th><th>Opmerking</th>
-              </tr>
-            </thead>
-            <tbody>
-              {subs.map((s) => (
-                <Fragment key={s}>
-                  {s && <tr className="subhead"><td colSpan={8}>{s}</td></tr>}
-                  {lines.filter((l) => (l.category === 'Zelf maken' ? 'Zelf maken' : l.subgroup ?? '') === s).map((l) => (
-                    <tr key={l.id}>
-                      <td>{l.description}{!['Platen', 'Kanten', 'Productiekosten', 'Uitbesteed'].includes(l.category) && <> <ItemWhere dvId={dvId} name={l.description} /></>}</td>
-                      <td>{l.supplier}</td>
-                      <td>{l.article_no}</td>
-                      <td className="num">{l.qty == null ? '' : `${fmtNum(l.qty, 2)}${l.unit ? ' ' + l.unit : ''}`}</td>
-                      <td className="num">{missing(l) ? '' : editable(l) ? <PriceCell line={l} onSaved={onSaved} /> : l.unit_price == null ? '' : fmtEur(l.unit_price)}</td>
-                      <td className="num">{fmtEur(l.total)}</td>
-                      <td>{l.ordered_by}</td>
-                      <td className={missing(l) ? 'warn-text' : l.note === 'eigen prijs' || l.note === 'zelf maken' ? 'ok-text' : 'muted'}>
-                        {missing(l)
-                          ? <><div className="small">{l.note}</div><OwnArticleEditor articleNo={l.article_no} description={l.description} supplier={l.supplier} onSaved={onSaved} /></>
-                          : l.note}
-                      </td>
-                    </tr>
-                  ))}
-                </Fragment>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr><td colSpan={5}>Totaal</td><td className="num">{fmtEur(sum)}</td><td colSpan={2} /></tr>
-            </tfoot>
-          </table>
-        </div>
-      )}
+      {!lines.length ? <p className="muted">Geen regels in deze rubriek.</p> : <LinesTable dvId={dvId} lines={lines} onSaved={onSaved} />}
     </>
   )
 }
 
-/** Projectkosten: totaal per rubriek (klik = naar het tabblad), alles zonder prijs, en waar je groepen, marges en prijslijsten vindt. */
+/**
+ * Projectkosten: totaal per rubriek; elke rubriek klapt open met haar regels (9/11/2026, Olivier: "elke rubriek kunnen uitklappen").
+ * Met ?focus=prijzen klappen de rubrieken met artikels zonder prijs vanzelf open.
+ */
 export function Projectkosten({ dvId }: { dvId: string }) {
   const { code = '' } = useParams()
   const [params, setParams] = useSearchParams()
   const q = useLines(dvId)
   const st = useQuery<Status>(() => supabase.from('design_versions').select('cost_status, cost_at').eq('id', dvId).single(), [dvId])
   const [msg, setMsg] = useState<string | null>(null)
+  const [open, setOpen] = useState<Set<string> | null>(null)
   if (q.loading && !q.data) return <Loading />
   const lines = q.data ?? []
   const total = lines.reduce((s, l) => s + Number(l.total), 0)
   const known = new Set(RUBRIEKEN.map((r) => r.cat))
   const rows = [
     ...RUBRIEKEN.map((r) => ({ ...r, ls: lines.filter((l) => rubriek(l) === r.cat) })),
-    ...[...new Set(lines.map(rubriek).filter((c) => !known.has(c)))].map((c) => ({ tab: 'projectkosten', cat: c, ls: lines.filter((l) => rubriek(l) === c) })),
+    ...[...new Set(lines.map(rubriek).filter((c) => !known.has(c)))].map((c) => ({ tab: '', cat: c, ls: lines.filter((l) => rubriek(l) === c) })),
   ].filter((r) => r.ls.length)
+  // standaard dicht; via "zonder prijs"-links (?focus=prijzen) de rubrieken met een ontbrekende prijs open
+  const opened = open ?? new Set(params.get('focus') === 'prijzen' ? rows.filter((r) => r.ls.some(missing)).map((r) => r.cat) : [])
+  const toggle = (c: string) => { const n = new Set(opened); if (n.has(c)) n.delete(c); else n.add(c); setOpen(n) }
+  const allOpen = rows.length > 0 && rows.every((r) => opened.has(r.cat))
   const onSaved = (m: string | null) => { setMsg(m); q.reload() }
   return (
     <>
       <ErrorBox error={q.error} />
       <p className="muted">
-        Kostprijsberekening: {st.data?.cost_status ?? 'nog niet berekend'}. Klik op een rubriek voor de regels.
+        Kostprijsberekening: {(st.data?.cost_status ?? 'nog niet berekend').replace(/(\d+(?:\.\d+)?) EUR/, (_, n: string) => fmtEur(Number(n)))}. Klik op een rubriek om ze open te klappen.
         Groepen, marges en offerte: <Link to={`/projecten/${encodeURIComponent(code)}?tab=kost`}>Ontwerp › Kostprijs</Link>.
         Prijslijsten raadplegen: <Link to="/regels?sectie=Prijzen">Rekenregels › Prijzen</Link>.
       </p>
       {msg && <p className="notice">{msg}</p>}
+      {rows.length > 0 && (
+        <div className="toolbar">
+          <button className="link" onClick={() => setOpen(allOpen ? new Set() : new Set(rows.map((r) => r.cat)))}>{allOpen ? 'Alles dichtklappen' : 'Alles openklappen'}</button>
+        </div>
+      )}
       <div className="table-wrap">
         <table className="cost-sum">
           <thead><tr><th>Rubriek</th><th className="num">Regels</th><th className="num">Zonder prijs</th><th className="num">Kostprijs</th></tr></thead>
           <tbody>
             {rows.map((r) => {
               const miss = r.ls.filter(missing).length
+              const isOpen = opened.has(r.cat)
               return (
-                <tr key={r.cat}>
-                  <td>{r.tab === 'projectkosten' ? r.cat : <button className="link" onClick={() => setParams({ tab: r.tab }, { replace: true })}>{r.cat}</button>}</td>
-                  <td className="num">{r.ls.length}</td>
-                  <td className="num">{miss ? <span className="warn-text">{miss}</span> : ''}</td>
-                  <td className="num">{fmtEur(r.ls.reduce((x, l) => x + Number(l.total), 0))}</td>
-                </tr>
+                <Fragment key={r.cat}>
+                  <tr className={isOpen ? 'cost-row open' : 'cost-row'} onClick={() => toggle(r.cat)}>
+                    <td>
+                      <button className="link cost-toggle" aria-expanded={isOpen} onClick={(e) => { e.stopPropagation(); toggle(r.cat) }}>{isOpen ? '▾' : '▸'} {r.cat}</button>
+                      {r.tab && (
+                        <button className="link small muted cost-tab" title="Naar het tabblad van deze rubriek" onClick={(e) => { e.stopPropagation(); setParams({ tab: r.tab }, { replace: true }) }}>tabblad ›</button>
+                      )}
+                    </td>
+                    <td className="num">{r.ls.length}</td>
+                    <td className="num">{miss ? <span className="warn-text">{miss}</span> : ''}</td>
+                    <td className="num">{fmtEur(r.ls.reduce((x, l) => x + Number(l.total), 0))}</td>
+                  </tr>
+                  {isOpen && (
+                    <tr className="cost-open"><td colSpan={4}><LinesTable dvId={dvId} lines={r.ls} onSaved={onSaved} /></td></tr>
+                  )}
+                </Fragment>
               )
             })}
           </tbody>
           <tfoot><tr><td>Totaal kostprijs</td><td /><td /><td className="num">{fmtEur(total)}</td></tr></tfoot>
         </table>
       </div>
-      <NoPrice dvId={dvId} lines={lines.filter(missing)} onSaved={onSaved} focus={params.get('focus') === 'prijzen'} />
     </>
   )
 }
