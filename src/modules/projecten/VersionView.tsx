@@ -71,7 +71,7 @@ export function VersionView() {
             <Stat label="fouten" value={dv.n_errors ? <span className="bad-text">{dv.n_errors}</span> : 0} />
             <Stat label="aandachtspunten" value={dv.n_warnings} />
           </div>
-          <Tabs tabs={versionTabs.map((t) => ({ id: t.id, label: t.label }))} active={tab} onChange={setTab} />
+          <Tabs tabs={versionTabs.map((t) => ({ id: t.id, label: t.id === 'controle' && (dv.n_errors || dv.n_warnings) ? `${t.label} (${(dv.n_errors ?? 0) + (dv.n_warnings ?? 0)})` : t.label }))} active={tab} onChange={setTab} />
           <Active key={rev} dvId={dv.id} />
         </>
       )}
