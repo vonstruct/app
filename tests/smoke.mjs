@@ -14,7 +14,7 @@ const ROUTES = [
   '#/projecten/209901?tab=dossier', '#/projecten/209902', '#/projecten/209901?tab=kost', '#/projecten/209901?tab=offerte', '#/projecten/209901?tab=facturen',
   '#/projecten/209901?tab=nacalculatie', '#/projecten/209903?tab=productie', '#/projecten/209903?tab=opdrachten', '#/projecten/209903?tab=oplevering',
   '#/projecten/209901?tab=vragenlijst', '#/projecten/209901?tab=brochure', '#/projecten/209901?tab=documenten', '#/projecten/209901?tab=tijdlijn',
-  '#/projecten/209901/v/3', '#/projecten/209901/v/3?tab=platen', '#/projecten/209901/v/3?tab=kasten', '#/projecten/209901/v/3?tab=lades', '#/projecten/209901/v/3?tab=beslag', '#/projecten/209901/v/3?tab=controle',
+  '#/projecten/209901/v/3', '#/projecten/209901/v/3?tab=platen', '#/projecten/209901/v/3?tab=kasten', '#/projecten/209901/v/3?tab=lades', '#/projecten/209901/v/3?tab=beslag', '#/projecten/209901/v/3?tab=controle', '#/projecten/209901/v/3?tab=kanten', '#/projecten/209901/v/3?tab=projectkosten', '#/projecten/209901/v/3?tab=productiekosten', '#/regels?sectie=Prijzen',
   '#/cijfers', '#/relaties', '#/relaties?tab=klanten&view=tabel', '#/instellingen', '#/regels', '#/regels?sectie=Plaatoptimalisatie', '#/regels?sectie=Meldingen', '#/mails', '#/portaal',
 ]
 

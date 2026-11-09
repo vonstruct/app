@@ -3,9 +3,9 @@ import type { ReactNode } from 'react'
 export const Loading = () => <p className="muted">Laden…</p>
 export const ErrorBox = ({ error }: { error: string | null }) => (error ? <p className="error">{error}</p> : null)
 
-export function Tabs<T extends string>({ tabs, active, onChange }: { tabs: { id: T; label: ReactNode }[]; active: T; onChange: (id: T) => void }) {
+export function Tabs<T extends string>({ tabs, active, onChange, className }: { tabs: { id: T; label: ReactNode }[]; active: T; onChange: (id: T) => void; className?: string }) {
   return (
-    <div className="tabs" role="tablist">
+    <div className={className ? `tabs ${className}` : 'tabs'} role="tablist">
       {tabs.map((t) => (
         <button key={t.id} role="tab" aria-selected={t.id === active} className={t.id === active ? 'tab active' : 'tab'} onClick={() => onChange(t.id)}>
           {t.label}

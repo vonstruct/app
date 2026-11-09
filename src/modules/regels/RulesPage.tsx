@@ -7,6 +7,7 @@ import { toast } from '../../core/toast'
 import { RuleSentence, type Rule } from './RuleSentence'
 import { ruleTables } from './tables'
 import { PriceListUpload } from './PriceListUpload'
+import { PriceLists } from './PriceLists'
 import { PlateFamilies } from './PlateFamilies'
 
 const SECTIONS = ['Bestellen', 'Platen', 'Plaatoptimalisatie', 'Kanten', 'Lades', 'Productiekosten', 'Prijzen', 'Kasten', 'Offerte', 'Facturen', 'Oplevering', 'Nacalculatie', 'Brochure', 'Capaciteit', 'Productie', 'Meldingen', 'Berichten', 'Checklist']
@@ -43,7 +44,7 @@ export function RulesPage() {
           Deze waarden zijn voorlopig ingevuld (niet door jou). Zet ze juist, of klik <b>Klopt</b> als de waarde goed is. Een waarde wijzigen telt ook als nagekeken.
         </p>
       )}
-      {section === 'Prijzen' && <PriceListUpload />}
+      {section === 'Prijzen' && <><PriceLists /><PriceListUpload /></>}
       {q.loading ? <Loading /> : rules.map((r) => (
         <div key={r.key} className="rule-wrap">
           {section === REVIEW && <div className="small muted rule-sec">{r.section}</div>}

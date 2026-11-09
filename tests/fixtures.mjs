@@ -189,6 +189,14 @@ const tables = {
       data: { family: 'eik fineer', plan: '4× 2800×2070 + 1× 3050×1220', plan_cost: 245, suppliers: ['Voorbeeldhout'], reasons: [], alternatives: [], primary: { supplier: 'Voorbeeldhout', length_mm: 2800, width_mm: 2070 } } },
   ],
   app_parts_summary: [{ material_label: 'Eik fineer', thickness_mm: 19, n_parts: 120, area_m2: 18.2 }],
+  cost_lines: [
+    { id: 'cl1', category: 'Platen', subgroup: null, sort: 1, description: 'Eik fineer', supplier: 'Voorbeeldhout', article_no: 'A1', qty: 4, unit: 'plaat', unit_price: 50, total: 200, ordered_by: 'Partner', note: null },
+    { id: 'cl2', category: 'Kanten', subgroup: null, sort: 2, description: 'Kant eik 23 mm', supplier: 'Kantenhandel', article_no: 'K23', qty: 120, unit: 'm', unit_price: 0.85, total: 102, ordered_by: 'Partner', note: 'goedkoopste: rol van 50 m' },
+    { id: 'cl3', category: 'Verbinders & Beslagen', subgroup: null, sort: 3, description: 'Scharnier 110°', supplier: 'Beslaghandel', article_no: 'S110', qty: 24, unit: 'stuk', unit_price: 3.2, total: 76.8, ordered_by: 'Vonstruct', note: null },
+    { id: 'cl4', category: 'Verbinders & Beslagen', subgroup: null, sort: 4, description: 'Greep 400', supplier: null, article_no: null, qty: 6, unit: 'stuk', unit_price: null, total: 0, ordered_by: 'Vonstruct', note: 'prijs ontbreekt: geen artikelnummer' },
+    { id: 'cl5', category: 'Productiekosten', subgroup: null, sort: 5, description: 'Nesting', supplier: 'Partner', article_no: null, qty: 5, unit: 'plaat', unit_price: 45, total: 225, ordered_by: 'Partner', note: null },
+  ],
+  app_supplier_freshness: [{ supplier_name: 'Voorbeeldhout', n_articles: 1200, last_update: iso(-2), days_old: 2 }, { supplier_name: 'Beslaghandel', n_articles: 8000, last_update: iso(-40), days_old: 40 }],
   app_checks: [
     { id: 'ck1', code: 'GEEN_ARTIKELNR', level: 'let op', part: 'Greep 400', message: 'Artikelnummer ontbreekt', resolved: false, resolution: null, normal: false, code_label: 'Beslag zonder artikelnummer' },
     { id: 'ck2', code: 'LOSSE_PLAAT', level: 'let op', part: null, message: '3 platen staan los, niet in een kast', resolved: true, resolution: 'Normaal: losse platen zijn plinten, paslatten …', normal: true, code_label: 'Platen los, niet in een kast' },

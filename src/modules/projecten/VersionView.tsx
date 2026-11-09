@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, Navigate, useParams, useSearchParams } from 'react-router'
+import { Link, useParams, useSearchParams } from 'react-router'
 import { supabase } from '../../core/supabase'
 import { useQuery } from '../../core/useQuery'
 import { ErrorBox, Loading, Stat, Tabs } from '../../core/ui'
@@ -41,8 +41,6 @@ export function VersionView() {
   const dv = q.data
   const p = dv?.payload.project ?? {}
   const Active = versionTabs.find((t) => t.id === tab)!.component
-  // Kosten staat voortaan op het project: Geld › Kostprijs (oude links ?tab=kosten&focus=prijzen blijven werken)
-  if (asked === 'kosten') return <Navigate replace to={`/projecten/${encodeURIComponent(code)}?tab=kost${params.get('focus') === 'prijzen' ? '&focus=prijzen' : ''}`} />
 
   return (
     <section>
@@ -72,7 +70,7 @@ export function VersionView() {
             <Stat label="fouten" value={dv.n_errors ? <span className="bad-text">{dv.n_errors}</span> : 0} />
             <Stat label="aandachtspunten" value={dv.n_warnings} />
           </div>
-          <Tabs tabs={versionTabs.map((t) => ({ id: t.id, label: t.id === 'controle' && (dv.n_errors || dv.n_warnings) ? `${t.label} (${(dv.n_errors ?? 0) + (dv.n_warnings ?? 0)})` : t.label }))} active={tab} onChange={setTab} />
+          <Tabs tabs={versionTabs.map((t) => ({ id: t.id, label: t.id === 'controle' && (dv.n_errors || dv.n_warnings) ? `${t.label} (${(dv.n_errors ?? 0) + (dv.n_warnings ?? 0)})` : t.label }))} active={tab} onChange={setTab} className="tabs-many" />
           <Active key={rev} dvId={dv.id} />
         </>
       )}
