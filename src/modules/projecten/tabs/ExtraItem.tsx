@@ -40,6 +40,19 @@ function loadLists() {
 
 const num = (v: number | null | undefined) => (v == null ? '' : String(v).replace('.', ','))
 
+const codeCache = new Map<string, Promise<string | null>>()
+/** projectcode van een ontwerpversie (één keer opgevraagd per versie) */
+export function projectCodeOf(dvId: string) {
+  let p = codeCache.get(dvId)
+  if (!p) {
+    p = Promise.resolve(supabase.from('design_versions').select('project_code').eq('id', dvId).single())
+      .then((r) => ((r.data as { project_code: string } | null)?.project_code ?? null))
+    codeCache.set(dvId, p)
+    p.then((c) => { if (!c) codeCache.delete(dvId) }, () => codeCache.delete(dvId))
+  }
+  return p
+}
+
 export function ExtraItemForm({ dvId, cats, initialCat, edit, onDone }: {
   dvId: string; cats: string[]; initialCat?: string; edit?: ExtraEdit | null; onDone: (msg: string | null) => void
 }) {
@@ -48,7 +61,7 @@ export function ExtraItemForm({ dvId, cats, initialCat, edit, onDone }: {
   const [desc, setDesc] = useState(edit?.description ?? '')
   const [art, setArt] = useState(edit?.article_no ?? '')
   const [qty, setQty] = useState(edit ? num(edit.qty) : '1')
-  const [unit, setUnit] = useState(edit?.unit ?? 'stuk')
+  const [unit, setUnit] = useState(edit?.unit ?? ((edit?.category ?? initialCat ?? cats[0]) === 'Platen' ? 'plaat' : (edit?.category ?? initialCat ?? cats[0]) === 'Kanten' ? 'm' : 'stuk'))
   const [price, setPrice] = useState(edit ? num(edit.unit_price) : '')
   const [list, setList] = useState(edit ? edit.supplier ?? '' : OWN_LIST)
   const [by, setBy] = useState(edit?.ordered_by ?? NOT_ORDERED)
@@ -95,9 +108,8 @@ export function ExtraItemForm({ dvId, cats, initialCat, edit, onDone }: {
     if (p == null || Number.isNaN(p)) return setErr('Vul een prijs per eenheid in (zonder btw).')
     setBusy(true)
     setErr(null)
-    const dv = await supabase.from('design_versions').select('project_code').eq('id', dvId).single()
-    const code = (dv.data as { project_code: string } | null)?.project_code
-    if (!code) { setBusy(false); return setErr(dv.error?.message ?? 'Project niet gevonden.') }
+    const code = await projectCodeOf(dvId)
+    if (!code) { setBusy(false); return setErr('Project niet gevonden.') }
     // eerst de prijslijst (eigen prijs), dan het artikel: zo blijft de opmerking "manueel toegevoegd"
     let listMsg = ''
     if (list && keep && priceChanged) {

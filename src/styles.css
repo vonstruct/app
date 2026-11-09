@@ -2430,3 +2430,5 @@ select.ovn-btn { appearance: none; -webkit-appearance: none; text-align-last: ce
 @media (max-width: 640px) { .extra-form .form-grid { grid-template-columns: 1fr; } }
 .extra-form .form-grid label.check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text, inherit); }
 .extra-form .form-grid label.check input { width: auto; height: auto; flex: none; }
+.ignore-btn { margin-left: 8px; }
+.ignored-list { margin: 6px 0 12px; }

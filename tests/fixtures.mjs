@@ -198,6 +198,7 @@ const tables = {
     { id: 'cl6', category: 'Grepen', subgroup: null, sort: 100007, description: 'Greep zwart 160 mm', supplier: 'Vonstruct', article_no: 'GZ160', qty: 8, unit: 'stuk', unit_price: 12.5, total: 100, ordered_by: 'Zelf maken', note: 'manueel toegevoegd', details: { extra_id: '7' } },
   ],
   suppliers: [{ name: 'Beslaghandel', active: true }, { name: 'Voorbeeldhout', active: true }, { name: 'Kantenhandel', active: true }],
+  project_ignored_items: [{ id: 1, description: 'Scharnier 95° Voorbeeld', article_no: 'S95', category: 'Verbinders & Beslagen', project_code: '209901', active: true }],
   app_supplier_freshness: [{ supplier_name: 'Voorbeeldhout', n_articles: 1200, last_update: iso(-2), days_old: 2 }, { supplier_name: 'Beslaghandel', n_articles: 8000, last_update: iso(-40), days_old: 40 }],
   app_checks: [
     { id: 'ck1', code: 'GEEN_ARTIKELNR', level: 'let op', part: 'Greep 400', message: 'Artikelnummer ontbreekt', resolved: false, resolution: null, normal: false, code_label: 'Beslag zonder artikelnummer' },
