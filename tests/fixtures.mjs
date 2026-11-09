@@ -187,7 +187,12 @@ const tables = {
       data: { family: 'eik fineer', plan: '4× 2800×2070 + 1× 3050×1220', plan_cost: 245, suppliers: ['Voorbeeldhout'], reasons: [], alternatives: [] } },
   ],
   app_parts_summary: [{ material_label: 'Eik fineer', thickness_mm: 19, n_parts: 120, area_m2: 18.2 }],
-  app_checks: [{ code: 'GEEN_ARTIKELNR', level: 'opmerking', part: 'Greep 400', message: 'Artikelnummer ontbreekt' }],
+  app_checks: [
+    { id: 'ck1', code: 'GEEN_ARTIKELNR', level: 'let op', part: 'Greep 400', message: 'Artikelnummer ontbreekt', resolved: false, resolution: null, normal: false, code_label: 'Beslag zonder artikelnummer' },
+    { id: 'ck2', code: 'LOSSE_PLAAT', level: 'let op', part: null, message: '3 platen staan los, niet in een kast', resolved: true, resolution: 'Normaal: losse platen zijn plinten, paslatten …', normal: true, code_label: 'Platen los, niet in een kast' },
+    { id: 'ck3', code: 'GEEN_DEELNUMMER', level: 'let op', part: null, message: 'Plaat zonder deelnummer: Legplank', resolved: false, resolution: null, normal: false, code_label: 'Plaat zonder deelnummer' },
+  ],
+  check_settings: [{ code: 'LOSSE_PLAAT', label: 'Platen los, niet in een kast', normal: true, note: 'losse platen zijn plinten, paslatten …' }, { code: 'GEEN_DEELNUMMER', label: 'Plaat zonder deelnummer', normal: false, note: null }],
   app_capacity_weeks: capacity,
   app_purchase_invoices: [], app_client_ledger: [],
 }

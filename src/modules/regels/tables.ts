@@ -210,6 +210,22 @@ export const ruleTables: RuleTable[] = [
     newRow: { supplier_name: 'Leverancier', fee: 'Kost', amount: 0, per: 'order' },
   },
   {
+    section: 'Meldingen',
+    table: 'check_settings',
+    title: 'Meldingen uit PaletteCAD',
+    explanation:
+      'Soorten meldingen uit de stuklijst. Normaal aan = de melding staat nog in Controle, maar telt niet mee als opmerking (versie, project, Vandaag). Geldt voor alle projecten. Kan ook met de knop in Controle van een versie.',
+    columns: [
+      { key: 'label', label: 'Melding' },
+      { key: 'normal', label: 'Normaal', type: 'bool', width: 80 },
+      { key: 'note', label: 'Waarom' },
+    ],
+    orderBy: 'label',
+    keyField: 'code',
+    canAdd: false,
+    canDelete: false,
+  },
+  {
     section: 'Kasten',
     table: 'cabinet_kind_rules',
     title: 'Wat is een kast?',
