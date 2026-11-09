@@ -249,3 +249,9 @@ rpc.plate_families_overview = [
 rpc.brochure_data = { project_code: '209901', title: 'Keuken en berging', intro: null, client: 'Jan Peeters', published: false, company: {}, renders: [], cabinets: [{ name: 'Onderkast', width: 600, depth: 560, height: 720, image: null, text: null }], materials: [], drawers: null, appliances: [] }
 // vragenlijst: zelfde vorm als RPC portal_survey
 rpc.portal_survey = { project_code: '209901', modules: [{ module: 'keuken', label: 'Keuken' }], questions: [], answers: {}, status: 'open', known: {} }
+// kostregels zoals de app ze leest (view app_cost_lines: met in_stock), + een werkbladplaat uit voorraad en uitbesteed werk
+tables.app_cost_lines = [
+  ...tables.cost_lines.map((l) => ({ ...l, in_stock: false, details: { ...(l.category === 'Platen' ? { family: 'eik fineer', dikte_mm: 19 } : {}), ...(l.details ?? {}) } })),
+  { id: 'cl7', category: 'Platen', subgroup: null, sort: 6, description: 'Solid surface wit', supplier: 'Voorbeeldhout', article_no: 'W12', qty: 1, unit: 'plaat', unit_price: 298, total: 298, ordered_by: 'Vonstruct', note: 'uit eigen voorraad', details: { family: 'solid surface wit', dikte_mm: 12, werkblad: true, voorraad: true }, in_stock: true },
+  { id: 'cl8', category: 'Uitbesteed', subgroup: null, sort: 7, description: 'Werkblad solid surface 12 mm', supplier: 'Werkbladfirma', article_no: null, qty: 1, unit: 'stuk', unit_price: 2900, total: 2900, ordered_by: 'Vonstruct', note: 'offerte Werkbladfirma W-001', details: { outsourcing_id: '3', werkblad: true }, in_stock: false },
+]

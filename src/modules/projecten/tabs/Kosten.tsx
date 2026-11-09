@@ -1,18 +1,21 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
+import { toast } from '../../../core/toast'
 import { supabase } from '../../../core/supabase'
 import { useQuery } from '../../../core/useQuery'
 import { ErrorBox, Loading } from '../../../core/ui'
 import { fmtEur, fmtNum, parseAmount } from '../../../core/format'
 import { OwnArticleEditor } from '../../../core/OwnArticle'
 import { ItemWhere } from '../../../core/ItemWhere'
-import { ExtraItemForm, projectCodeOf, type ExtraEdit } from './ExtraItem'
-import { startRecalc } from '../Execution'
+import { ExtraItemForm, loadLists, projectCodeOf, type ExtraEdit } from './ExtraItem'
+import { ExecutionSelect, saveExecution, startRecalc, useExecOptions, type ExecOptions } from '../Execution'
+import { PriceFinder } from '../PriceFinder'
 
 type Line = {
   id: string; category: string; subgroup: string | null; sort: number; description: string; supplier: string | null; article_no: string | null; qty: number | null
   unit: string | null; unit_price: number | null; total: number; ordered_by: string | null; note: string | null
-  details?: { werkblad?: boolean; outsourcing_id?: string; dikte_mm?: number; extra_id?: string; removed?: boolean; ignored?: boolean } | null
+  details?: { werkblad?: boolean; outsourcing_id?: string; dikte_mm?: number; extra_id?: string; removed?: boolean; ignored?: boolean; family?: string; voorraad?: boolean } | null
+  in_stock?: boolean   // app_cost_lines: plaat uit eigen voorraad (dit project) of artikel op voorraad (alle projecten)
 }
 type Status = { cost_status: string | null; cost_at: string | null }
 
@@ -54,6 +57,12 @@ async function removeExtra(dvId: string, l: Line, onSaved: (m: string | null) =>
 /** Regels waarvan je de prijs zelf kan invullen (beslag, rubrieken, losse Du Pont-onderdelen van lades). */
 const editable = (l: Line) =>
   !isOut(l) && !isExtra(l) && !['Platen', 'Kanten', 'Productiekosten', 'Uitbesteed'].includes(l.category) && (l.category !== 'Lades' || l.subgroup === 'Du Pont (apart bestellen)')
+/** plaatregel van de plaatoptimalisatie (materiaalfamilie + dikte bekend): uitvoering, voorraad (dit project), eigen prijs per plaat */
+const isPlate = (l: Line) => l.category === 'Platen' && !!l.details?.family && !isExtra(l)
+/** voorraad: niet voor uitbesteed werk en productiekosten */
+const stockable = (l: Line) => !isOut(l) && l.category !== 'Productiekosten' && l.category !== 'Uitbesteed'
+/** opmerkingen die al als vinkje of label getoond worden */
+const SHOWN_NOTES = ['uit eigen voorraad', 'eigen prijs', 'zelf maken', 'manueel toegevoegd']
 
 /**
  * Artikel uit de tekening negeren, enkel in dit project (9/11/2026, Olivier: "als ik het negeer, gaat die uit de lijst en komt die ook
@@ -125,11 +134,8 @@ function OutsourcePriceCell({ line, onSaved }: { line: Line; onSaved: (msg: stri
 }
 
 function useLines(dvId: string) {
-  return useQuery<Line[]>(async () => {
-    const r = await supabase.from('cost_lines').select('*').eq('design_version_id', dvId).order('sort')
-    // weggehaalde manuele artikels en genegeerde artikels (€ 0 tot de herberekening) niet tonen
-    return { ...r, data: r.data ? (r.data as Line[]).filter((l) => !l.details?.removed && !l.details?.ignored) : r.data }
-  }, [dvId])
+  // app_cost_lines = cost_lines zonder weggehaalde en genegeerde regels (€ 0 tot de herberekening), met in_stock
+  return useQuery<Line[]>(() => supabase.from('app_cost_lines').select('*').eq('design_version_id', dvId).order('sort'), [dvId])
 }
 
 /** Eenheidsprijs die je aanklikt en wijzigt. Bewaard als eigen prijs (Eigen artikels): geldt ook voor alle volgende projecten. */
@@ -164,60 +170,172 @@ function PriceCell({ line, onSaved }: { line: Line; onSaved: (msg: string | null
   )
 }
 
-/** Tabel met kostregels (per subgroep), de prijs aan te klikken waar dat kan; zonder prijs: herkomst + prijs in de regel. */
+/** Eigen prijs per plaat (Eigen artikels, ook voor volgende projecten); daarna kiest de plaatoptimalisatie opnieuw. */
+function PlatePriceCell({ dvId, line, onSaved }: { dvId: string; line: Line; onSaved: (msg: string | null) => void }) {
+  const [edit, setEdit] = useState(false)
+  const [val, setVal] = useState('')
+  const save = async () => {
+    setEdit(false)
+    const v = parseAmount(val)
+    if (v == null || Number.isNaN(v) || v === Number(line.unit_price)) return
+    const { error } = await supabase.rpc('set_manual_item', { p_article_no: line.article_no ?? '', p_description: line.description, p_supplier: line.supplier, p_price: v, p_origin: 'Bestellen' })
+    if (error) return onSaved(error.message)
+    onSaved(`Eigen prijs ${fmtEur(v)} per plaat bewaard voor ${line.description} (ook voor volgende projecten).`)
+    startRecalc(dvId, 'Prijs bewaard.')
+  }
+  if (edit)
+    return <input autoFocus className="price-input" inputMode="decimal" value={val} placeholder="€ per plaat" onChange={(e) => setVal(e.target.value)} onBlur={save}
+      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') setEdit(false) }} />
+  return (
+    <button type="button" className="price-btn" title="Eigen prijs per plaat (ook voor volgende projecten); de platen worden daarna opnieuw berekend"
+      onClick={() => { setVal(line.unit_price == null ? '' : String(line.unit_price).replace('.', ',')); setEdit(true) }}>
+      {line.unit_price == null ? '—' : fmtEur(line.unit_price)}
+    </button>
+  )
+}
+
+/**
+ * Eén kostregel, alles in de regel aan te passen (9/11/2026, Olivier: "nu kan ik lijnen ook niet meer aanpassen … het moet flexibel
+ * blijven"), zoals in Ontwerp › Kostprijs: prijs aanklikken, Uitvoering (platen en uitbesteed werk), Voorraad, prijs zoeken, herkomst,
+ * negeren (enkel dit project), manuele artikels wijzigen/weghalen. Geen kolom "Opmerking" meer: de uitleg staat klein onder de omschrijving.
+ */
+function LineRow({ dvId, l, opts, onSaved, onEdit, onIgnored }: {
+  dvId: string; l: Line; opts: ExecOptions; onSaved: (m: string | null) => void; onEdit?: (l: Line) => void; onIgnored?: (cat: string) => void
+}) {
+  const [, setParams] = useSearchParams()
+  const [open, setOpen] = useState<'zoeken' | 'herkomst' | null>(null)
+  const [busy, setBusy] = useState(false)
+  const out = isOut(l), extra = isExtra(l), plate = isPlate(l), miss = missing(l)
+  const canExec = out || plate
+  const info = l.note && !SHOWN_NOTES.includes(l.note) && !miss ? l.note : null
+  const pickExec = async (to: string) => {
+    const code = await projectCodeOf(dvId)
+    if (!code) return onSaved('Project niet gevonden.')
+    setBusy(true)
+    const again = await saveExecution({
+      projectCode: code, family: out ? '' : l.details?.family ?? '', thickness: out ? null : Number(l.details?.dikte_mm ?? 0), label: l.description, to, opts,
+      outsourcingId: out ? Number(l.details?.outsourcing_id) : null,
+    })
+    setBusy(false)
+    if (again) { onSaved(`${l.description}: uitgevoerd door ${to}.`); startRecalc(dvId, 'Uitvoering bewaard.') } else onSaved(null)
+  }
+  const toggleStock = async () => {
+    setBusy(true)
+    let error: { message: string } | null = null
+    if (plate) {
+      // plaat uit eigen voorraad: enkel dit project (plate_stock); de kostregel en de bestellijst volgen meteen
+      const code = await projectCodeOf(dvId)
+      if (!code) { setBusy(false); return onSaved('Project niet gevonden.') }
+      const th = Number(l.details?.dikte_mm ?? 0)
+      error = (l.in_stock
+        ? await supabase.from('plate_stock').delete().eq('project_code', code).eq('family', l.details!.family!).eq('thickness_mm', th)
+        : await supabase.from('plate_stock').insert({ project_code: code, family: l.details!.family!, thickness_mm: th, material_label: l.description })).error
+    } else {
+      // artikel op voorraad: geldt voor alle projecten (stock_articles)
+      error = (await supabase.rpc('stock_set', { p_article_no: l.article_no ?? '', p_description: l.description, p_supplier: l.supplier, p_active: !l.in_stock })).error
+    }
+    setBusy(false)
+    if (error) return onSaved(error.message)
+    onSaved(l.in_stock ? `${l.description}: weer bestellen.`
+      : plate ? `${l.description} uit eigen voorraad: telt mee in de kost, komt niet op de bestellijst (enkel dit project).`
+      : `${l.description} op voorraad: telt mee in de kost, komt niet op een bestellijst (ook in volgende projecten).`)
+  }
+  return (
+    <>
+      <tr className={miss ? 'warn-row' : undefined}>
+        <td>
+          {l.description}
+          {extra && <> <span className="tag t-extra" title="Manueel toegevoegd: geldt voor alle versies van dit project">manueel</span></>}
+          {out && <> <span className="tag t-src" title="Een andere firma maakt dit: enkel haar offerteprijs, geen platen, kanten of productiekost">uitbesteed</span></>}
+          {l.note === 'eigen prijs' && <> <span className="tag t-own" title="Prijs uit je eigen prijslijst (Eigen artikels)">eigen prijs</span></>}
+          {miss && <> <span className="tag t-noprice">geen prijs</span></>}
+          {!out && !extra && !['Platen', 'Kanten', 'Productiekosten', 'Uitbesteed'].includes(l.category) && <> <ItemWhere dvId={dvId} name={l.description} /></>}
+          {info && <div className="small muted">{info}</div>}
+        </td>
+        <td>{l.supplier}</td>
+        <td>{l.article_no}</td>
+        <td className="num">{l.qty == null ? '' : `${fmtNum(l.qty, 2)}${l.unit ? ' ' + l.unit : ''}`}</td>
+        <td className="num">
+          {out ? <OutsourcePriceCell line={l} onSaved={onSaved} />
+            : plate && l.article_no ? <PlatePriceCell dvId={dvId} line={l} onSaved={onSaved} />
+            : editable(l) ? <PriceCell line={l} onSaved={onSaved} />
+            : l.unit_price == null || miss ? '' : fmtEur(l.unit_price)}
+        </td>
+        <td className="num">{fmtEur(l.total)}</td>
+        <td>{canExec ? <ExecutionSelect value={out ? l.supplier ?? '' : l.ordered_by ?? ''} opts={opts} listId="kosten-firms" disabled={busy} onPick={pickExec} /> : l.ordered_by}</td>
+        <td className="ck">{stockable(l) && <input type="checkbox" checked={!!l.in_stock} disabled={busy} onChange={toggleStock} aria-label="Op voorraad" />}</td>
+        <td className="nowrap line-acts">
+          {extra && <>
+            {onEdit && <button type="button" className="link small" onClick={() => onEdit(l)}>wijzigen</button>}
+            <button type="button" className="link small" onClick={() => removeExtra(dvId, l, onSaved)}>weghalen</button>
+          </>}
+          {editable(l) && <>
+            <button type="button" className="link small" title="Prijs zoeken in je eigen artikels, de prijslijsten en je mailbox (eerst op artikelnummer)" onClick={() => setOpen(open === 'zoeken' ? null : 'zoeken')}>prijs zoeken</button>
+            <button type="button" className="link small" title="Herkomst (bestellen, zelf maken, overal negeren) en prijs per stuk: geldt voor alle projecten" onClick={() => setOpen(open === 'herkomst' ? null : 'herkomst')}>herkomst</button>
+            <button type="button" className="link small ignore-btn" title="Niet meetellen in dit project (komt niet terug); daarna een ander artikel in de plaats toevoegen"
+              onClick={() => ignoreLine(dvId, l, onSaved, onIgnored)}>negeren</button>
+          </>}
+          {plate && <button type="button" className="link small" title="Formaat en leverancier kiezen in het tabblad Platen" onClick={() => setParams({ tab: 'platen' }, { replace: true })}>formaat ›</button>}
+        </td>
+      </tr>
+      {open === 'herkomst' && (
+        <tr className="find-row"><td colSpan={9}>
+          <p className="small muted">Bestellen = bij een leverancier · Zelf maken = niet op een bestellijst · Negeren = telt in geen enkel project mee (enkel dit project: "negeren"). Herkend op artikelnummer, anders op naam, ook in volgende projecten.</p>
+          <OwnArticleEditor articleNo={l.article_no} description={l.description} supplier={l.supplier} price={miss ? null : l.unit_price}
+            origin={l.note === 'zelf maken' ? 'Zelf maken' : 'Bestellen'} onSaved={(m) => { setOpen(null); onSaved(m) }} />
+        </td></tr>
+      )}
+      {open === 'zoeken' && (
+        <tr className="find-row"><td colSpan={9}>
+          <PriceFinder query={l.description} articleNo={l.article_no} onPick={async (h) => {
+            const { error } = await supabase.rpc('set_manual_item', { p_article_no: l.article_no ?? '', p_description: l.description, p_supplier: h.supplier, p_price: h.unit_price, p_origin: 'Bestellen' })
+            if (error) return toast(error.message, 'err')
+            // het artikelnummer van de leverancier (prijslijst of factuur) mee bewaren, los van de herkenning op naam
+            if (h.article_no) await supabase.rpc('set_manual_ref', { p_article_no: l.article_no ?? '', p_description: l.description, p_ref: h.article_no })
+            setOpen(null)
+            onSaved(`Prijs bewaard: ${fmtEur(h.unit_price ?? 0)} per stuk (${h.supplier ?? h.src}). Geldt ook voor volgende projecten.`)
+          }} />
+        </td></tr>
+      )}
+    </>
+  )
+}
+
+/** Tabel met kostregels (per subgroep), alles in de regel aan te passen. */
 function LinesTable({ dvId, lines, onSaved, onEdit, onIgnored }: {
   dvId: string; lines: Line[]; onSaved: (m: string | null) => void; onEdit?: (l: Line) => void; onIgnored?: (cat: string) => void
 }) {
+  const opts = useExecOptions()
+  // firma's voor "Andere…" bij Uitvoering (leveranciers en partners, één keer opgevraagd)
+  const [firms, setFirms] = useState<string[]>([])
+  useEffect(() => { loadLists().then((x) => setFirms([...x.suppliers, ...x.partners]), () => undefined) }, [])
   const sum = lines.reduce((s, l) => s + Number(l.total), 0)
   const subs = [...new Set(lines.map(subOf))]
   return (
     <div className="table-wrap">
-      <table>
+      <datalist id="kosten-firms">{firms.map((f) => <option key={f} value={f} />)}</datalist>
+      <table className="cost-lines">
         <thead>
           <tr>
             <th>Omschrijving</th><th>Leverancier</th><th>Artikel</th><th className="num">Aantal</th><th className="num">Eenheidsprijs</th>
-            <th className="num">Totaal</th><th>Besteld door</th><th>Opmerking</th>
+            <th className="num">Totaal</th>
+            <th title="Wie bestelt of maakt het. Platen en uitbesteed werk: kies Vonstruct, de partner (plaatkost + productiekost) of een firma (enkel haar offerteprijs)">Uitvoering</th>
+            <th className="ck" title="Op voorraad: telt mee in de kost, komt niet op een bestellijst (plaat: enkel dit project; artikel: alle projecten)">Voorraad</th>
+            <th>Aanpassen</th>
           </tr>
         </thead>
         <tbody>
           {subs.map((s) => (
             <Fragment key={s}>
-              {s && <tr className="subhead"><td colSpan={8}>{s}</td></tr>}
+              {s && <tr className="subhead"><td colSpan={9}>{s}</td></tr>}
               {lines.filter((l) => subOf(l) === s).map((l) => (
-                <tr key={l.id}>
-                  <td>
-                    {l.description}
-                    {isExtra(l) && <> <span className="tag t-extra" title="Manueel toegevoegd: geldt voor alle versies van dit project">manueel</span></>}
-                    {!isOut(l) && !isExtra(l) && !['Platen', 'Kanten', 'Productiekosten', 'Uitbesteed'].includes(l.category) && <> <ItemWhere dvId={dvId} name={l.description} /></>}
-                  </td>
-                  <td>{l.supplier}</td>
-                  <td>{l.article_no}</td>
-                  <td className="num">{l.qty == null ? '' : `${fmtNum(l.qty, 2)}${l.unit ? ' ' + l.unit : ''}`}</td>
-                  <td className="num">{isOut(l) ? <OutsourcePriceCell line={l} onSaved={onSaved} /> : missing(l) ? '' : editable(l) ? <PriceCell line={l} onSaved={onSaved} /> : l.unit_price == null ? '' : fmtEur(l.unit_price)}</td>
-                  <td className="num">{fmtEur(l.total)}</td>
-                  <td>{l.ordered_by}</td>
-                  <td className={missing(l) ? 'warn-text' : l.note === 'eigen prijs' || l.note === 'zelf maken' ? 'ok-text' : 'muted'}>
-                    {isExtra(l)
-                      ? <span className="extra-acts">
-                          <span className="small">{l.note}</span>
-                          {onEdit && <button type="button" className="link small" onClick={() => onEdit(l)}>wijzigen</button>}
-                          <button type="button" className="link small" onClick={() => removeExtra(dvId, l, onSaved)}>weghalen</button>
-                        </span>
-                      : missing(l) && !isOut(l)
-                      ? <><div className="small">{l.note}</div><OwnArticleEditor articleNo={l.article_no} description={l.description} supplier={l.supplier} onSaved={onSaved} /></>
-                      : l.note}
-                    {editable(l) && (
-                      <button type="button" className="link small ignore-btn" title="Niet meetellen in dit project (komt niet terug); daarna een ander artikel in de plaats toevoegen"
-                        onClick={() => ignoreLine(dvId, l, onSaved, onIgnored)}>negeren</button>
-                    )}
-                  </td>
-                </tr>
+                <LineRow key={l.id} dvId={dvId} l={l} opts={opts} onSaved={onSaved} onEdit={onEdit} onIgnored={onIgnored} />
               ))}
             </Fragment>
           ))}
         </tbody>
         <tfoot>
-          <tr><td colSpan={5}>Totaal</td><td className="num">{fmtEur(sum)}</td><td colSpan={2} /></tr>
+          <tr><td colSpan={5}>Totaal</td><td className="num">{fmtEur(sum)}</td><td colSpan={3} /></tr>
         </tfoot>
       </table>
     </div>

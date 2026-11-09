@@ -25,7 +25,8 @@ const UNITS = ['stuk', 'm', 'm²', 'set', 'pak', 'rol', 'plaat', 'uur']
 const NOT_ORDERED = 'Zelf maken'   // ordered_by: komt niet op een bestellijst
 
 let listsCache: Promise<{ suppliers: string[]; partners: string[] }> | null = null
-function loadLists() {
+/** leveranciers en partners (één keer opgevraagd, gedeeld) */
+export function loadLists() {
   if (!listsCache) {
     listsCache = Promise.all([
       supabase.from('suppliers').select('name').eq('active', true).order('name'),
