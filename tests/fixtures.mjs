@@ -195,7 +195,9 @@ const tables = {
     { id: 'cl3', category: 'Verbinders & Beslagen', subgroup: null, sort: 3, description: 'Scharnier 110°', supplier: 'Beslaghandel', article_no: 'S110', qty: 24, unit: 'stuk', unit_price: 3.2, total: 76.8, ordered_by: 'Vonstruct', note: null },
     { id: 'cl4', category: 'Verbinders & Beslagen', subgroup: null, sort: 4, description: 'Greep 400', supplier: null, article_no: null, qty: 6, unit: 'stuk', unit_price: null, total: 0, ordered_by: 'Vonstruct', note: 'prijs ontbreekt: geen artikelnummer' },
     { id: 'cl5', category: 'Productiekosten', subgroup: null, sort: 5, description: 'Nesting', supplier: 'Partner', article_no: null, qty: 5, unit: 'plaat', unit_price: 45, total: 225, ordered_by: 'Partner', note: null },
+    { id: 'cl6', category: 'Grepen', subgroup: null, sort: 100007, description: 'Greep zwart 160 mm', supplier: 'Vonstruct', article_no: 'GZ160', qty: 8, unit: 'stuk', unit_price: 12.5, total: 100, ordered_by: 'Zelf maken', note: 'manueel toegevoegd', details: { extra_id: '7' } },
   ],
+  suppliers: [{ name: 'Beslaghandel', active: true }, { name: 'Voorbeeldhout', active: true }, { name: 'Kantenhandel', active: true }],
   app_supplier_freshness: [{ supplier_name: 'Voorbeeldhout', n_articles: 1200, last_update: iso(-2), days_old: 2 }, { supplier_name: 'Beslaghandel', n_articles: 8000, last_update: iso(-40), days_old: 40 }],
   app_checks: [
     { id: 'ck1', code: 'GEEN_ARTIKELNR', level: 'let op', part: 'Greep 400', message: 'Artikelnummer ontbreekt', resolved: false, resolution: null, normal: false, code_label: 'Beslag zonder artikelnummer' },
@@ -231,6 +233,10 @@ const rpc = {
 export { tables, rpc, projectPage, events, iso, day }
 
 // brochure: zelfde vorm als RPC brochure_data
+rpc.cost_search2 = [
+  { src: 'prijslijst', supplier: 'Beslaghandel', article_no: 'G160Z', description: 'Greep aluminium zwart 160 mm', unit_price: 6.4, unit: 'stuk', ref: '1', seen: null },
+  { src: 'eigen', supplier: 'Vonstruct', article_no: 'GZ160', description: 'Greep zwart 160 mm', unit_price: 12.5, unit: 'stuk', ref: 'ART:GZ160', seen: null },
+]
 rpc.plate_materials_list = [{ name: 'Eik fineer', family: 'eik fineer', thicknesses: [19, 25], formats: '2800x2070', suppliers: 'Voorbeeldhout', price_m2_from: 8.6, n: 2 }]
 rpc.plate_families_overview = [
   { family: 'eik fineer', family_name: 'Eik fineer', labels: ['Eik fineer'], aliases: [], used_thickness: [19], projects: ['209901'], n_parts: 40, members: [

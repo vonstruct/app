@@ -6,11 +6,13 @@ import { ErrorBox, Loading } from '../../../core/ui'
 import { fmtEur, fmtNum, parseAmount } from '../../../core/format'
 import { OwnArticleEditor } from '../../../core/OwnArticle'
 import { ItemWhere } from '../../../core/ItemWhere'
+import { ExtraItemForm, type ExtraEdit } from './ExtraItem'
+import { startRecalc } from '../Execution'
 
 type Line = {
   id: string; category: string; subgroup: string | null; sort: number; description: string; supplier: string | null; article_no: string | null; qty: number | null
   unit: string | null; unit_price: number | null; total: number; ordered_by: string | null; note: string | null
-  details?: { werkblad?: boolean; outsourcing_id?: string; dikte_mm?: number } | null
+  details?: { werkblad?: boolean; outsourcing_id?: string; dikte_mm?: number; extra_id?: string; removed?: boolean } | null
 }
 type Status = { cost_status: string | null; cost_at: string | null }
 
@@ -32,10 +34,26 @@ const rubriek = (l: Line) => (l.category === 'Zelf maken' ? l.subgroup || 'Varia
 /** subgroep in de tabel */
 const subOf = (l: Line) => (l.category === 'Zelf maken' ? 'Zelf maken' : l.details?.werkblad && l.category === 'Platen' ? 'Platen' : l.subgroup ?? '')
 const isOut = (l: Line) => !!l.details?.outsourcing_id
+/** manueel toegevoegd artikel (project_extra_items, 9/11/2026) */
+const isExtra = (l: Line) => !!l.details?.extra_id
+/** rubrieken waar je manueel iets kan toevoegen (uitbesteed werk loopt via Uitvoering) */
+const ADD_CATS = RUBRIEKEN.map((r) => r.cat).filter((c) => c !== 'Uitbesteed')
+const toEdit = (l: Line): ExtraEdit => ({
+  extraId: String(l.details?.extra_id), category: rubriek(l), description: l.description, article_no: l.article_no, supplier: l.supplier,
+  qty: l.qty, unit: l.unit, unit_price: l.unit_price, ordered_by: l.ordered_by,
+})
+/** manueel artikel weghalen: meteen op € 0, de herberekening haalt de regel weg */
+async function removeExtra(dvId: string, l: Line, onSaved: (m: string | null) => void) {
+  if (!window.confirm(`"${l.description}" weghalen uit dit project (alle versies)?`)) return
+  const { error } = await supabase.from('project_extra_items').update({ active: false }).eq('id', Number(l.details?.extra_id))
+  if (error) return onSaved(error.message)
+  onSaved(`"${l.description}" weggehaald.`)
+  startRecalc(dvId, 'Weggehaald.')
+}
 
 /** Regels waarvan je de prijs zelf kan invullen (beslag, rubrieken, losse Du Pont-onderdelen van lades). */
 const editable = (l: Line) =>
-  !isOut(l) && !['Platen', 'Kanten', 'Productiekosten', 'Uitbesteed'].includes(l.category) && (l.category !== 'Lades' || l.subgroup === 'Du Pont (apart bestellen)')
+  !isOut(l) && !isExtra(l) && !['Platen', 'Kanten', 'Productiekosten', 'Uitbesteed'].includes(l.category) && (l.category !== 'Lades' || l.subgroup === 'Du Pont (apart bestellen)')
 
 /** Offerteprijs van uitbesteed werk aanklikken (project_outsourcing.amount); de kostregel volgt meteen (trigger). */
 function OutsourcePriceCell({ line, onSaved }: { line: Line; onSaved: (msg: string | null) => void }) {
@@ -64,7 +82,11 @@ function OutsourcePriceCell({ line, onSaved }: { line: Line; onSaved: (msg: stri
 }
 
 function useLines(dvId: string) {
-  return useQuery<Line[]>(() => supabase.from('cost_lines').select('*').eq('design_version_id', dvId).order('sort'), [dvId])
+  return useQuery<Line[]>(async () => {
+    const r = await supabase.from('cost_lines').select('*').eq('design_version_id', dvId).order('sort')
+    // weggehaalde manuele artikels (€ 0 tot de herberekening) niet tonen
+    return { ...r, data: r.data ? (r.data as Line[]).filter((l) => !l.details?.removed) : r.data }
+  }, [dvId])
 }
 
 /** Eenheidsprijs die je aanklikt en wijzigt. Bewaard als eigen prijs (Eigen artikels): geldt ook voor alle volgende projecten. */
@@ -100,7 +122,7 @@ function PriceCell({ line, onSaved }: { line: Line; onSaved: (msg: string | null
 }
 
 /** Tabel met kostregels (per subgroep), de prijs aan te klikken waar dat kan; zonder prijs: herkomst + prijs in de regel. */
-function LinesTable({ dvId, lines, onSaved }: { dvId: string; lines: Line[]; onSaved: (m: string | null) => void }) {
+function LinesTable({ dvId, lines, onSaved, onEdit }: { dvId: string; lines: Line[]; onSaved: (m: string | null) => void; onEdit?: (l: Line) => void }) {
   const sum = lines.reduce((s, l) => s + Number(l.total), 0)
   const subs = [...new Set(lines.map(subOf))]
   return (
@@ -118,7 +140,11 @@ function LinesTable({ dvId, lines, onSaved }: { dvId: string; lines: Line[]; onS
               {s && <tr className="subhead"><td colSpan={8}>{s}</td></tr>}
               {lines.filter((l) => subOf(l) === s).map((l) => (
                 <tr key={l.id}>
-                  <td>{l.description}{!isOut(l) && !['Platen', 'Kanten', 'Productiekosten', 'Uitbesteed'].includes(l.category) && <> <ItemWhere dvId={dvId} name={l.description} /></>}</td>
+                  <td>
+                    {l.description}
+                    {isExtra(l) && <> <span className="tag t-extra" title="Manueel toegevoegd: geldt voor alle versies van dit project">manueel</span></>}
+                    {!isOut(l) && !isExtra(l) && !['Platen', 'Kanten', 'Productiekosten', 'Uitbesteed'].includes(l.category) && <> <ItemWhere dvId={dvId} name={l.description} /></>}
+                  </td>
                   <td>{l.supplier}</td>
                   <td>{l.article_no}</td>
                   <td className="num">{l.qty == null ? '' : `${fmtNum(l.qty, 2)}${l.unit ? ' ' + l.unit : ''}`}</td>
@@ -126,7 +152,13 @@ function LinesTable({ dvId, lines, onSaved }: { dvId: string; lines: Line[]; onS
                   <td className="num">{fmtEur(l.total)}</td>
                   <td>{l.ordered_by}</td>
                   <td className={missing(l) ? 'warn-text' : l.note === 'eigen prijs' || l.note === 'zelf maken' ? 'ok-text' : 'muted'}>
-                    {missing(l) && !isOut(l)
+                    {isExtra(l)
+                      ? <span className="extra-acts">
+                          <span className="small">{l.note}</span>
+                          {onEdit && <button type="button" className="link small" onClick={() => onEdit(l)}>wijzigen</button>}
+                          <button type="button" className="link small" onClick={() => removeExtra(dvId, l, onSaved)}>weghalen</button>
+                        </span>
+                      : missing(l) && !isOut(l)
                       ? <><div className="small">{l.note}</div><OwnArticleEditor articleNo={l.article_no} description={l.description} supplier={l.supplier} onSaved={onSaved} /></>
                       : l.note}
                   </td>
@@ -147,15 +179,22 @@ function LinesTable({ dvId, lines, onSaved }: { dvId: string; lines: Line[]; onS
 export function CostLines({ dvId, cats, title }: { dvId: string; cats: string[]; title?: string }) {
   const q = useLines(dvId)
   const [msg, setMsg] = useState<string | null>(null)
+  const [form, setForm] = useState<{ edit?: ExtraEdit } | null>(null)
   if (q.loading && !q.data) return <Loading />
   const lines = (q.data ?? []).filter((l) => cats.includes(rubriek(l)))
   const onSaved = (m: string | null) => { setMsg(m); q.reload() }
+  const addCats = cats.filter((c) => ADD_CATS.includes(c))
   return (
     <>
       <ErrorBox error={q.error} />
       {title && <h2 className="vt-h">{title} <span className="muted">{fmtEur(lines.reduce((s, l) => s + Number(l.total), 0))}</span></h2>}
       {msg && <p className="notice">{msg}</p>}
-      {!lines.length ? <p className="muted">Geen regels in deze rubriek.</p> : <LinesTable dvId={dvId} lines={lines} onSaved={onSaved} />}
+      {!lines.length ? <p className="muted">Geen regels in deze rubriek.</p>
+        : <LinesTable dvId={dvId} lines={lines} onSaved={onSaved} onEdit={(l) => setForm({ edit: toEdit(l) })} />}
+      {addCats.length > 0 && (form
+        ? <ExtraItemForm key={form.edit?.extraId ?? 'nieuw'} dvId={dvId} cats={addCats} edit={form.edit}
+            onDone={(m) => { setForm(null); if (m) onSaved(m) }} />
+        : <div className="toolbar"><button type="button" onClick={() => setForm({})}>+ Artikel toevoegen</button></div>)}
     </>
   )
 }
@@ -171,6 +210,7 @@ export function Projectkosten({ dvId }: { dvId: string }) {
   const st = useQuery<Status>(() => supabase.from('design_versions').select('cost_status, cost_at').eq('id', dvId).single(), [dvId])
   const [msg, setMsg] = useState<string | null>(null)
   const [open, setOpen] = useState<Set<string> | null>(null)
+  const [form, setForm] = useState<{ cat: string | null; edit?: ExtraEdit } | null>(null)
   if (q.loading && !q.data) return <Loading />
   const lines = q.data ?? []
   const total = lines.reduce((s, l) => s + Number(l.total), 0)
@@ -193,10 +233,15 @@ export function Projectkosten({ dvId }: { dvId: string }) {
         Prijslijsten raadplegen: <Link to="/regels?sectie=Prijzen">Rekenregels › Prijzen</Link>.
       </p>
       {msg && <p className="notice">{msg}</p>}
-      {rows.length > 0 && (
-        <div className="toolbar">
+      <div className="toolbar">
+        {rows.length > 0 && (
           <button className="link" onClick={() => setOpen(allOpen ? new Set() : new Set(rows.map((r) => r.cat)))}>{allOpen ? 'Alles dichtklappen' : 'Alles openklappen'}</button>
-        </div>
+        )}
+        {!(form && form.cat === null) && <button type="button" onClick={() => setForm({ cat: null })}>+ Artikel toevoegen</button>}
+      </div>
+      {form && form.cat === null && (
+        <ExtraItemForm key={form.edit?.extraId ?? 'nieuw'} dvId={dvId} cats={ADD_CATS} initialCat={form.edit?.category} edit={form.edit}
+          onDone={(m) => { setForm(null); if (m) onSaved(m) }} />
       )}
       <div className="table-wrap">
         <table className="cost-sum">
@@ -219,7 +264,15 @@ export function Projectkosten({ dvId }: { dvId: string }) {
                     <td className="num">{fmtEur(r.ls.reduce((x, l) => x + Number(l.total), 0))}</td>
                   </tr>
                   {isOpen && (
-                    <tr className="cost-open"><td colSpan={4}><LinesTable dvId={dvId} lines={r.ls} onSaved={onSaved} /></td></tr>
+                    <tr className="cost-open">
+                      <td colSpan={4}>
+                        <LinesTable dvId={dvId} lines={r.ls} onSaved={onSaved} onEdit={(l) => setForm({ cat: r.cat, edit: toEdit(l) })} />
+                        {ADD_CATS.includes(r.cat) && (form && form.cat === r.cat
+                          ? <ExtraItemForm key={form.edit?.extraId ?? 'nieuw'} dvId={dvId} cats={[r.cat]} edit={form.edit}
+                              onDone={(m) => { setForm(null); if (m) onSaved(m) }} />
+                          : <div className="toolbar"><button type="button" onClick={() => setForm({ cat: r.cat })}>+ Artikel toevoegen in {r.cat}</button></div>)}
+                      </td>
+                    </tr>
                   )}
                 </Fragment>
               )

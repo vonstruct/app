@@ -2416,3 +2416,17 @@ select.ovn-btn { appearance: none; -webkit-appearance: none; text-align-last: ce
 .plt tr.plt-why-row td { background: var(--panel); border-top: 0; padding-top: 2px; }
 .plt-rule { font: inherit; font-weight: 600; line-height: 1; padding: 0; width: 28px; height: 24px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); cursor: pointer; }
 .plt-rule.m { color: var(--gold-ink, #8a6d1f); border-color: var(--gold); background: color-mix(in srgb, var(--gold) 12%, transparent); }
+
+/* Manueel artikel toevoegen in een rubriek (9/11/2026) */
+.tag.t-extra { display: inline-block; font-size: 11px; border-radius: 999px; padding: 0 7px; margin-left: 4px; border: 1px solid var(--gold, #c9a24a); color: var(--gold-dark, #8a6d1f); white-space: nowrap; vertical-align: 1px; }
+.extra-acts { display: inline-flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.extra-form { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin: 10px 0; background: var(--panel); max-width: 760px; }
+.extra-form h3 { margin: 0 0 8px; font-size: 14px; font-weight: 600; }
+.extra-form .toolbar input { flex: 1 1 260px; min-width: 0; }
+.extra-hits { list-style: none; margin: 0 0 10px; padding: 0; border: 1px solid var(--line); border-radius: 8px; max-height: 240px; overflow: auto; }
+.extra-hits li { padding: 6px 10px; border-bottom: 1px solid var(--line); }
+.extra-hits li:last-child { border-bottom: 0; }
+.extra-form .form-grid select, .extra-form .form-grid input { width: 100%; }
+@media (max-width: 640px) { .extra-form .form-grid { grid-template-columns: 1fr; } }
+.extra-form .form-grid label.check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text, inherit); }
+.extra-form .form-grid label.check input { width: auto; height: auto; flex: none; }
