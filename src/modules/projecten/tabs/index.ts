@@ -1,5 +1,4 @@
 import { createElement, type ComponentType } from 'react'
-import { Overzicht } from './Overzicht'
 import { Kasten } from './Kasten'
 import { Platen } from './Platen'
 import { Kanten } from './Kanten'
@@ -20,15 +19,15 @@ function LadesDuPont({ dvId }: { dvId: string }) {
 }
 
 /**
- * Tabbladen van een ontwerpversie (6 nov 2026: 4 in plaats van 9; 9 nov 2026 op vraag van Olivier: Lades, Beslag en Controle weer apart).
+ * Tabbladen van een ontwerpversie (6 nov 2026: 4 in plaats van 9; 9 nov 2026 op vraag van Olivier: Lades, Beslag en Controle weer apart;
+ * Overzicht weg: de aantallen, versies en verschillen staan op de projectpagina › Ontwerp › Ontwerpen).
  * Kosten staat op het project (Kostprijs). Oude namen in links (?tab=kanten, dupont) wijzen naar het nieuwe tabblad: VERSION_TAB_ALIAS.
  */
 export const versionTabs: VersionTab[] = [
-  { id: 'overzicht', label: 'Overzicht', component: Overzicht },
   { id: 'kasten', label: 'Kasten', component: Kasten },
   { id: 'platen', label: 'Platen en kanten', component: PlatenKanten },
   { id: 'lades', label: 'Lades', component: LadesDuPont },
   { id: 'beslag', label: 'Beslag', component: Beslag },
   { id: 'controle', label: 'Controle', component: Controle },
 ]
-export const VERSION_TAB_ALIAS: Record<string, string> = { kanten: 'platen', dupont: 'lades' }
+export const VERSION_TAB_ALIAS: Record<string, string> = { overzicht: 'kasten', kanten: 'platen', dupont: 'lades' }

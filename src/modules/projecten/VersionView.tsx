@@ -66,6 +66,7 @@ export function VersionView() {
             {[dv.scene_title, p.street, p.city, p.drawn_by && `getekend door ${p.drawn_by}`, `ontvangen ${fmtDate(dv.received_at)}`].filter(Boolean).join(' · ')}
           </p>
           <RecalcButton dvId={dv.id} onDone={() => setRev((r) => r + 1)} />
+          <p className="small"><Link to={`/projecten/${encodeURIComponent(code)}?tab=versies`}>Alle versies, aantallen en verschillen</Link></p>
           <div className="stats">
             <Stat label="getelde objecten" value={fmtInt(dv.n_parts)} />
             <Stat label="fouten" value={dv.n_errors ? <span className="bad-text">{dv.n_errors}</span> : 0} />

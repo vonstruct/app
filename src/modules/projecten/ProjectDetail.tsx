@@ -24,6 +24,7 @@ import { DataTable } from '../../core/DataTable'
 import { ErrorBox, Loading } from '../../core/ui'
 import { fmtDate, fmtEur, fmtInt } from '../../core/format'
 import { Compare } from './Compare'
+import { VersionStats } from './tabs/Overzicht'
 import { PhaseSelect, usePhases } from '../../core/projects'
 import { ClientPanel } from './ClientPanel'
 import { SurveyPanel } from './SurveyPanel'
@@ -190,6 +191,7 @@ export function ProjectDetail() {
     else if (sub === 'tijdlijn') body = <EventFeed project={code} title="Tijdlijn" limit={40} />
     else if (sub === 'versies') body = (
       <>
+        {versions[0] && <><p className="small muted">Nieuwste versie v{versions[0].version}</p><VersionStats dvId={versions[0].id} /></>}
         {versions.length === 0 ? <p className="muted">Nog geen ontwerp uit PaletteCAD. Gebruik projectcode <b>{code}</b> in het veld "Project" en klik op de knop Supabase.</p> : (
           <DataTable
             rows={versions}
