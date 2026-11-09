@@ -7,6 +7,7 @@ import { toast } from '../../core/toast'
 import { useSearchParams } from 'react-router'
 import { OwnArticleEditor } from '../../core/OwnArticle'
 import { ExecutionSelect, saveExecution, useExecOptions } from './Execution'
+import { howText, searchPrices } from './priceSearch'
 
 /**
  * Tab "Projectkost" op de projectpagina: de kostprijs van het project op detailniveau, in groepen.
@@ -339,7 +340,7 @@ function LineRow({ l, groups, onMove, onStock, onRemove, onSaved, onRecalc }: { 
       )}
       {find && (
         <tr className="find-row"><td colSpan={9}>
-          <PriceFinder query={l.description} onPick={async (h) => {
+          <PriceFinder query={l.description} articleNo={l.article_no} onPick={async (h) => {
             const { error } = await supabase.rpc('set_manual_item', { p_article_no: l.article_no ?? '', p_description: l.description, p_supplier: h.supplier, p_price: h.unit_price, p_origin: 'Bestellen' })
             if (error) return toast(error.message, 'err')
             // het artikelnummer van de leverancier (prijslijst of factuur) mee bewaren, los van de herkenning op naam
@@ -387,27 +388,46 @@ function PriceEdit({ l, onSaved }: { l: Line; onSaved: () => void }) {
   return <button type="button" className="price-btn" title="Prijs aanpassen (eigen prijs)" onClick={() => { setVal(l.unit_price == null ? '' : String(l.unit_price).replace('.', ',')); setEdit(true) }}>{l.unit_price == null ? '—' : fmtEur(l.unit_price)}</button>
 }
 
-/** Zoekt in eigen artikels, prijslijsten (Häfele, Du Pont, …) en de regels van bestellingen en facturen uit je mailbox. */
-function PriceFinder({ query, onPick }: { query: string; onPick: (h: Hit) => void }) {
-  const [q, setQ] = useState(query)
+/**
+ * Zoekt in eigen artikels, prijslijsten (Häfele, Du Pont, …) en de regels van bestellingen en facturen uit je mailbox.
+ * Eerst op artikelnummer, niets gevonden = op tekst. Met een regel: eerst het artikelnummer van de regel, niets = de naam van de regel.
+ */
+function PriceFinder({ query, articleNo, onPick }: { query: string; articleNo?: string | null; onPick: (h: Hit) => void }) {
+  const art = (articleNo ?? '').trim()
+  const [q, setQ] = useState(art || query)
   const [hits, setHits] = useState<Hit[] | null>(null)
+  const [how, setHow] = useState<string>('')
   const [busy, setBusy] = useState(false)
   const run = async (text = q) => {
     setBusy(true)
-    const { data, error } = await supabase.rpc('cost_search2', { p_q: text, p_limit: 15 })
+    const r = await searchPrices<Hit>(text, 15)
     setBusy(false)
-    if (error) return toast(error.message, 'err')
-    setHits((data ?? []) as Hit[])
+    if (r.error) return toast(r.error.message, 'err')
+    setHits(r.hits)
+    setHow(howText(r.how, text, r.hits.length))
+    return r.hits.length
   }
-  useEffect(() => { if (query) run(query) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    (async () => {
+      if (art) {
+        const n = await run(art)
+        // niets op het artikelnummer van de regel: dan op de naam van de regel
+        if (n === 0 && query) {
+          setQ(query)
+          const m = await run(query)
+          if (m != null) setHow(m ? `Niets op artikelnummer ${art}: gezocht op de naam.` : `Niets op artikelnummer ${art} en niets op de naam: probeer een korter woord, of "zelf invullen".`)
+        }
+      } else if (query) run(query)
+    })()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="finder">
       <div className="toolbar">
-        <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') run() }} placeholder="naam of artikelnummer" />
+        <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') run() }} placeholder="artikelnummer (of naam)" />
         <button onClick={() => run()} disabled={busy}>{busy ? 'Zoeken…' : 'Zoeken'}</button>
-        <span className="small muted">in eigen artikels, prijslijsten en bestellingen/facturen uit je mailbox</span>
+        <span className="small muted">eerst op artikelnummer, anders op tekst · in eigen artikels, prijslijsten en bestellingen/facturen uit je mailbox</span>
       </div>
-      {hits && !hits.length && <p className="small muted">Niets gevonden. Probeer een kortere naam of het artikelnummer.</p>}
+      {hits && how && <p className="small muted">{how}</p>}
       {hits && hits.length > 0 && (
         <table className="finder-hits">
           <tbody>

@@ -3,6 +3,7 @@ import { supabase } from '../../core/supabase'
 import { useQuery } from '../../core/useQuery'
 import { toast } from '../../core/toast'
 import { fmtEur, fmtNum, parseAmount } from '../../core/format'
+import { howText, searchPrices } from '../projecten/priceSearch'
 
 type Fresh = { supplier_name: string; n_articles: number; last_update: string | null; days_old: number | null }
 type Hit = { src: string; supplier: string | null; article_no: string | null; description: string; unit_price: number | null; unit: string | null; ref: string; seen: string | null }
@@ -17,14 +18,16 @@ export function PriceLists() {
   const fq = useQuery<Fresh[]>(() => supabase.from('app_supplier_freshness').select('*').order('supplier_name'), [])
   const [q, setQ] = useState('')
   const [hits, setHits] = useState<Hit[] | null>(null)
+  const [how, setHow] = useState('')
   const [busy, setBusy] = useState(false)
   const run = async () => {
-    if (q.trim().length < 2) return toast('Typ minstens 2 tekens (naam of artikelnummer)', 'err')
+    if (q.trim().length < 2) return toast('Typ minstens 2 tekens (artikelnummer of naam)', 'err')
     setBusy(true)
-    const { data, error } = await supabase.rpc('cost_search2', { p_q: q.trim(), p_limit: 50 })
+    const r = await searchPrices<Hit>(q.trim(), 50)
     setBusy(false)
-    if (error) return toast(error.message, 'err')
-    setHits((data ?? []) as Hit[])
+    if (r.error) return toast(r.error.message, 'err')
+    setHits(r.hits)
+    setHow(howText(r.how, q.trim(), r.hits.length))
   }
   const own = async (h: Hit, price: number) => {
     const { error } = await supabase.rpc('set_manual_item', {
@@ -52,11 +55,11 @@ export function PriceLists() {
         </table>
       </div>
       <div className="toolbar">
-        <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') run() }} placeholder="naam of artikelnummer" />
+        <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') run() }} placeholder="artikelnummer (of naam)" />
         <button onClick={run} disabled={busy}>{busy ? 'Zoeken…' : 'Zoeken'}</button>
-        <span className="small muted">in alle prijslijsten, je eigen prijslijst en prijzen uit mails</span>
+        <span className="small muted">eerst op artikelnummer, anders op tekst · in alle prijslijsten, je eigen prijslijst en prijzen uit mails</span>
       </div>
-      {hits && !hits.length && <p className="small muted">Niets gevonden. Probeer een kortere naam of het artikelnummer.</p>}
+      {hits && <p className="small muted">{how}{!hits.length && ' Probeer een korter woord.'}</p>}
       {hits && hits.length > 0 && (
         <div className="table-wrap">
           <table>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../core/supabase'
 import { fmtEur, parseAmount } from '../../../core/format'
+import { howText, searchPrices } from '../priceSearch'
 
 /**
  * Manueel een artikel toevoegen in een rubriek (9/11/2026, Olivier: "in elke rubriek de mogelijkheid hebben om manueel iets toe te
@@ -69,17 +70,20 @@ export function ExtraItemForm({ dvId, cats, initialCat, edit, onDone }: {
   const [catalogPrice, setCatalogPrice] = useState<number | null>(null)   // gekozen uit een prijslijst van een leverancier
   const [q, setQ] = useState('')
   const [hits, setHits] = useState<Hit[] | null>(null)
+  const [how, setHow] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
   useEffect(() => { loadLists().then(setLists, () => undefined) }, [])
 
   const search = async () => {
-    if (q.trim().length < 2) return setErr('Typ minstens 2 tekens om te zoeken (naam of artikelnummer).')
+    if (q.trim().length < 2) return setErr('Typ minstens 2 tekens om te zoeken (artikelnummer of naam).')
     setErr(null)
-    const { data, error } = await supabase.rpc('cost_search2', { p_q: q.trim(), p_limit: 8 })
-    if (error) return setErr(error.message)
-    setHits(((data ?? []) as Hit[]).filter((h) => h.src !== 'mail' || h.unit_price != null))
+    const r = await searchPrices<Hit>(q.trim(), 8)
+    if (r.error) return setErr(r.error.message)
+    const list = r.hits.filter((h) => h.src !== 'mail' || h.unit_price != null)
+    setHits(list)
+    setHow(howText(r.how, q.trim(), list.length))
   }
   const pick = (h: Hit) => {
     setDesc(h.description)
@@ -138,11 +142,11 @@ export function ExtraItemForm({ dvId, cats, initialCat, edit, onDone }: {
         <>
           <div className="toolbar">
             <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') search() }}
-              placeholder="zoeken in de prijslijsten: naam of artikelnummer" />
+              placeholder="zoeken: artikelnummer (of naam)" />
             <button type="button" onClick={search}>Zoeken</button>
-            <span className="small muted">of hieronder zelf invullen</span>
+            <span className="small muted">eerst op artikelnummer, anders op tekst · of hieronder zelf invullen</span>
           </div>
-          {hits && !hits.length && <p className="small muted">Niets gevonden: vul het artikel hieronder zelf in.</p>}
+          {hits && <p className="small muted">{how}{!hits.length && ' Vul het artikel hieronder zelf in.'}</p>}
           {hits && hits.length > 0 && (
             <ul className="extra-hits">
               {hits.map((h, i) => (
