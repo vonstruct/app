@@ -176,15 +176,17 @@ const tables = {
   app_project_cost: [{ project_code: '209901', kind: 'stuklijst', id: 'cl1', group_name: 'Werkblad', rubriek: 'Uitbesteed', sort: 1, description: 'Werkblad solid wit', explanation: null, supplier: 'Werkbladfirma', article_no: null, qty: 1, unit: 'stuk', unit_price: 0, total: 0, note: 'prijs ontbreekt: offerte van Werkbladfirma', line_key: 'NAAM:werkblad solid wit', no_price: true, in_stock: false, duplicate: false, source: 'stuklijst', source_ref: '1', version: 3, default_group: 'Werkblad', design_version_id: 'dv3' },
     { project_code: '209901', kind: 'stuklijst', id: 'cl2', group_name: 'Werkblad', rubriek: 'Platen', sort: 2, description: 'Solid grijs', explanation: null, supplier: 'Voorbeeldhout', article_no: 'S1', qty: 1, unit: 'plaat', unit_price: 300, total: 300, note: null, line_key: 'ART:S1', no_price: false, in_stock: false, duplicate: false, source: 'stuklijst', source_ref: null, version: 3, default_group: 'Werkblad', plate_key: 'solid grijs|12', design_version_id: 'dv3' }],
   plate_stock: [{ project_code: '209901', family: 'eik fineer', thickness_mm: 19 }],
+  plate_execution: [],
   project_outsourcing: [{ id: 1, project_code: '209901', family: 'solid wit', material_label: 'Solid wit', firm: 'Werkbladfirma', amount: 1250.5, description: 'Werkblad solid wit', quote_ref: 'W-12' }],
   app_sheets: [
     { id: 'sh1', material_label: 'Eik fineer', thickness_mm: 19, length_mm: 2800, width_mm: 2070, qty: 4, yield_pct: 81, price_per_sheet: 50, format_source: 'prijslijst', supplier: 'Voorbeeldhout', article_no: 'A1', ordered_by: 'Partner', cost: 200,
       data: { family: 'eik fineer', plan: '4× 2800×2070 + 1× 3050×1220', plan_cost: 245, suppliers: ['Voorbeeldhout'], reasons: ['1 onderdeel past niet op 2800×2070 (Zijwand 3000×600) → 3050×1220', 'voordeligste: € 245,00; daarna Houthandel B 5× 2800×2070 € 260,00'],
-        locked: null, alternatives: [
+        locked: null, primary: { supplier: 'Voorbeeldhout', length_mm: 2800, width_mm: 2070 }, alternatives: [
           { plan: '4× 2800×2070 + 1× 3050×1220', suppliers: ['Voorbeeldhout'], supplier: 'Voorbeeldhout', length_mm: 2800, width_mm: 2070, count: 5, cost: 245, unfit: 0, chosen: true },
+          { plan: '7× 3050×1220', suppliers: ['Voorbeeldhout'], supplier: 'Voorbeeldhout', length_mm: 3050, width_mm: 1220, count: 7, cost: 290, unfit: 0, chosen: false },
           { plan: '5× 2800×2070', suppliers: ['Houthandel B'], supplier: 'Houthandel B', length_mm: 2800, width_mm: 2070, count: 5, cost: 260, unfit: 1, chosen: false }] } },
     { id: 'sh2', material_label: 'Eik fineer', thickness_mm: 19, length_mm: 3050, width_mm: 1220, qty: 1, yield_pct: 40, price_per_sheet: 45, format_source: 'prijslijst', supplier: 'Voorbeeldhout', article_no: 'A2', ordered_by: 'Partner', cost: 45,
-      data: { family: 'eik fineer', plan: '4× 2800×2070 + 1× 3050×1220', plan_cost: 245, suppliers: ['Voorbeeldhout'], reasons: [], alternatives: [] } },
+      data: { family: 'eik fineer', plan: '4× 2800×2070 + 1× 3050×1220', plan_cost: 245, suppliers: ['Voorbeeldhout'], reasons: [], alternatives: [], primary: { supplier: 'Voorbeeldhout', length_mm: 2800, width_mm: 2070 } } },
   ],
   app_parts_summary: [{ material_label: 'Eik fineer', thickness_mm: 19, n_parts: 120, area_m2: 18.2 }],
   app_checks: [

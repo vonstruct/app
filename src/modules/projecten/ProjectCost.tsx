@@ -6,6 +6,7 @@ import { fmtEur, fmtNum, parseAmount } from '../../core/format'
 import { toast } from '../../core/toast'
 import { useSearchParams } from 'react-router'
 import { OwnArticleEditor } from '../../core/OwnArticle'
+import { ExecutionSelect, saveExecution, useExecOptions } from './Execution'
 
 /**
  * Tab "Projectkost" op de projectpagina: de kostprijs van het project op detailniveau, in groepen.
@@ -20,6 +21,7 @@ type Line = {
   line_key: string; no_price: boolean; in_stock: boolean; duplicate: boolean; source: string; source_ref: string | null; version: number | null; default_group?: string | null
   plate_key?: string | null // plaat: familie|dikte → voorraad per project (plate_stock), via onderaannemer (project_outsourcing)
   design_version_id?: string | null
+  ordered_by?: string | null
 }
 type Group = {
   project_code: string; group_name: string; sort: number; client_title: string; client_text: string | null; vat_rate: number | null; margin_pct: number | null
@@ -56,6 +58,14 @@ export function ProjectCost({ project, onQuote }: { project: string; onQuote: ()
   const reload = () => { gq.reload(); lq.reload() }
   // na "via onderaannemer" aan/uit: platen, kanten en productiekost opnieuw berekenen (± 1 minuut), dan de lijst opnieuw laden
   const [recalcing, setRecalcing] = useState<string | null>(null)
+  // firma's uit Relaties voor Uitvoering › "Andere…"
+  const firms = useQuery<string[]>(async () => {
+    const [a, b, c] = await Promise.all([
+      supabase.from('subcontractors').select('name').eq('active', true), supabase.from('partners').select('name').eq('active', true), supabase.from('suppliers').select('name').eq('active', true),
+    ])
+    const names = [...(a.data ?? []), ...(b.data ?? []), ...(c.data ?? [])].map((r: { name: string }) => r.name).filter(Boolean)
+    return { data: [...new Set(names)].sort((x, y) => x.localeCompare(y, 'nl')), error: null }
+  }, [])
   const startRecalc = async (dv: string) => {
     const r = await supabase.functions.invoke('recalc', { body: { design_version_id: dv } })
     const err = (r.data as { error?: string } | null)?.error ?? (r.error ? 'de herberekening kon niet gestart worden' : null)
@@ -169,6 +179,7 @@ export function ProjectCost({ project, onQuote }: { project: string; onQuote: ()
     <div className="pcost">
       <ErrorBox error={gq.error ?? lq.error} />
       {recalcing && <p className="notice small">Wordt herberekend: platen, kanten en productiekost van dat materiaal vallen weg of komen terug (± 1 minuut)…</p>}
+      <datalist id="pcost-firms">{(firms.data ?? []).map((f) => <option key={f} value={f} />)}</datalist>
       <div className="pcost-sum">
         <div><span className="lbl">Kostprijs</span><b>{fmtEur(totCost)}</b><small className="muted">{version ? `stuklijst v${version} + eigen regels` : 'nog geen berekende stuklijst'}</small></div>
         <div><span className="lbl">Voor de klant (± {fmtNum(projectMargin, 0)} % marge)</span><b>{fmtEur(totSell)}</b><small className="muted">excl. btw, per groep afgerond in de offerte</small></div>
@@ -216,7 +227,7 @@ export function ProjectCost({ project, onQuote }: { project: string; onQuote: ()
                 <GroupSettings g={g} others={groupNames.filter((n) => n !== g.group_name)} onSave={(p) => saveGroup(g, p)} onMerge={(to) => merge(g, to)} />
                 <div className="table-wrap">
                   <table className="pcost-lines">
-                    <thead><tr><th>Omschrijving</th><th>Leverancier</th><th className="num">Aantal</th><th className="num">Per stuk</th><th className="num">Kost</th><th>Groep</th><th title="Op voorraad: niet bestellen">Voorraad</th><th title="Via onderaannemer: een andere firma maakt dit, met zijn offerteprijs">Onder&shy;aannemer</th><th /></tr></thead>
+                    <thead><tr><th>Omschrijving</th><th>Leverancier</th><th className="num">Aantal</th><th className="num">Per stuk</th><th className="num">Kost</th><th>Groep</th><th title="Op voorraad: niet bestellen">Voorraad</th><th title="Wie voert het uit: Vonstruct (plaatkost, jij bestelt), de partner (plaatkost + productiekost, de partner bestelt) of een firma (enkel haar offerteprijs)">Uitvoering</th><th /></tr></thead>
                     <tbody>
                       {ls.map((l) => <LineRow key={l.kind + l.id} l={l} groups={groupNames} onMove={(to) => to === '__new' ? askNewGroup(l) : moveLine(l, to)} onStock={() => toggleStock(l)} onRemove={() => removeItem(l)} onSaved={reload} onRecalc={(dv) => startRecalc(dv)} />)}
                     </tbody>
@@ -266,18 +277,25 @@ function GroupSettings({ g, others, onSave, onMerge }: { g: Group; others: strin
 function LineRow({ l, groups, onMove, onStock, onRemove, onSaved, onRecalc }: { l: Line; groups: string[]; onMove: (to: string) => void; onStock: () => void; onRemove: () => void; onSaved: () => void; onRecalc: (dv: string) => void }) {
   const [find, setFind] = useState(false)
   const [own, setOwn] = useState(false)
-  const [sub, setSub] = useState(false)
   // eenheidsprijs van beslag en rubrieken uit de stuklijst aanpassen = eigen prijs (geldt ook voor volgende projecten)
   const priceEditable = l.kind === 'stuklijst' && !l.no_price && !['Platen', 'Kanten', 'Productiekosten', 'Lades', 'Uitbesteed'].includes(l.rubriek ?? '')
   // uitbesteed werk (andere firma maakt dit, bv. een werkblad): prijs = offerte van die firma, bewaard bij het project
   const outsourced = l.kind === 'stuklijst' && l.rubriek === 'Uitbesteed' && !!l.source_ref
-  const canSub = outsourced || (l.kind === 'stuklijst' && l.rubriek === 'Platen' && !!l.plate_key)
-  const toggleSub = async () => {
-    if (!outsourced) { setSub((x) => !x); setFind(false); setOwn(false); return }
-    if (!confirm(`"${l.description}" terug zelf laten maken? Dan komen de platen, kanten en productiekost terug en verdwijnt de prijs van ${l.supplier ?? 'de onderaannemer'}.`)) return
-    const { error } = await supabase.from('project_outsourcing').delete().eq('id', Number(l.source_ref))
-    if (error) return toast(error.message, 'err')
-    if (l.design_version_id) onRecalc(l.design_version_id)
+  // Uitvoering (9/11/2026, vervangt het vinkje onderaannemer): plaatregels en uitbesteed werk
+  const canExec = outsourced || (l.kind === 'stuklijst' && l.rubriek === 'Platen' && !!l.plate_key)
+  const opts = useExecOptions()
+  const [busyExec, setBusyExec] = useState(false)
+  const pickExec = async (to: string) => {
+    const k = l.plate_key ?? ''
+    const i = k.lastIndexOf('|')
+    setBusyExec(true)
+    const again = await saveExecution({
+      projectCode: l.project_code, family: outsourced ? '' : k.slice(0, i), thickness: outsourced ? null : Number(k.slice(i + 1)), label: l.description, to, opts,
+      outsourcingId: outsourced ? Number(l.source_ref) : null,
+    })
+    setBusyExec(false)
+    if (again && l.design_version_id) onRecalc(l.design_version_id)
+    else onSaved()
   }
   return (
     <>
@@ -287,7 +305,7 @@ function LineRow({ l, groups, onMove, onStock, onRemove, onSaved, onRecalc }: { 
           {l.explanation && <div className="small muted">{l.explanation}</div>}
           <div>
             {l.kind === 'eigen' && <span className="tag t-src">{SRC[l.source] ?? l.source}</span>}
-            {outsourced && <span className="tag t-src" title="Een andere firma maakt dit; geen platen, kanten of productiekost voor dit materiaal">via onderaannemer{l.note && !l.no_price ? ` · ${l.note}` : ''}</span>}
+            {outsourced && <span className="tag t-src" title="Een andere firma maakt dit; geen platen, kanten of productiekost voor dit materiaal">uitbesteed{l.note && !l.no_price ? ` · ${l.note}` : ''}</span>}
             {l.no_price && <span className="tag t-noprice">geen prijs</span>}
             {l.duplicate && <span className="tag t-noprice" title="Hetzelfde artikel staat ook in de stuklijst">ook in de stuklijst</span>}
             {l.in_stock && <span className="tag t-stock">op voorraad</span>}
@@ -305,18 +323,13 @@ function LineRow({ l, groups, onMove, onStock, onRemove, onSaved, onRecalc }: { 
           </select>
         </td>
         <td className="pc-stock"><input type="checkbox" checked={l.in_stock} onChange={onStock} disabled={outsourced} aria-label="Op voorraad" /></td>
-        <td className="pc-stock">{canSub && <input type="checkbox" checked={outsourced || sub} onChange={toggleSub} aria-label="Via onderaannemer" title="Via onderaannemer: een andere firma maakt dit" />}</td>
+        <td>{canExec && <ExecutionSelect value={outsourced ? (l.supplier ?? '') : (l.ordered_by ?? '')} opts={opts} listId="pcost-firms" disabled={busyExec} onPick={pickExec} />}</td>
         <td className="nowrap">
           {l.no_price && !outsourced && <button className="link small" onClick={() => { setFind((x) => !x); setOwn(false) }}>prijs zoeken</button>}
           {l.no_price && !outsourced && <button className="link small" onClick={() => { setOwn((x) => !x); setFind(false) }} title="Herkomst (bestellen, zelf maken, negeren) en prijs per stuk">zelf invullen</button>}
           {l.kind === 'eigen' && <button className="link small" onClick={onRemove}>weg</button>}
         </td>
       </tr>
-      {sub && !outsourced && (
-        <tr className="find-row"><td colSpan={9}>
-          <SubcontractForm l={l} onCancel={() => setSub(false)} onDone={(dv) => { setSub(false); onRecalc(dv) }} />
-        </td></tr>
-      )}
       {own && (
         <tr className="find-row"><td colSpan={9}>
           <p className="small muted">Bestellen = bij een leverancier · Zelf maken = niet op een bestellijst · Negeren = telt nergens mee. Herkend op artikelnummer, anders op naam, ook in volgende projecten.</p>
@@ -336,48 +349,6 @@ function LineRow({ l, groups, onMove, onStock, onRemove, onSaved, onRecalc }: { 
         </td></tr>
       )}
     </>
-  )
-}
-
-/** "Via onderaannemer" voor een plaatmateriaal: firma (uit Relaties of vrij), offerteprijs (mag later), omschrijving. */
-function SubcontractForm({ l, onCancel, onDone }: { l: Line; onCancel: () => void; onDone: (dv: string) => void }) {
-  const [firm, setFirm] = useState('')
-  const [amount, setAmount] = useState('')
-  const [description, setDescription] = useState(l.description)
-  const [busy, setBusy] = useState(false)
-  const fq = useQuery<string[]>(async () => {
-    const [a, b, c] = await Promise.all([
-      supabase.from('subcontractors').select('name').eq('active', true), supabase.from('partners').select('name').eq('active', true), supabase.from('suppliers').select('name').eq('active', true),
-    ])
-    const names = [...(a.data ?? []), ...(b.data ?? []), ...(c.data ?? [])].map((r: { name: string }) => r.name).filter(Boolean)
-    return { data: [...new Set(names)], error: null }
-  }, [])
-  const save = async () => {
-    if (!firm.trim()) return toast('Kies of typ de firma', 'err')
-    const v = amount.trim() === '' ? null : num(amount)
-    if (v != null && isNaN(v)) return toast('Prijs is geen getal', 'err')
-    const i = (l.plate_key ?? '').lastIndexOf('|')
-    const family = (l.plate_key ?? '').slice(0, i)
-    if (!family || !l.design_version_id) return toast('Dit materiaal is niet herkend; herbereken de versie eerst', 'err')
-    setBusy(true)
-    const { error } = await supabase.from('project_outsourcing').insert({ project_code: l.project_code, family, material_label: l.description, firm: firm.trim(), amount: v, description: description.trim() || null })
-    setBusy(false)
-    if (error) return toast(error.message, 'err')
-    toast(`${l.description} via ${firm.trim()}`)
-    onDone(l.design_version_id)
-  }
-  return (
-    <div className="pc-form">
-      <label>Onderaannemer / firma<input list="pcost-firms" value={firm} onChange={(e) => setFirm(e.target.value)} placeholder="kies uit Relaties of typ" autoFocus /></label>
-      <datalist id="pcost-firms">{(fq.data ?? []).map((f) => <option key={f} value={f} />)}</datalist>
-      <label>Prijs excl. btw (offerte)<input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="later invullen mag" /></label>
-      <label>Omschrijving<input value={description} onChange={(e) => setDescription(e.target.value)} /></label>
-      <div className="toolbar">
-        <button className="primary" disabled={busy} onClick={save}>{busy ? 'Bezig…' : 'Via onderaannemer'}</button>
-        <button className="link" onClick={onCancel}>Annuleren</button>
-      </div>
-      <p className="small muted">Alle platen van dit materiaal in dit project: geen plaatkost, kanten of productiekost meer, wel deze prijs (ook op de bestellijst bij die firma).</p>
-    </div>
   )
 }
 

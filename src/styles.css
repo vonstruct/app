@@ -2389,12 +2389,20 @@ select.ovn-btn { appearance: none; -webkit-appearance: none; text-align-last: ce
 .pf-list { margin: 8px 0 14px; }
 .pf-list input { flex: 1; min-width: 220px; }
 /* Platen: één tabel met keuze, voorraad en onderaannemer (8/11/2026) */
-.plt td { vertical-align: top; }
 .plt tr.plt-first td { border-top: 2px solid var(--line); }
-.plt td.mat { min-width: 230px; max-width: 340px; }
 .plt td.mat .chips { margin: 3px 0; }
 .plt .plt-pick { width: 100%; max-width: 320px; margin: 4px 0 2px; font-size: 12.5px; }
 .plt th.ck, .plt td.ck { text-align: center; width: 1%; }
 .plt tr.plt-sub td { background: color-mix(in srgb, var(--gold) 5%, transparent); }
 .cell-btn { background: none; border: 0; padding: 0; font: inherit; color: inherit; text-align: left; cursor: text; border-bottom: 1px dashed var(--line); }
 .cell-input { width: 100%; min-width: 120px; font: inherit; }
+/* keuzelijst in een tabelcel: ziet eruit als tekst met ▾, rand bij aanwijzen (Platen, Kostprijs) */
+.cell-select { font: inherit; color: inherit; background: transparent; border: 1px dashed transparent; border-radius: 6px; padding: 1px 2px; max-width: 220px; cursor: pointer; }
+.cell-select:hover, .cell-select:focus { border-color: var(--line); background: var(--panel); }
+.cell-select:disabled { opacity: .6; cursor: progress; }
+.plt td { vertical-align: middle; }
+.plt td.mat { min-width: 200px; max-width: 320px; }
+.plt .plt-i { margin-left: 6px; text-decoration: none; }
+.plt tr.plt-why-row td { background: var(--panel); border-top: 0; padding-top: 2px; }
+.plt-rule { font: inherit; font-weight: 600; line-height: 1; padding: 0; width: 28px; height: 24px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); cursor: pointer; }
+.plt-rule.m { color: var(--gold-ink, #8a6d1f); border-color: var(--gold); background: color-mix(in srgb, var(--gold) 12%, transparent); }

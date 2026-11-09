@@ -70,7 +70,7 @@ export function Platen({ dvId }: { dvId: string }) {
       <ErrorBox error={plan.error} />
       {plan.html && <iframe id="zaagplan" className="cutplan" title="Zaagplan" srcDoc={plan.html} />}
       {opt.data && <PlatesTable sheets={sheets.data ?? []} dvId={dvId} projectCode={opt.data.project_code} outsourcing={outs.data ?? []} stock={stock.data ?? []} firms={firms.data ?? []} onChanged={() => { sheets.reload(); outs.reload(); stock.reload() }} />}
-      <p className="small muted">Per materiaal: links een ander formaat of andere leverancier vastzetten (ook voor volgende versies), rechts uit eigen voorraad of via een onderaannemer. Prijs aanklikken = eigen prijs per plaat. Platen komen uit PaletteCAD; hun naam wijzig je daar.</p>
+      <p className="small muted">Alles is in de regel aan te passen: formaat of leverancier kiezen zet de keuze vast (Regel M, ook voor volgende versies; A aanklikken = vastzetten, M aanklikken = terug automatisch). Prijs aanklikken = eigen prijs per plaat. Uitvoering: Vonstruct (plaatkost, jij bestelt), de partner (plaatkost + productiekost, de partner bestelt) of een firma (enkel haar offerteprijs, in te vullen bij Totaal). ⓘ = waarom deze keuze. Platen en benutting volgen uit het zaagplan; de naam komt uit PaletteCAD.</p>
       <h2>Onderdelen per materiaal</h2>
       <DataTable
         rows={sum.data ?? []}
