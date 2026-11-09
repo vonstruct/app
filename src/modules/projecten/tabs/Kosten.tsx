@@ -7,14 +7,18 @@ import { fmtEur, fmtNum, parseAmount } from '../../../core/format'
 import { OwnArticleEditor } from '../../../core/OwnArticle'
 import { ItemWhere } from '../../../core/ItemWhere'
 
-type Line = { id: string; category: string; subgroup: string | null; sort: number; description: string; supplier: string | null; article_no: string | null; qty: number | null; unit: string | null; unit_price: number | null; total: number; ordered_by: string | null; note: string | null }
+type Line = {
+  id: string; category: string; subgroup: string | null; sort: number; description: string; supplier: string | null; article_no: string | null; qty: number | null
+  unit: string | null; unit_price: number | null; total: number; ordered_by: string | null; note: string | null
+  details?: { werkblad?: boolean; outsourcing_id?: string; dikte_mm?: number } | null
+}
 type Status = { cost_status: string | null; cost_at: string | null }
 
 /**
  * Rubrieken van de kostprijs, in de volgorde en met de namen van de stuklijst in PaletteCAD (9/11/2026, Olivier: "ik had graag dit gezien":
  * Kasten Overzicht · Platen · Kanten · Lades · Werkbladen · Sanitair · Elektriciteit · Toestellen · Grepen · Verbinders & Beslagen · Varia ·
  * Productiekosten · Projectkosten). tab = het tabblad van de versie waar de rubriek staat. "Zelf maken" staat in de rubriek van herkomst
- * (subgroup), "Uitbesteed" bij Platen.
+ * (subgroup), platen en uitbesteed werk met telvlag WB bij Werkbladen, ander uitbesteed werk bij Platen.
  */
 export const RUBRIEKEN: { tab: string; cat: string }[] = [
   { tab: 'platen', cat: 'Platen' }, { tab: 'platen', cat: 'Uitbesteed' }, { tab: 'kanten', cat: 'Kanten' }, { tab: 'lades', cat: 'Lades' },
@@ -23,12 +27,41 @@ export const RUBRIEKEN: { tab: string; cat: string }[] = [
   { tab: 'varia', cat: 'Varia' }, { tab: 'productiekosten', cat: 'Productiekosten' },
 ]
 const missing = (l: Line) => !!l.note?.startsWith('prijs ontbreekt')
-/** rubriek van een regel: "Zelf maken" telt in de rubriek waar het vandaan komt */
-const rubriek = (l: Line) => (l.category === 'Zelf maken' ? l.subgroup || 'Varia' : l.category)
+/** rubriek van een regel: "Zelf maken" telt in de rubriek waar het vandaan komt; platen met telvlag WB (details.werkblad) = Werkbladen */
+const rubriek = (l: Line) => (l.category === 'Zelf maken' ? l.subgroup || 'Varia' : l.details?.werkblad ? 'Werkbladen' : l.category)
+/** subgroep in de tabel */
+const subOf = (l: Line) => (l.category === 'Zelf maken' ? 'Zelf maken' : l.details?.werkblad && l.category === 'Platen' ? 'Platen' : l.subgroup ?? '')
+const isOut = (l: Line) => !!l.details?.outsourcing_id
 
 /** Regels waarvan je de prijs zelf kan invullen (beslag, rubrieken, losse Du Pont-onderdelen van lades). */
 const editable = (l: Line) =>
-  !['Platen', 'Kanten', 'Productiekosten', 'Uitbesteed'].includes(l.category) && (l.category !== 'Lades' || l.subgroup === 'Du Pont (apart bestellen)')
+  !isOut(l) && !['Platen', 'Kanten', 'Productiekosten', 'Uitbesteed'].includes(l.category) && (l.category !== 'Lades' || l.subgroup === 'Du Pont (apart bestellen)')
+
+/** Offerteprijs van uitbesteed werk aanklikken (project_outsourcing.amount); de kostregel volgt meteen (trigger). */
+function OutsourcePriceCell({ line, onSaved }: { line: Line; onSaved: (msg: string | null) => void }) {
+  const [edit, setEdit] = useState(false)
+  const [val, setVal] = useState('')
+  const miss = missing(line)
+  const save = async () => {
+    setEdit(false)
+    const v = parseAmount(val)
+    if (v != null && Number.isNaN(v)) return
+    if (!miss && v === Number(line.unit_price)) return
+    const { error } = await supabase.from('project_outsourcing').update({ amount: v, updated_at: new Date().toISOString() }).eq('id', Number(line.details?.outsourcing_id))
+    onSaved(error ? error.message : v == null ? 'Offerteprijs leeggemaakt' : `Offerteprijs ${line.supplier ?? ''} bewaard: ${fmtEur(v)}`)
+  }
+  if (edit)
+    return (
+      <input autoFocus className="price-input" inputMode="decimal" value={val} placeholder="offerteprijs" onChange={(e) => setVal(e.target.value)} onBlur={save}
+        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') setEdit(false) }} />
+    )
+  return (
+    <button type="button" className={miss ? 'price-btn missing' : 'price-btn'} title={`Offerteprijs van ${line.supplier ?? 'de firma'} (excl. btw)`}
+      onClick={() => { setVal(miss || line.unit_price == null ? '' : String(line.unit_price).replace('.', ',')); setEdit(true) }}>
+      {miss || line.unit_price == null ? 'prijs invullen' : fmtEur(line.unit_price)}
+    </button>
+  )
+}
 
 function useLines(dvId: string) {
   return useQuery<Line[]>(() => supabase.from('cost_lines').select('*').eq('design_version_id', dvId).order('sort'), [dvId])
@@ -69,7 +102,7 @@ function PriceCell({ line, onSaved }: { line: Line; onSaved: (msg: string | null
 /** Tabel met kostregels (per subgroep), de prijs aan te klikken waar dat kan; zonder prijs: herkomst + prijs in de regel. */
 function LinesTable({ dvId, lines, onSaved }: { dvId: string; lines: Line[]; onSaved: (m: string | null) => void }) {
   const sum = lines.reduce((s, l) => s + Number(l.total), 0)
-  const subs = [...new Set(lines.map((l) => (l.category === 'Zelf maken' ? 'Zelf maken' : l.subgroup ?? '')))]
+  const subs = [...new Set(lines.map(subOf))]
   return (
     <div className="table-wrap">
       <table>
@@ -83,17 +116,17 @@ function LinesTable({ dvId, lines, onSaved }: { dvId: string; lines: Line[]; onS
           {subs.map((s) => (
             <Fragment key={s}>
               {s && <tr className="subhead"><td colSpan={8}>{s}</td></tr>}
-              {lines.filter((l) => (l.category === 'Zelf maken' ? 'Zelf maken' : l.subgroup ?? '') === s).map((l) => (
+              {lines.filter((l) => subOf(l) === s).map((l) => (
                 <tr key={l.id}>
-                  <td>{l.description}{!['Platen', 'Kanten', 'Productiekosten', 'Uitbesteed'].includes(l.category) && <> <ItemWhere dvId={dvId} name={l.description} /></>}</td>
+                  <td>{l.description}{!isOut(l) && !['Platen', 'Kanten', 'Productiekosten', 'Uitbesteed'].includes(l.category) && <> <ItemWhere dvId={dvId} name={l.description} /></>}</td>
                   <td>{l.supplier}</td>
                   <td>{l.article_no}</td>
                   <td className="num">{l.qty == null ? '' : `${fmtNum(l.qty, 2)}${l.unit ? ' ' + l.unit : ''}`}</td>
-                  <td className="num">{missing(l) ? '' : editable(l) ? <PriceCell line={l} onSaved={onSaved} /> : l.unit_price == null ? '' : fmtEur(l.unit_price)}</td>
+                  <td className="num">{isOut(l) ? <OutsourcePriceCell line={l} onSaved={onSaved} /> : missing(l) ? '' : editable(l) ? <PriceCell line={l} onSaved={onSaved} /> : l.unit_price == null ? '' : fmtEur(l.unit_price)}</td>
                   <td className="num">{fmtEur(l.total)}</td>
                   <td>{l.ordered_by}</td>
                   <td className={missing(l) ? 'warn-text' : l.note === 'eigen prijs' || l.note === 'zelf maken' ? 'ok-text' : 'muted'}>
-                    {missing(l)
+                    {missing(l) && !isOut(l)
                       ? <><div className="small">{l.note}</div><OwnArticleEditor articleNo={l.article_no} description={l.description} supplier={l.supplier} onSaved={onSaved} /></>
                       : l.note}
                   </td>

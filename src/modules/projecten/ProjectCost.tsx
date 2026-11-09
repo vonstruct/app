@@ -278,11 +278,12 @@ function LineRow({ l, groups, onMove, onStock, onRemove, onSaved, onRecalc }: { 
   const [find, setFind] = useState(false)
   const [own, setOwn] = useState(false)
   // eenheidsprijs van beslag en rubrieken uit de stuklijst aanpassen = eigen prijs (geldt ook voor volgende projecten)
-  const priceEditable = l.kind === 'stuklijst' && !l.no_price && !['Platen', 'Kanten', 'Productiekosten', 'Lades', 'Uitbesteed'].includes(l.rubriek ?? '')
+  const priceEditable = l.kind === 'stuklijst' && !l.no_price && !l.source_ref && !l.plate_key && !['Platen', 'Kanten', 'Productiekosten', 'Lades', 'Uitbesteed'].includes(l.rubriek ?? '')
   // uitbesteed werk (andere firma maakt dit, bv. een werkblad): prijs = offerte van die firma, bewaard bij het project
-  const outsourced = l.kind === 'stuklijst' && l.rubriek === 'Uitbesteed' && !!l.source_ref
+  // uitbesteed werk = regel met een uitbesteding (rubriek Uitbesteed, of Werkbladen bij telvlag WB)
+  const outsourced = l.kind === 'stuklijst' && !!l.source_ref
   // Uitvoering (9/11/2026, vervangt het vinkje onderaannemer): plaatregels en uitbesteed werk
-  const canExec = outsourced || (l.kind === 'stuklijst' && l.rubriek === 'Platen' && !!l.plate_key)
+  const canExec = outsourced || (l.kind === 'stuklijst' && !!l.plate_key)
   const opts = useExecOptions()
   const [busyExec, setBusyExec] = useState(false)
   const pickExec = async (to: string) => {
